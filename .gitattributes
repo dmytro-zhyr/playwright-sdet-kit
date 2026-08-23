@@ -1,0 +1,14 @@
+# LF in the repository and in the working tree, on every platform.
+#
+# Not cosmetic: the chain artifacts in pipeline/ and the agent definitions in .claude/agents/
+# are parsed by code. A trailing \r turns a frontmatter check into a confusing failure — the
+# file plainly starts with "---" and the parser insists it does not, because it read "---\r".
+# Development here happens on Windows with core.autocrlf enabled, so without this file the
+# working copy would be CRLF and the parser would be the one to find out.
+* text=auto eol=lf
+
+# Binary files must never be touched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
