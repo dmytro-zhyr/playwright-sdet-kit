@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
 import dotenv from 'dotenv';
+import { withTrailingSlash } from './api/url';
 
 dotenv.config({ quiet: true });
 
@@ -10,7 +11,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: process.env.CONDUIT_API_URL ?? 'https://api.realworld.show/api',
+    // The trailing slash is not cosmetic: without it the /api segment is dropped from every
+    // request. See api/url.ts for the four spellings and why only one of them works.
+    baseURL: withTrailingSlash(process.env.CONDUIT_API_URL ?? 'https://api.realworld.show/api'),
     extraHTTPHeaders: { 'Content-Type': 'application/json' },
   },
   projects: [
