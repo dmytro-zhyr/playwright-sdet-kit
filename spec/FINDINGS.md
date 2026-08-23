@@ -1,149 +1,154 @@
-# Розвідка Conduit — 23.08.2026
+# Conduit reconnaissance — 23 August 2026
 
-Усе нижче **перевірено запитами**, а не взято зі специфікації. Там, де ціль розходиться зі
-[специфікацією](conduit-api.md), розбіжність описана окремо і **специфікація лишається головною**.
+Everything below was **verified with requests**, not taken from the specification. Where the
+target diverges from the [specification](conduit-api.md), the divergence is written down
+separately and **the specification stays authoritative**.
 
-**Базовий URL:** `https://api.realworld.show/api`
+**Base URL:** `https://api.realworld.show/api`
 
-Перевірені альтернативи, обидві мертві: `conduit.productionready.io` → 307,
+Two alternatives were probed and both are dead: `conduit.productionready.io` → 307,
 `api.realworld.io` → 530.
 
-## Формат заголовка авторизації
+## Authorization header
 
 `Authorization: Token <token>`
 
-| Перевірка | Результат |
+| Probe | Result |
 |---|---|
-| `Authorization: Token <token>` на `GET /user` | **200** |
-| `Authorization: Bearer <token>` на `GET /user` | 401 |
-| без заголовка | 401 |
+| `Authorization: Token <token>` on `GET /user` | **200** |
+| `Authorization: Bearer <token>` on `GET /user` | 401 |
+| no header | 401 |
 
-⚠️ **Токен — не JWT.** Специфікація пише `jwt.token.here`, ціль повертає непрозорий
-`token_<32 hex>`. Наслідок для тестів: **не розбирати токен і не перевіряти його форму**,
-окрім «непорожній рядок». Будь-який асерт на три частини через крапку тут червонітиме.
+⚠️ **The token is not a JWT.** The specification writes `jwt.token.here`; the target returns an
+opaque `token_<32 hex>`. Consequence for tests: **do not decode the token and do not assert its
+shape** beyond "a non-empty string". Any assertion about three dot-separated parts will be red
+here.
 
-## Ендпоінти
+## Endpoints
 
-Звірено зі специфікацією рядок за рядком.
+Checked line by line against the specification.
 
-| Метод і шлях | Авторизація | Примітка |
+| Method and path | Auth | Note |
 |---|---|---|
-| POST /users | ні | реєстрація, повертає **201** |
-| POST /users/login | ні | повертає 200 |
-| GET /user | так | |
-| PUT /user | так | приймає `email`, `username`, `password`, `image`, `bio` |
-| GET /profiles/:username | опційно | |
-| POST /profiles/:username/follow | так | |
-| DELETE /profiles/:username/follow | так | |
-| GET /articles | опційно | фільтри `tag`, `author`, `favorited`, `limit`, `offset` |
-| **GET /articles/feed** | **так** | 🆕 **не було в таблиці плану**; без токена → 401 |
-| POST /articles | так | обовʼязкові `title`, `description`, `body` |
-| GET /articles/:slug | ні | неіснуючий slug → **404** |
-| PUT /articles/:slug | так | зміна `title` **змінює і `slug`** |
-| DELETE /articles/:slug | так | |
-| POST /articles/:slug/comments | так | обовʼязкове `body` |
-| GET /articles/:slug/comments | опційно | |
-| DELETE /articles/:slug/comments/:id | так | |
-| POST /articles/:slug/favorite | так | |
-| DELETE /articles/:slug/favorite | так | |
-| GET /tags | ні | |
+| POST /users | no | registration, returns **201** |
+| POST /users/login | no | returns 200 |
+| GET /user | yes | |
+| PUT /user | yes | accepts `email`, `username`, `password`, `image`, `bio` |
+| GET /profiles/:username | optional | |
+| POST /profiles/:username/follow | yes | |
+| DELETE /profiles/:username/follow | yes | |
+| GET /articles | optional | filters `tag`, `author`, `favorited`, `limit`, `offset` |
+| **GET /articles/feed** | **yes** | 🆕 **was missing from the plan's table**; without a token → 401 |
+| POST /articles | yes | requires `title`, `description`, `body` |
+| GET /articles/:slug | no | unknown slug → **404** |
+| PUT /articles/:slug | yes | changing `title` **also changes `slug`** |
+| DELETE /articles/:slug | yes | |
+| POST /articles/:slug/comments | yes | requires `body` |
+| GET /articles/:slug/comments | optional | |
+| DELETE /articles/:slug/comments/:id | yes | |
+| POST /articles/:slug/favorite | yes | |
+| DELETE /articles/:slug/favorite | yes | |
+| GET /tags | no | |
 
-## Форми відповідей
+## Response shapes
 
-`Content-Type: application/json` — **без `charset=utf-8`**, хоча специфікація радить із ним.
-Слабка розбіжність: там сказано «like», тобто це рекомендація, а не вимога.
+`Content-Type: application/json` — **without `charset=utf-8`**, although the specification
+suggests including it. A weak divergence: the wording there is "like", so it is a recommendation
+rather than a requirement.
 
-### 🔴 Стаття у списку і стаття окремо — це різні форми
+### 🔴 An article in a list and an article on its own are different shapes
 
 | | `GET /articles` | `GET /articles/:slug` |
 |---|---|---|
-| Кількість полів | 9 | **10** |
-| `body` | ❌ відсутнє | ✅ присутнє |
+| Field count | 9 | **10** |
+| `body` | ❌ absent | ✅ present |
 
-Це **не примха інстансу**: специфікація має окреме попередження, що з 16.08.2024 списки статей
-навмисно не повертають `body` заради швидкості. Стосується `GET /articles` і `GET /articles/feed`.
+This is **not a quirk of the instance**: the specification carries an explicit notice that since
+16 August 2024 article lists no longer return `body`, for performance. It affects `GET /articles`
+and `GET /articles/feed`.
 
-➡️ **Наслідок:** одна `ArticleSchema` зі `.strict()` не може обслуговувати обидва ендпоінти.
-Потрібні дві — прев'ю і повна, друга розширює першу полем `body`.
+➡️ **Consequence:** one strict `ArticleSchema` cannot serve both endpoints. Two are needed — a
+preview, and a full one that extends it with `body`.
 
-### Решта форм — збігаються зі специфікацією
+### The remaining shapes match the specification
 
-- `user`: `email · token · username · bio · image`, де `bio` і `image` можуть бути `null`.
-  Перевірено `GET /user` — рівно пʼять ключів, зайвих немає.
+- `user`: `email · token · username · bio · image`, where `bio` and `image` may be `null`.
+  Verified through `GET /user` — exactly five keys, nothing extra.
 - `profile`: `username · bio · image · following`.
 - `tags`: `{ "tags": ["..."] }`.
-- `articles`: `{ "articles": [...], "articlesCount": <число> }`.
-- Дати: `2026-08-23T18:47:43.763Z` — ISO-8601 з мілісекундами і `Z`.
+- `articles`: `{ "articles": [...], "articlesCount": <number> }`.
+- Dates: `2026-08-23T18:47:43.763Z` — ISO-8601 with milliseconds and `Z`.
 
-⚠️ **`slug` не має формату.** Специфікація прямо каже: єдина вимога — унікальний рядок, спосіб
-творення на розсуд реалізації. **Не писати регекс на kebab-case.**
+⚠️ **`slug` has no format.** The specification says so directly: the only requirement is a unique
+string, and how it is derived is up to the implementation. **Do not write a kebab-case regex.**
 
-## Помилки
+## Errors
 
-Формат перевірено: `{"errors":{"<поле>":["<повідомлення>"]}}` — обʼєкт, де кожне поле дає масив
-рядків.
+Format verified: `{"errors":{"<field>":["<message>"]}}` — an object where every field maps to an
+array of strings.
 
-| Ситуація | Код |
+| Situation | Code |
 |---|---|
-| порожній `username` | 422 |
-| відсутній `password` | 422 |
-| неіснуючий ресурс | 404 |
-| запит без токена там, де він потрібен | 401 |
+| blank `username` | 422 |
+| missing `password` | 422 |
+| unknown resource | 404 |
+| request without a token where one is required | 401 |
 
-## Обмеження тірдауну
+## Teardown limits
 
-- Статті — видаляються через `DELETE /articles/:slug`.
-- Коментарі — видаляються.
-- **Користувачі — ендпоінта видалення немає.** Тестові акаунти накопичуються назавжди. Це
-  **відоме обмеження**, обхід не вигадуємо. Префікс `qa_` у `username` та `email`, щоб чужі очі
-  бачили походження.
-
----
-
-## 🔴 Три дефекти цілі, знайдені розвідкою
-
-Усі три — порушення того, що специфікація має на увазі. Записані тут, **не «полагоджені» зміною
-очікувань у тестах**.
-
-### D-1 · Реєстрація приймає вже зайнятий email
-
-```
-POST /users {"user":{"username":"qa_dup_probe","email":"<уже існує>",...}}  →  201
-```
-
-Створюється другий акаунт із тим самим email.
-
-**Чому це дефект, а не особливість:** email — це поле входу. `POST /users/login` приймає
-`email` + `password`, і після дублювання **логін повертає другий акаунт**, а перший стає
-недосяжним. Перевірено: логін з тим email віддав `username: qa_dup_probe`, не початковий.
-
-➡️ Тобто це не косметика, а **втрата доступу до акаунта**.
-
-### D-2 · Реєстрація приймає вже зайнятий username
-
-```
-POST /users {"user":{"username":"qa_dup_probe","email":"<новий>",...}}  →  201
-```
-
-І повертає **той самий токен**, що вже був у наявного `qa_dup_probe`. Тобто запит не створив
-нового користувача, а віддав існуючого з підміненим email.
-
-### D-3 · Наслідок обох — унікальність не забезпечується ніде
-
-Валідація **присутності** полів працює справно (422 з правильною формою помилки). Валідації
-**унікальності** немає взагалі.
+- Articles — removable through `DELETE /articles/:slug`.
+- Comments — removable.
+- **Users — there is no delete endpoint.** Test accounts accumulate forever. This is a **known
+  limitation**; no workaround is invented. Accounts carry a `qa_` prefix in `username` and
+  `email` so that an outside reader can tell where they came from.
 
 ---
 
-## ⚠️ Що це означає для тестів
+## 🔴 Three defects of the target, found by reconnaissance
 
-Канонічний приклад плану — «реєстрація з зайнятим email повертає 422» — **проти цієї цілі
-хибний**. Варіанти опрацювання записані в рішенні до Task 1; за замовчуванням такі тести
-пишуться проти **специфікації** і позначаються `test.fail()`, щоб:
+All three violate what the specification implies. They are recorded here, **not "fixed" by
+lowering the expectations in the tests**.
 
-- сюїта лишалася зеленою, а дефект — зафіксованим у коді, а не в чиїйсь памʼяті;
-- **якщо ціль колись полагодять, тест почервоніє** повідомленням «очікувався провал, а тест
-  пройшов», і ми про це дізнаємося.
+### D-1 · Registration accepts an email that is already taken
 
-⛔ **Чого не робити:** переписувати очікування на `201`. Це перетворює тест на фотографію
-поведінки й назавжди прибирає можливість помітити виправлення.
+```
+POST /users {"user":{"username":"qa_dup_probe","email":"<already exists>",...}}  →  201
+```
+
+A second account is created with the same email.
+
+**Why this is a defect and not a feature:** email is the login field. `POST /users/login` takes
+`email` + `password`, and after duplication **login returns the second account**, leaving the
+first unreachable. Verified: logging in with that email returned `username: qa_dup_probe`, not
+the original one.
+
+➡️ So this is not cosmetic — it is **loss of access to an account**.
+
+### D-2 · Registration accepts a username that is already taken
+
+```
+POST /users {"user":{"username":"qa_dup_probe","email":"<new>",...}}  →  201
+```
+
+And it returns **the same token** the existing `qa_dup_probe` already had. The request did not
+create a new user; it returned the existing one with a replaced email.
+
+### D-3 · The consequence of both — uniqueness is enforced nowhere
+
+Validation of field **presence** works correctly (422 with the right error shape). Validation of
+**uniqueness** does not exist at all.
+
+---
+
+## ⚠️ What this means for the tests
+
+The plan's canonical example — "registering with a taken email returns 422" — is **false against
+this target**. It moved to `tests/defects/`, where tests assert the **specification** and stay
+red until the target is fixed. Each one carries a link to a filed issue.
+
+⛔ **What not to do:** rewrite the expectation to `201`. That turns the test into a photograph of
+current behaviour and permanently removes any chance of noticing a fix.
+
+⛔ **And not `test.fail()` either.** It asserts only "this test must fail" and **does not
+distinguish why**: if the target goes down, or the error format changes, the test still "fails
+successfully" and tells us nothing.

@@ -1,13 +1,13 @@
-# Conduit API — специфікація
+# Conduit API specification
 
-> **Джерело:** [gothinkster/realworld](https://github.com/gothinkster/realworld),
-> `docs/src/content/docs/specifications/backend/`, гілка `main`.
-> Викачано **23.08.2026**. Це копія офіційної специфікації, зведена в один файл.
+> **Source:** [gothinkster/realworld](https://github.com/gothinkster/realworld),
+> `docs/src/content/docs/specifications/backend/`, branch `main`.
+> Fetched **23 August 2026**. This is a copy of the official specification, joined into one file.
 >
-> ⚠️ **Це опис того, як API має поводитися.** Те, як обрана ціль поводиться насправді,
-> записано окремо в [`FINDINGS.md`](FINDINGS.md) — і в кількох місцях воно розходиться.
-> Специфікація тут головна: тести пишуться проти неї, а розбіжність є дефектом, доки не
-> доведено протилежне.
+> ⚠️ **This describes how the API is supposed to behave.** How the chosen target actually
+> behaves is recorded separately in [`FINDINGS.md`](FINDINGS.md) — and in several places the two
+> disagree. The specification is authoritative here: tests are written against it, and a
+> divergence is a defect until proven otherwise.
 
 ---
 

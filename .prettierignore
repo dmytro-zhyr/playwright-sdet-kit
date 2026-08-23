@@ -1,7 +1,7 @@
-# Артефакти ланцюжка і специфікація форматуються вручну.
-# spec/conduit-api.md — дослівна копія зовнішнього документа; переформатування
-# зламало б властивість «це копія».
-# pipeline/*.md читають диффом — переливання рядків дало б шум без змісту.
+# The specification and the chain artifacts are wrapped by hand.
+# spec/conduit-api.md is a verbatim copy of an external document; reformatting it
+# would break the property that makes it a copy.
+# pipeline/*.md are reviewed as diffs — reflowing lines would add noise with no content.
 *.md
 package-lock.json
 node_modules/
