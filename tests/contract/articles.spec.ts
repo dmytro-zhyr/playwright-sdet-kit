@@ -1,9 +1,21 @@
 import { test, expect } from '@/fixtures';
 import { ArticleResponseSchema, ErrorsSchema } from '@/schemas/conduit.schema';
 
-// Turns red if the slug a creation hands back stops being an address that works, or if the
-// single-article serializer drifts — a dropped `body`, an added field, a title that is not the
-// one stored. The schema is strict, so ten fields means ten.
+// The specification states no success status for creating an article — anywhere, and for any
+// endpoint. It says only that the call "will return an Article". All three live deployments
+// answer 201 today, and that is agreement rather than a contract: a deployment that answered 200
+// would be conforming, and the assertion would be the thing that was wrong. So this set is a gap
+// in the contract rather than a preference, and every assertion using it names the gap in its
+// message. What still makes those assertions red: a 401, a 404, a 422, a 500 — anything that is
+// not the creation succeeding.
+const ARTICLE_CREATED = [200, 201];
+const ARTICLE_CREATED_MESSAGE =
+  'the specification states no success status for creating an article, only that it returns an Article, so 200 and 201 are both accepted';
+
+// Turns red if a creation stops succeeding at all — a 401, a 404, a 422, a 500 — if the slug it
+// hands back stops being an address that works, or if the single-article serializer drifts — a
+// dropped `body`, an added field, a title that is not the one stored. The schema is strict, so
+// ten fields means ten.
 test('C-032 — an article is fetched whole by the slug its creation returned', async ({
   factories,
   registeredUser,
@@ -11,7 +23,7 @@ test('C-032 — an article is fetched whole by the slug its creation returned', 
   const sent = factories.article.build();
   const created = await registeredUser.api.post('/articles', { article: sent });
 
-  expect(created.status, 'creating an article returns 201 on this target').toBe(201);
+  expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
   const { article } = created.body as { article: { slug: string } };
 
   const response = await registeredUser.api.get(`/articles/${article.slug}`);
@@ -26,10 +38,11 @@ test('C-032 — an article is fetched whole by the slug its creation returned', 
   expect(fetched.article.title, 'the article fetched must be the article created').toBe(sent.title);
 });
 
-// Turns red if the create action stops storing what it was sent — the tags come back empty or
-// reordered away, the author is taken from the payload instead of from the token, or an article
-// nobody has seen starts life already favorited or with a count above zero. The second creation,
-// without a tagList, turns red if the field stops being optional.
+// Turns red if either creation stops succeeding — a 401, a 422, a 500 — or if the create action
+// stops storing what it was sent: the tags come back empty or reordered away, the author is taken
+// from the payload instead of from the token, or an article nobody has seen starts life already
+// favorited or with a count above zero. The second creation, without a tagList, turns red if the
+// field stops being optional.
 test('C-034 — creating an article returns the article the caller sent', async ({
   factories,
   registeredUser,
@@ -42,10 +55,17 @@ test('C-034 — creating an article returns the article the caller sent', async 
     article: { title, description, body },
   });
 
-  expect(
-    [withTags.status, withoutTags.status],
-    'creating an article returns 201 on this target, with or without a tagList'
-  ).toEqual([201, 201]);
+  const creations = [
+    ['with a tagList', withTags],
+    ['without one', withoutTags],
+  ] as const;
+
+  for (const [sent, creation] of creations) {
+    expect(
+      ARTICLE_CREATED,
+      `creating an article ${sent} must be accepted — ${ARTICLE_CREATED_MESSAGE}`
+    ).toContain(creation.status);
+  }
 
   expect(withTags.body).toMatchSchema(ArticleResponseSchema);
   expect(withoutTags.body).toMatchSchema(ArticleResponseSchema);
@@ -68,9 +88,10 @@ test('C-034 — creating an article returns the article the caller sent', async 
 });
 
 // Turns red if one of the article model's three presence validators is dropped and an article is
-// created with a blank field, or if a validation failure at this endpoint stops being a 422 whose
-// only key is `errors`. The complete creation at the end proves the token and the payload shape
-// are right, so a 422 above is about the missing field.
+// created with a blank field, if a validation failure at this endpoint stops being a 422 whose
+// only key is `errors`, or if the complete creation at the end stops succeeding. That closing
+// request proves the token and the payload shape are right, so a 422 above is about the missing
+// field.
 test('C-035 — creating an article refuses a request that omits a required field', async ({
   factories,
   registeredUser,
@@ -100,5 +121,8 @@ test('C-035 — creating an article refuses a request that omits a required fiel
   const complete = await registeredUser.api.post('/articles', {
     article: factories.article.build(),
   });
-  expect(complete.status, 'the same request with every field must be accepted').toBe(201);
+  expect(
+    ARTICLE_CREATED,
+    `the same request with every field must be accepted — ${ARTICLE_CREATED_MESSAGE}`
+  ).toContain(complete.status);
 });

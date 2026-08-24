@@ -1,9 +1,21 @@
 import { test, expect } from '@/fixtures';
 import { TagsResponseSchema } from '@/schemas/conduit.schema';
 
-// Turns red if the tag endpoint starts serializing tag records instead of tag names — an array of
-// objects rather than of strings — or adds a second key beside `tags`. The strict schema is what
-// makes both of those red rather than merely different.
+// The specification states no success status for creating an article — anywhere, and for any
+// endpoint. It says only that the call "will return an Article". All three live deployments answer
+// 201 today, and that is agreement rather than a contract: a deployment that answered 200 would be
+// conforming, and the assertion would be the thing that was wrong. So this set is a gap in the
+// contract rather than a preference, and the assertion using it names the gap in its message. What
+// still makes it red: a 401, a 404, a 422, a 500 — anything that is not the creation succeeding,
+// which is what this case's precondition needs.
+const ARTICLE_CREATED = [200, 201];
+const ARTICLE_CREATED_MESSAGE =
+  'the specification states no success status for creating an article, only that it returns an Article, so 200 and 201 are both accepted';
+
+// Turns red if the precondition stops holding — the article is not created — if the tag endpoint
+// starts serializing tag records instead of tag names — an array of objects rather than of
+// strings — or adds a second key beside `tags`. The strict schema is what makes those red rather
+// than merely different.
 test('C-044 — the tag endpoint returns an array of strings', async ({
   factories,
   registeredUser,
@@ -13,7 +25,10 @@ test('C-044 — the tag endpoint returns an array of strings', async ({
   const created = await registeredUser.api.post('/articles', {
     article: factories.article.build(),
   });
-  expect(created.status, 'the case needs one tagged article to exist').toBe(201);
+  expect(
+    ARTICLE_CREATED,
+    `the case needs one tagged article to exist — ${ARTICLE_CREATED_MESSAGE}`
+  ).toContain(created.status);
 
   const response = await registeredUser.api.get('/tags');
 
