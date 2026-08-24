@@ -245,6 +245,101 @@ in two, always one of two tests, green again on a rerun, green at `--workers=1`.
 Running in parallel is not only a way to go faster here — **it is a different test**, and it is the
 only configuration in which this defect exists at all.
 
+## 🔴 Four defects of `realworld.habsida.net` — the gate target
+
+Found on 24 August 2026 by running the suite the chain had produced against the new target. Each
+one is a contract violation, each has a test that is **red in `tests/contract/` right now**, and
+none of them is our code being wrong.
+
+⚠️ **These four have not been moved into `tests/defects/` yet.** That suite is currently pinned to
+one deployment, and these belong to the other. The mechanism for a defect test that names its own
+deployment is the next piece of work — until it exists, the gate carries four honest reds.
+
+### D-6 · Deleting something that does not exist answers 204
+
+```
+DELETE /articles/no-such-slug                 → 204
+DELETE /articles/:slug/comments/999999        → 204
+```
+
+The specification states 404 "when a resource can't be found to fulfill the request". This answers
+as though it had deleted something.
+
+📌 **The shape of it argues it is deliberate** — every read path returns 404 correctly, and only
+the two delete paths differ, which looks like an idempotent-delete choice rather than an oversight.
+It is still a spec violation, and it is the kind that will not be fixed by asking.
+
+### D-7 · Blank input crashes validation instead of failing it
+
+```
+POST /users {"user":{"username":"","email":"","password":""}}
+  → 500 {"errors":{"body":["Internal server error"]}}
+```
+
+The specification: "If a request fails any validations, expect a 422." Empty strings are a
+validation failure, not a server fault. Reproduced outside Playwright.
+
+### D-8 · List responses still carry the article body
+
+`GET /articles` returns items including `body`. The specification removed it from list responses on
+16 August 2024, for performance, and says so in a dated notice.
+
+⛔ **`ArticlesResponseSchema` is right and must not be relaxed.** Loosening it would turn the test
+green and delete the only thing that notices the stale serializer — the exact failure this
+repository is built to avoid.
+
+### D-9 · Validation runs before authentication
+
+An anonymous caller sending an empty body to `PUT /user`, `POST /articles`,
+`PUT /articles/:slug` or `POST /articles/:slug/comments` is answered **422**, not 401. With a valid
+payload the same endpoints answer 401 correctly.
+
+🔑 **So the order is wrong, not the guard.** The consequence is not cosmetic: the API tells a
+caller it has not authenticated what its request body should look like.
+
+⚠️ The test that catches this sends `{}` on purpose and therefore conflates "is the guard attached"
+with "does the guard run first". Splitting it into two would turn one muddled red into one green
+and one precise red — worth doing when these move to `tests/defects/`.
+
+## Two observations on the gate target that no test catches
+
+Neither fails anything today. Both are worth knowing before anyone trusts this deployment further.
+
+**The error body leaks the database.** A duplicate registration answers:
+
+```json
+{"errors":{"body":["SQLiteError: UNIQUE constraint failed: users.email"]}}
+```
+
+Exception class, engine, table and column, to an anonymous caller. It conforms to the error
+*shape*, so `ErrorsSchema` passes and nothing complains. Security-adjacent, and invisible to a
+schema check by construction.
+
+**The token is a real JWT here**, `eyJhbGciOiJIUzI1NiJ9.…`, where `api.realworld.show` returns an
+opaque `token_<hex>`.
+
+➡️ This is a second, better reason for the rule against asserting the token's shape: such an
+assertion would **pass on this deployment and fail on the other**, which is the most expensive kind
+of wrong — it looks correct until the target changes.
+
+## 🔴 The same class of mistake, still in the suite
+
+Five assertions take the gate deployment's success status for the contract, exactly as the six
+corrected on 24 August did. They pass today and would break on any conforming deployment that
+chose the other code. The specification states **no success status for any endpoint**.
+
+| File | Line | Assertion |
+|---|---|---|
+| `tests/contract/articles.spec.ts` | 14 | `.toBe(201)` — "creating an article returns 201 on this target" |
+| `tests/contract/articles.spec.ts` | 103 | `.toBe(201)` |
+| `tests/contract/tags.spec.ts` | 16 | `.toBe(201)` |
+| `tests/contract/login.spec.ts` | 12 | `.toBe(200)` |
+| `tests/contract/login.spec.ts` | 53 | `.toBe(200)` |
+
+📌 **Two of them say "on this target" out loud** and were still written. That is the honest record
+of how this class of mistake survives review: it is documented at the point of commission and read
+as a note rather than as a defect.
+
 ## ⚠️ What this means for the tests
 
 The plan's canonical example — "registering with a taken email returns 422" — is **false against
