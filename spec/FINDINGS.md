@@ -104,9 +104,12 @@ array of strings.
 
 ---
 
-## 🔴 Three defects of the target, found by reconnaissance
+## 🔴 Four defects of the target
 
-All three violate what the specification implies. They are recorded here, **not "fixed" by
+D-1 to D-3 were found by reconnaissance before any test existed. D-4 was found by the suite
+itself, running in parallel, and is the most serious of the four.
+
+All of them violate what the specification implies. They are recorded here, **not "fixed" by
 lowering the expectations in the tests**.
 
 ### D-1 · Registration accepts an email that is already taken
