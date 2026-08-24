@@ -140,6 +140,46 @@ Validation of field **presence** works correctly (422 with the right error shape
 
 ---
 
+### 🔴 D-4 · Under concurrency, a token stops identifying its own user
+
+The most serious of the four, and the only one that is invisible to sequential testing.
+
+Register several users at the same time, then call `GET /user` with each one's own distinct
+token. Measured on 24 August 2026 with eight parallel registrations:
+
+```
+presented=qa_leak_…_0  →  returned qa_leak_…_4, email qa_leak_…_4@example.com
+presented=qa_leak_…_1  →  returned qa_leak_…_4, email qa_leak_…_4@example.com
+presented=qa_leak_…_2  →  returned qa_leak_…_4, email qa_leak_…_4@example.com
+…                          (all eight returned the same account)
+```
+
+**Seven of the eight received another account's data, including that account's email.** Run the
+same sequence one request at a time and every token resolves correctly.
+
+📌 **What the shape of the response says about the cause.** The `token` field in the reply equals
+the token that was presented, while the rest of the body belongs to somebody else. The response is
+assembled from two sources: the token is echoed back from the request, and the profile is read
+from a shared "current user" that the last registration overwrote. So the token is not what
+identifies the caller.
+
+**Classification:** OWASP API2, Broken Authentication, with cross-account data exposure as the
+consequence. Not a rate-limiting artefact — the responses are `200 OK` with well-formed bodies.
+
+⚠️ Two of the twelve requests in a wider run returned `503` with an HTML body. That is a separate,
+milder observation: the target does not stay within its own content type under load.
+
+### 🔑 Why this one matters beyond the target
+
+The suite did not look like it had found a defect. It looked **flaky** — roughly one contract run
+in two, always one of two tests, green again on a rerun, green at `--workers=1`.
+
+> A test that fails intermittently is not automatically an unstable test. It can be a stable test
+> of an unstable system.
+
+Running in parallel is not only a way to go faster here — **it is a different test**, and it is the
+only configuration in which this defect exists at all.
+
 ## ⚠️ What this means for the tests
 
 The plan's canonical example — "registering with a taken email returns 422" — is **false against
@@ -152,3 +192,17 @@ current behaviour and permanently removes any chance of noticing a fix.
 ⛔ **And not `test.fail()` either.** It asserts only "this test must fail" and **does not
 distinguish why**: if the target goes down, or the error format changes, the test still "fails
 successfully" and tells us nothing.
+
+## Consequence for how the contract suite runs
+
+Because of D-4, the `contract` project runs with **one worker**. This is not a workaround hiding a
+defect: D-4 has its own test in `tests/defects/`, which reproduces it deliberately and in parallel.
+
+🔑 The two suites answer two different questions, and mixing them helps nobody:
+
+- `contract` asks **is our code and are our schemas still right** — it must not fail because of
+  somebody else's server, or it stops being a gate.
+- `defects` asks **is the target still broken** — and needs the concurrency that makes D-4 appear.
+
+⚠️ Restoring parallelism in `contract` is the correct move the day D-4 is fixed, and the defects
+test is what will tell us that day has come.
