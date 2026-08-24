@@ -345,23 +345,27 @@ opaque `token_<hex>`.
 assertion would **pass on this deployment and fail on the other**, which is the most expensive kind
 of wrong — it looks correct until the target changes.
 
-## 🔴 The same class of mistake, still in the suite
+## ✅ The same class of mistake, now cleared from the suite
 
-Five assertions take the gate deployment's success status for the contract, exactly as the six
-corrected on 24 August did. They pass today and would break on any conforming deployment that
-chose the other code. The specification states **no success status for any endpoint**.
+Twelve assertions took a deployment's success status for the contract. The specification states
+**no success status for any endpoint** — it says only what each one returns.
 
-| File | Line | Assertion |
-|---|---|---|
-| `tests/contract/articles.spec.ts` | 14 | `.toBe(201)` — "creating an article returns 201 on this target" |
-| `tests/contract/articles.spec.ts` | 103 | `.toBe(201)` |
-| `tests/contract/tags.spec.ts` | 16 | `.toBe(201)` |
-| `tests/contract/login.spec.ts` | 12 | `.toBe(200)` |
-| `tests/contract/login.spec.ts` | 53 | `.toBe(200)` |
+- Six were corrected on 24 August, exposed when the gate moved and the two deployments disagreed
+  about registration: 200 against 201.
+- The remaining six were corrected on 25 August, before any deployment disagreed about them.
 
-📌 **Two of them say "on this target" out loud** and were still written. That is the honest record
-of how this class of mistake survives review: it is documented at the point of commission and read
-as a note rather than as a defect.
+📌 **The last six were the interesting ones.** All three live deployments currently agree that
+creating an article is 201 and that login is 200 — so nothing was failing, and nothing would have
+failed until some future target chose differently. They were fixed because the assertion was
+wrong, not because it was red.
+
+⚠️ **Two of them said `on this target` out loud in their own message** and were still written that
+way. That phrase no longer appears anywhere in `tests/`, and it is worth keeping as a search term:
+it is what this mistake sounds like when it is being made.
+
+Each replacement names the specification's silence in its assertion message, so a reader sees the
+gap rather than guessing at the looseness. Every one was broken deliberately and watched go red
+before being accepted.
 
 ## ⚠️ What this means for the tests
 
