@@ -411,3 +411,64 @@ defect: D-4 has its own test in `tests/defects/`, which reproduces it deliberate
 
 ⚠️ Restoring parallelism in `contract` is the correct move the day D-4 is fixed, and the defects
 test is what will tell us that day has come.
+
+---
+
+# Salesforce reconnaissance — 25 August 2026
+
+A Developer Edition org, probed before a single test was written, the same way Conduit was.
+Credentials were never printed; only shapes and behaviour.
+
+**Flow:** OAuth 2.0 client credentials, through an External Client App. Verified working.
+
+⚠️ **The fast path was closed by the org itself.** `conn.login(username, password + securityToken)`
+answered `INVALID_OPERATION: SOAP API login() is disabled by default in this org`. It works on
+older orgs — the pattern used on a real project — but Salesforce disables it for new ones.
+
+## What the org actually does
+
+| | |
+|---|---|
+| Daily API limit | 14 960 of 15 000 remaining — a suite of this size will not notice it |
+| `Account` | 70 fields; **exactly one is required on create: `Name`** |
+| Teardown | create → read → SOQL → **delete, and it is really gone** (`NOT_FOUND` afterwards) |
+| Dates | `2026-08-24T21:26:29.000+0000` — **not** the `...Z` form Conduit returns |
+| Default API version in jsforce | `50.0` — older than the org supports; worth pinning deliberately |
+
+**Errors carry codes, and different ones:** `NOT_FOUND`, `REQUIRED_FIELD_MISSING`, `INVALID_FIELD`.
+
+🔑 That is a real improvement over Conduit, where everything collapsed into
+`{"errors":{"body":[...]}}`. Here a test can assert a **specific `errorCode`** instead of "something
+went wrong".
+
+## 🔴 The finding that mattered
+
+```
+Unable to refresh session due to: No refresh token found in the connection
+```
+
+**jsforce does not recover a dead session on the client credentials flow.** The refresh delegate is
+registered, but it has nothing to refresh with — and Salesforce's own documentation states it
+plainly: *"This flow doesn't support refresh tokens."*
+
+⚠️ **We were one sentence away from recording the opposite.** On the username-password flow
+`conn.login()` installs a delegate that re-logins transparently — true, verified in the jsforce
+source, and **false for the flow we chose**. Recovery here means calling `authorize()` again.
+
+📌 It costs nothing for a suite that runs for minutes. It is the difference between using a library
+and knowing what it does.
+
+## Security note from the Salesforce documentation
+
+> Any person or app that has access to your external client app's consumer key and consumer secret
+> can get an access token.
+
+➡️ Those two values are the only thing protecting the org, which is why they live in `.env` and in
+CI secrets, and never in the repository.
+
+## ⬜ Not yet decided
+
+- The `defects`-style question: is a Salesforce suite part of the gate, or skipped without
+  credentials? The plan is **skip when the variables are absent, fail when they are present and
+  wrong** — never a silent skip on a bad credential.
+- Move to `@jsforce/jsforce-node`, the Node-only build, when the real suite is written.
