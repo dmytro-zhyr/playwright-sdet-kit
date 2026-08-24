@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  ArtifactError,
   parseRules,
   parseCases,
   validateRules,
@@ -227,4 +228,138 @@ test('a heading separated by a hyphen is reported as a punctuation problem', () 
   expect(validateCases(RULES, hyphenatedCase).join(' ')).toContain(
     'C-001: the separator between the identifier and the title must be an em dash (—), not "-"'
   );
+});
+
+// ---------------------------------------------------------------------------------------------
+// The remaining silent failures: the file says one thing, the parser read another, nobody heard.
+// ---------------------------------------------------------------------------------------------
+
+// Turns red if a Covers entry that is not a rule identifier goes back to being filtered out
+// before anyone sees it — `R-1` would vanish, the case would cover one rule fewer than it says,
+// and the artifact would validate clean.
+test('validateCases reports every malformed entry in Covers', () => {
+  const broken = CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-1, R -002, RR-002');
+  const problems = validateCases(RULES, broken).join(' ');
+
+  expect(problems).toContain('C-001: "R-1" in Covers is not a rule identifier — the form is R-001');
+  expect(problems).toContain('C-001: "R -002" in Covers is not a rule identifier');
+  expect(problems).toContain('C-001: "RR-002" in Covers is not a rule identifier');
+
+  const trailingComma = CASES.replace('**Covers:** R-001', '**Covers:** R-001,');
+  expect(validateCases(RULES, trailingComma).join(' ')).toContain(
+    'C-001: Covers has an empty entry — a stray or trailing comma'
+  );
+});
+
+// Turns red if a well-formed Covers list starts being reported as malformed — the validator would
+// complain about every honest artifact in the chain and stop being read at all.
+test('a Covers list of well-formed identifiers is read and not complained about', () => {
+  const two = CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-002');
+
+  expect(validateCases(RULES, two)).toEqual([]);
+  expect(parseCases(two)[0].rules).toEqual(['R-001', 'R-002']);
+});
+
+// Turns red if a field written twice goes back to being read once and never mentioned — a rule
+// could carry **Kind:** explicit and **Kind:** assumed at the same time and validate clean.
+test('validateRules reports a field that appears twice in one rule', () => {
+  const twice = RULES.replace(
+    '**Kind:** explicit\n**Statement:** POST /users with a new email',
+    '**Kind:** explicit\n**Kind:** assumed\n**Statement:** POST /users with a new email'
+  );
+
+  expect(validateRules(twice).join(' ')).toContain('R-001: the Kind field appears twice');
+});
+
+// Turns red if the duplication check stops being per-rule — every artifact after the first rule
+// would be reported as repeating Source, Kind and Statement, which every artifact does.
+test('the same field in two different rules is not a duplication', () => {
+  const mixed = RULES.replace(
+    '**Kind:** explicit\n**Statement:** POST /users with an existing email',
+    '**Kind:** assumed\n**Statement:** POST /users with an existing email'
+  );
+
+  expect(validateRules(mixed)).toEqual([]);
+  expect(parseRules(mixed).map((rule) => rule.kind)).toEqual(['explicit', 'assumed']);
+});
+
+// Turns red if a near-miss field name goes back to producing nothing but "missing Statement
+// field" — the reader is sent looking for a line that is sitting there, one letter wrong.
+test('validateRules names an unrecognised field instead of only reporting the missing one', () => {
+  const typo = RULES.replace(
+    '**Statement:** POST /users with a new email',
+    '**Statment:** POST /users with a new email'
+  );
+  const problems = validateRules(typo).join(' ');
+
+  expect(problems).toContain(
+    'R-001: unrecognised field "**Statment:**" — the fields here are Source, Kind, Statement'
+  );
+  expect(problems).toContain('R-001: missing Statement field');
+});
+
+// Turns red if the same near-miss stops being caught one artifact further down the chain, where
+// a mistyped **Steps:** would leave a case with no steps and no complaint.
+test('validateCases names an unrecognised field in a case', () => {
+  const typo = CASES.replace('**Steps:**', '**Step:**');
+
+  expect(validateCases(RULES, typo).join(' ')).toContain(
+    'C-001: unrecognised field "**Step:**" — the fields here are Covers, Steps, Expected'
+  );
+});
+
+// Turns red if a field name the format actually uses starts being reported as unrecognised — the
+// real artifact carries all three, and the whole chain would fail on a correct file.
+test('the recognised field names are accepted on both sides of the chain', () => {
+  expect(validateRules(RULES)).toEqual([]);
+  expect(validateCases(RULES, CASES)).toEqual([]);
+});
+
+// Turns red if coverage goes back to counting repetitions — a rules file that states R-001 twice
+// would report three rules where there are two, and the metric section 6 asks for would be wrong.
+test('ruleCoverage counts distinct identifiers, not repetitions', () => {
+  const repeatedRule = RULES.replace(
+    '## Assumed rules',
+    '### R-001 — Registration with an unused email\n' +
+      '**Source:** spec §Registration\n' +
+      '**Kind:** explicit\n' +
+      '**Statement:** POST /users with a new email returns 201 and user.token\n\n' +
+      '## Assumed rules'
+  );
+  const repeatedReference = CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-001');
+
+  expect(ruleCoverage(repeatedRule, CASES)).toEqual({ total: 2, covered: 1 });
+  expect(ruleCoverage(RULES, repeatedReference)).toEqual({ total: 2, covered: 1 });
+});
+
+// Turns red if an artifact the parser could not read at face value can still be parsed into a
+// value — a caller that never calls validate* would consume the corruption and never learn.
+test('parseRules refuses to return a reading it knows is not what the file says', () => {
+  const hyphenated = RULES.replace('### R-001 —', '### R-001 -');
+  let caught: unknown;
+
+  try {
+    parseRules(hyphenated);
+  } catch (error) {
+    caught = error;
+  }
+
+  expect(caught).toBeInstanceOf(ArtifactError);
+  expect((caught as ArtifactError).problems.join(' ')).toContain('must be an em dash');
+  expect(() => parseCases(CASES.replace('**Covers:** R-001', '**Covers:** R-1'))).toThrow(
+    ArtifactError
+  );
+});
+
+// Turns red if the refusal above widens from "I could not read this" to "this is invalid" —
+// validateRules would then be the only way to learn that a Statement is missing, and asking for
+// it would throw instead of answering.
+test('parseRules still returns for an artifact it read exactly as written', () => {
+  const withoutStatement = RULES.replace(
+    '**Statement:** POST /users with a new email returns 201 and user.token\n',
+    ''
+  );
+
+  expect(parseRules(withoutStatement)[0].statement).toBe('');
+  expect(validateRules(withoutStatement).join(' ')).toContain('R-001: missing Statement field');
 });

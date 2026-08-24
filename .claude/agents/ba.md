@@ -41,8 +41,14 @@ between the two documents is what the chain exists to expose, so do not open it.
 - Identifiers are sequential, three digits, with no gaps: `R-001`, `R-002`, …
 - The separator between the identifier and the title is an **em dash** (`—`), with a space on
   each side. The parser in `pipeline/parse.ts` recognises nothing else.
-- The three fields sit **directly under the heading**, one per line, each on a single line. A
-  `**Statement:**` wrapped onto a second line loses everything after the first.
+- The three fields sit **directly under the heading**, each opening its own line, and each
+  appearing **exactly once**. `**Source:**`, `**Kind:**` and `**Statement:**` are the only field
+  names the parser knows; a fourth one, or `**Statment:**`, is reported as an unrecognised field.
+- **A value longer than the line wraps like any other Markdown in this repository** — hand-wrapped
+  at roughly 100 columns, as `CONVENTIONS.md` asks. The parser reads a value up to the first line
+  that opens another field, opens a heading, or is blank, and joins the pieces with a single
+  space. Nothing is lost by wrapping; indent the continuation lines or do not, it makes no
+  difference. Do **not** run a statement out to 175 columns to keep it on one line.
 - One rule is **one statement** that can be checked with one request or a short sequence. If the
   sentence contains an "and" between two independent checks, that is two rules.
 - **`explicit`** means the specification says it outright. **`assumed`** means the specification
