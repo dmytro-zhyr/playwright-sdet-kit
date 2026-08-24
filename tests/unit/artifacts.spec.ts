@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { validateRules, validateCases, ruleCoverage } from '@/pipeline/parse';
+import { validateRules, validateCases, ruleCoverage, parseCases } from '@/pipeline/parse';
 import { validateAgentDefinition } from '@/pipeline/agentDefinition';
 
 // The repository root, reached from tests/unit/, so the paths below do not depend on the
@@ -69,4 +69,72 @@ test('rule coverage is recorded', () => {
   console.log(`Rule coverage: ${coverage.covered}/${coverage.total}`);
   expect(coverage.total).toBeGreaterThan(0);
   expect(coverage.covered).toBeGreaterThan(0);
+});
+
+/** The four sections `.claude/agents/ta.md` requires the report to account for every case in. */
+const ACCOUNTING_SECTIONS = ['## Automated', '## Refused', '## Uncertain', '## Not attempted'];
+
+/**
+ * The text of those four sections and of nothing else.
+ *
+ * Deliberately not the whole file: the report's `## Triage` and `## Feedback` sections discuss
+ * individual cases by name, and counting those occurrences would turn "accounted for exactly
+ * once" into "never explained twice", which is a different and much less useful statement.
+ */
+function accountingSections(report: string): string {
+  const collected: string[] = [];
+  let inside = false;
+
+  for (const line of report.split('\n')) {
+    if (line.startsWith('## ')) {
+      inside = ACCOUNTING_SECTIONS.includes(line.trim());
+    } else if (inside) {
+      collected.push(line);
+    }
+  }
+
+  return collected.join('\n');
+}
+
+// Turns red if the TA agent's own definition drifts out of shape — the same failures ba.md and
+// qa.md are guarded against: frontmatter that does not open or close, a missing name or
+// description, a name that no longer matches the file, a lost `## Your task` or `## Forbidden`
+// section, or a carriage return sneaking back in on a Windows checkout.
+test('.claude/agents/ta.md passes validation', () => {
+  const markdown = read('.claude', 'agents', 'ta.md');
+
+  expect(validateAgentDefinition(markdown, 'ta.md'), 'problems found in the TA agent').toEqual([]);
+});
+
+// Turns red if the report stops accounting for every case exactly once — a case implemented and
+// then also parked under `## Not attempted`, a case quietly dropped when a batch grew, a renamed
+// section heading that takes its whole table out of the count, or a new case added upstream that
+// nobody has decided anything about yet. Silence about a case is the one outcome the report may
+// not have, and by eye across forty-five identifiers it is invisible.
+test('pipeline/03-report.md accounts for every case exactly once', () => {
+  expect(
+    existsSync(join(ROOT, 'pipeline', '03-report.md')),
+    'the TA agent must leave a report behind'
+  ).toBe(true);
+
+  const cases = parseCases(read('pipeline', '02-cases.md'));
+  const accounted = accountingSections(read('pipeline', '03-report.md'));
+
+  expect(
+    cases.length,
+    'the cases file must hold cases for the report to account for'
+  ).toBeGreaterThan(0);
+
+  const miscounted = cases
+    .map((testCase) => ({
+      id: testCase.id,
+      times: accounted.split(testCase.id).length - 1,
+    }))
+    .filter(({ times }) => times !== 1)
+    .map(({ id, times }) => `${id} appears ${times} times, not once`);
+
+  expect(
+    miscounted,
+    `every case must appear in exactly one of ${ACCOUNTING_SECTIONS.join(', ')}`
+  ).toEqual([]);
 });
