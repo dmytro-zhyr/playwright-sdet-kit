@@ -4,10 +4,49 @@ Everything below was **verified with requests**, not taken from the specificatio
 target diverges from the [specification](conduit-api.md), the divergence is written down
 separately and **the specification stays authoritative**.
 
-**Base URL:** `https://api.realworld.show/api`
+## Two targets, on purpose
 
-Two alternatives were probed and both are dead: `conduit.productionready.io` → 307,
-`api.realworld.io` → 530.
+| Suite | Target | Why |
+|---|---|---|
+| `contract`, `unit` | **`https://realworld.habsida.net/api`** | conforms; this is the gate |
+| `defects` | **`https://api.realworld.show/api`** | the deployment D-1 to D-4 are about |
+
+Six hosted deployments were probed on 24 August 2026. Three answered, and they do not behave the
+same way:
+
+| | anonymous `GET /articles/:slug` of a created article | duplicate email | 8 concurrent registrations |
+|---|---|---|---|
+| `api.realworld.show` | 🔴 **404** | 🔴 **201** | 🔴 **7 of 8 returned another account** |
+| `realworld.habsida.net` | ✅ 200 | ✅ 422 | ✅ 0 of 8 |
+| `conduit-api.bondaracademy.com` | ✅ 200 | ✅ 422 | ✅ 0 of 8 |
+
+Dead: `conduit.productionready.io` → 307, `api.realworld.io` → 530, `api.realworld.build` → no
+answer.
+
+🔑 **So D-1 to D-4 are defects of one deployment, not properties of RealWorld backends.** The
+reconnaissance that opened this file happened to pick the worst of the three live instances. The
+official conformance suite agrees the behaviour is wrong: it contains
+`08-list-articles-without-auth`, so anonymous listing is part of the contract.
+
+⚠️ **`conduit-api.bondaracademy.com` was rejected for a subtler reason** than being broken: it
+rejects a username longer than 20 characters, a limit the specification never states. A target
+that validates more than the contract makes a conformance suite report failures that are not
+failures.
+
+📌 **A note on how that was measured, because it nearly went wrong.** The first concurrency run
+against that host reported 8 failures out of 8, which read like a broken target. The cause was the
+probe: its generated usernames were over 20 characters. The target was blameless. Re-measured with
+valid data, it is clean. Any verdict in this file was reproduced at least twice before being
+written down.
+
+### Switching targets
+
+Both variables live in `.env.example` and are documented there. Switching either is one line —
+that was a design decision on the first day, and this is the day it paid off.
+
+⛔ **Do not point `defects` at a conforming target.** Those tests assert the specification, so a
+conforming target turns them green — and green in that suite is supposed to mean *the target was
+fixed*. Pointing them somewhere healthy would be a lie told by a passing test.
 
 ## Authorization header
 
@@ -104,10 +143,14 @@ array of strings.
 
 ---
 
-## 🔴 Four defects of the target
+## 🔴 Five defects of `api.realworld.show`
+
+⚠️ **Everything in this section is a fact about that one deployment**, which is why the `defects`
+suite stays pinned to it. None of the four reproduces on `realworld.habsida.net`.
 
 D-1 to D-3 were found by reconnaissance before any test existed. D-4 was found by the suite
-itself, running in parallel, and is the most serious of the four.
+itself, running in parallel. D-5 was found by the TA agent while implementing cases, and it is
+listed first below because it is the one that made the target change.
 
 All of them violate what the specification implies. They are recorded here, **not "fixed" by
 lowering the expectations in the tests**.
@@ -142,6 +185,25 @@ Validation of field **presence** works correctly (422 with the right error shape
 **uniqueness** does not exist at all.
 
 ---
+
+### 🔴 D-5 · Writes are invisible to everyone but their author
+
+An article created with a valid token is answered `201` with a slug, and then:
+
+| Request | Result |
+|---|---|
+| `GET /articles/:slug` **anonymously** | 🔴 **404** |
+| `GET /articles/:slug` **with the author's token** | 200 |
+| the article in `GET /articles` | absent — the public list stays at the four seeded articles |
+| its tag in `GET /tags` | absent |
+
+The specification marks `GET /articles/:slug` as requiring no authentication. Verified directly on
+24 August 2026, and independently by the TA agent while implementing the cases.
+
+➡️ **This is why the target changed.** It is not one broken endpoint: every case that expects
+created data to be readable by anyone else — the list serializer, ordering, the three filters, the
+feed, the write side of tags — cannot pass here, and the red would be the target's. That is most of
+the suite the chain produced.
 
 ### 🔴 D-4 · Under concurrency, a token stops identifying its own user
 
