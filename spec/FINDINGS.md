@@ -324,6 +324,24 @@ endpoints a payload that passes validation and gets 401 from all of them, and
 `tests/defects/authentication.spec.ts` sends the four an empty body and gets 422. The defects half
 runs both payloads, so the evidence for the ordering claim is inside the one test.
 
+## ⬜ The gate deployment rate-limits, and CI makes it likelier
+
+Seen on 25 August in the first CI dispatch: `GET /articles` in `tests/defects/schemas.spec.ts`
+failed with **429**, not with the documented D-8 mismatch. Both the first attempt and the retry got
+429; the next dispatch reproduced the real failure.
+
+**Why CI makes it worse than a local run.** The `defects` job and the `contract` job run
+concurrently against the same host, and `retries: 1` in CI doubles the request count when anything
+fails. Locally the suites are run one after another.
+
+🔑 **This is the flake-versus-explained-failure question in its natural habitat**, which is exactly
+what the nightly schedule exists to collect. A 429 is not D-8, and a report that cannot tell them
+apart is the thing to fix — not the test.
+
+⬜ **Not acted on yet.** The options are to serialise the two jobs, to drop `retries` for
+`defects`, or to make the assertion name the status it got. Decide with data from a few nightly
+runs rather than now.
+
 ## Two observations on the gate target that no test catches
 
 Neither fails anything today. Both are worth knowing before anyone trusts this deployment further.
