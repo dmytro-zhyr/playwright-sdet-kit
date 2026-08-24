@@ -4,22 +4,45 @@ import { test, expect } from '@/fixtures';
 type Method = 'get' | 'put' | 'post' | 'del';
 
 /**
- * The twelve endpoints C-003 names as requiring a credential.
+ * The twelve endpoints C-003 names as requiring a credential, each with a payload that passes
+ * validation.
  *
  * The guard is expected to answer before the path is resolved, so the username, slug and comment
  * identifier here are placeholders and need not exist — that is what the case says, and it is
  * also what makes the table safe to send from any worker: nothing in it reads or writes a record.
+ *
+ * 🔑 The payloads are the point of the `data` column, and they are not decoration. Sent `{}`,
+ * four of these endpoints answer 422 rather than 401 on the gate deployment, because validation
+ * runs before authentication there — D-9 in spec/FINDINGS.md, reproduced in
+ * tests/defects/authentication.spec.ts. That is a question about ordering. This test asks a
+ * different one — is the guard attached at all — and a valid payload is how it asks only that.
+ * They are literals rather than factory output because none of these requests may ever be
+ * accepted: a 401 creates nothing, so nothing here needs to be unique.
  */
-const GUARDED_ENDPOINTS: { method: Method; path: string }[] = [
+const GUARD_PROBE = 'qa_guard_probe';
+
+const GUARDED_ENDPOINTS: { method: Method; path: string; data?: unknown }[] = [
   { method: 'get', path: '/user' },
-  { method: 'put', path: '/user' },
+  { method: 'put', path: '/user', data: { user: { bio: GUARD_PROBE } } },
   { method: 'post', path: '/profiles/qa_nobody_000/follow' },
   { method: 'del', path: '/profiles/qa_nobody_000/follow' },
   { method: 'get', path: '/articles/feed' },
-  { method: 'post', path: '/articles' },
-  { method: 'put', path: '/articles/there-is-no-such-slug-000' },
+  {
+    method: 'post',
+    path: '/articles',
+    data: { article: { title: GUARD_PROBE, description: GUARD_PROBE, body: GUARD_PROBE } },
+  },
+  {
+    method: 'put',
+    path: '/articles/there-is-no-such-slug-000',
+    data: { article: { title: GUARD_PROBE } },
+  },
   { method: 'del', path: '/articles/there-is-no-such-slug-000' },
-  { method: 'post', path: '/articles/there-is-no-such-slug-000/comments' },
+  {
+    method: 'post',
+    path: '/articles/there-is-no-such-slug-000/comments',
+    data: { comment: { body: GUARD_PROBE } },
+  },
   { method: 'del', path: '/articles/there-is-no-such-slug-000/comments/999999999' },
   { method: 'post', path: '/articles/there-is-no-such-slug-000/favorite' },
   { method: 'del', path: '/articles/there-is-no-such-slug-000/favorite' },
@@ -35,23 +58,23 @@ test('C-003 — every endpoint that requires authentication refuses a caller wit
 }) => {
   // The positive half, and it runs first on purpose: one variable — the token — separates it from
   // the twelve below, so a 401 there cannot be a misspelled route or an unattached credential.
-  // It cannot run last: this target answers 401 to an authenticated request that follows a run of
-  // consecutive anonymous ones, which is a defect of the target and not of this guard. See
-  // pipeline/03-report.md.
+  // Running it last was tried and abandoned: api.realworld.show answers 401 to an authenticated
+  // request that follows a run of consecutive anonymous ones, which is a defect of that
+  // deployment and not of this guard. See pipeline/03-report.md.
   const authorised = await registeredUser.api.get('/user');
   expect(authorised.status, 'the same endpoint must answer 200 to a caller with a token').toBe(200);
 
   const observed: string[] = [];
 
-  for (const { method, path } of GUARDED_ENDPOINTS) {
+  for (const { method, path, data } of GUARDED_ENDPOINTS) {
     const response =
       method === 'get'
         ? await api.get(path)
         : method === 'del'
           ? await api.del(path)
           : method === 'put'
-            ? await api.put(path, {})
-            : await api.post(path, {});
+            ? await api.put(path, data ?? {})
+            : await api.post(path, data ?? {});
 
     observed.push(`${method} ${path} -> ${response.status}`);
   }

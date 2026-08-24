@@ -38,14 +38,41 @@ one would be the first.
 
 | Fixture | Type | What it gives you |
 |---|---|---|
-| `api` | `ConduitClient` | anonymous client, no token attached |
+| `api` | `ConduitClient` | anonymous client on the project's own target, no token attached |
 | `registeredUser` | `{ user: NewUser; token: string; api: ConduitClient }` | a user created through the API; `registeredUser.api` already carries the token |
 | `factories` | `{ user, article, comment }` | data factories, each with `build(overrides?)` |
+| `deployment` | `(name) => Promise<ConduitClient>` | an anonymous client on the **named** deployment, over its own request context |
 
-`api` and `registeredUser` are defined in `api/apiFixtures.ts`; `factories` in
-`data/dataFixtures.ts`. `fixtures.ts` merges them with `mergeTests`, and merges the schema matcher
-in with `mergeExpects`. Those three names are the whole fixture surface — there is no `request`,
-no `page`, no `context` to ask for.
+`api` and `registeredUser` are defined in `api/apiFixtures.ts`; `deployment` in
+`api/deploymentFixtures.ts`; `factories` in `data/dataFixtures.ts`. `fixtures.ts` merges them with
+`mergeTests`, and merges the schema matcher in with `mergeExpects`. Those four names are the whole
+fixture surface — there is no `request`, no `page`, no `context` to ask for.
+
+### Naming a deployment
+
+```ts
+const gate = await deployment('conduit-gate');
+```
+
+| Name | Default | What it is |
+|---|---|---|
+| `conduit-gate` | `https://realworld.habsida.net/api` | the deployment the `contract` gate is measured against; D-6 to D-9 are its |
+| `conduit-unsound` | `https://api.realworld.show/api` | uniqueness, identity and visibility all fail here; D-1 to D-5 are its |
+| `conduit-overstrict` | `https://conduit-api.bondaracademy.com/api` | conforms, but rejects a username over 20 characters, a limit the specification never states |
+
+The registry is `api/deployments.ts`: one entry per deployment, each with the variable that
+repoints it and a default that makes a `.env` optional. Adding a deployment — or a second product
+— is appending an entry, not editing resolution logic.
+
+- Every call to `deployment` builds its **own** `APIRequestContext`, and every context a test
+  opened is disposed when that test ends. A test may name several deployments.
+- The name is a TypeScript union, so a typo is a compile error. At run time an unknown name
+  **throws and lists the valid ones** — it never falls back to a default, because a suite running
+  green against a deployment nobody chose is the failure this repository exists to refuse. A
+  variable that is set but empty throws for the same reason.
+- ⛔ Do not use `deployment` in `tests/contract/` to work around a target. A contract test uses
+  `api` and takes the project's target; if that target violates the specification, the test moves
+  to `tests/defects/` and names the deployment there.
 
 ⚠️ `registeredUser` **throws** if registration fails or returns no `user.token`, with the status
 and the response body in the message. A test does not need to check that the fixture worked.
@@ -213,15 +240,21 @@ test.skip(articles.length === 0, 'the target has no articles to read');
 | `npm run test:defects` | `defects` | red on purpose; see the note below about its concurrency |
 | `npm run lint`, `npm run typecheck`, `npm run format` | — | ESLint, `tsc --noEmit`, Prettier |
 
-### Two targets, and which suite talks to which
+### Which target a project takes by default
 
-| Project | Environment variable | Default |
+| Project | Deployment | Environment variable |
 |---|---|---|
-| `contract`, `unit` | `CONDUIT_API_URL` | `https://realworld.habsida.net/api` — conforms; this is the gate |
-| `defects` | `CONDUIT_DEFECTS_API_URL` | `https://api.realworld.show/api` — pinned to the deployment D-1 to D-5 are about |
+| `contract`, `unit` | `conduit-gate` | `CONDUIT_API_URL` |
+| `defects` | `conduit-unsound` | `CONDUIT_DEFECTS_API_URL` |
 
-Both have working defaults, so the repository runs with no `.env`. The `defects` project carries
-its own `use.baseURL` in `playwright.config.ts`, so moving the gate never moves it.
+Both have working defaults, so the repository runs with no `.env`. `playwright.config.ts` resolves
+both through `api/deployments.ts` rather than spelling a URL, so a project and a test can never
+disagree about where a name points. The `defects` project carries its own `use.baseURL`, so moving
+the gate never moves it.
+
+📌 **A project default is what `api` and `registeredUser` take. It is not what a defects test is
+about.** Defects are documented on more than one deployment, so a defects test names its own with
+the `deployment` fixture; `tests/defects/authentication.spec.ts` names two, in one file.
 
 ⛔ **Never point `CONDUIT_DEFECTS_API_URL` at a conforming target.** Those tests assert the
 specification, so a healthy target turns them green — and green in that suite is supposed to mean
@@ -258,9 +291,9 @@ other line in this repository and keeps its whole meaning.
 ## Known defects of the pinned target
 
 Tests that assert the specification where a deployment violates it live in `tests/defects/`, not
-in `tests/contract/`. They run against `CONDUIT_DEFECTS_API_URL`, they are red on purpose, they
-run on a schedule rather than in the PR gate, and each one carries an `issue` annotation naming
-the defect:
+in `tests/contract/`. They name the deployment they are about, they are red on purpose, they run
+on a schedule rather than in the PR gate, and each one carries an `issue` annotation naming the
+defect:
 
 ```ts
 test(
@@ -289,6 +322,13 @@ successfully and tells us nothing.
 
 📌 A defects test is phrased so that **green is the news**. Its comment says what turning green
 would mean, not what turning red would mean.
+
+📌 **Splitting beats moving when a test is mixed.** C-006 and C-003 each asserted a conforming
+half and a violated half at once, so the whole test was red and the conforming half was invisible.
+Both were split: the conforming half stayed in `tests/contract/` and is green there, and the
+violated half moved to `tests/defects/` naming `conduit-gate`. One muddled red became one green
+and one precise red. ⛔ The split is never made by weakening an assertion — the halves assert
+exactly what they asserted before.
 
 ## What not to do
 

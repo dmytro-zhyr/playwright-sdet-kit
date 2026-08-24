@@ -18,7 +18,7 @@ npm install
 cp .env.example .env      # optional — only to point at a different target
 npm run test:contract     # contract tests against the gate target
 npm run test:unit         # tests for the chain artifact parser
-npm run test:defects      # known defects of one deployment — red on purpose, see below
+npm run test:defects      # known defects, each naming its deployment — red on purpose
 npm run lint
 npm run typecheck
 ```
@@ -28,21 +28,35 @@ No browser is needed: the tests go through `APIRequestContext` only.
 `.env` is optional — without it the defaults from the config apply, and the whole repository runs
 without one.
 
-## Two targets, on purpose
+## Named deployments
 
-| Project | Target | Variable |
+Three hosted Conduit deployments were live in August 2026 and they do not behave the same way. A
+test does not spell a URL and does not inherit one by accident — it names the deployment it is
+about:
+
+```ts
+const gate = await deployment('conduit-gate');
+```
+
+| Name | Default | Variable |
 |---|---|---|
-| `contract`, `unit` | `https://realworld.habsida.net/api` — conforms | `CONDUIT_API_URL` |
-| `defects` | `https://api.realworld.show/api` — pinned | `CONDUIT_DEFECTS_API_URL` |
+| `conduit-gate` | `https://realworld.habsida.net/api` — conforms broadly; the gate's target | `CONDUIT_API_URL` |
+| `conduit-unsound` | `https://api.realworld.show/api` — uniqueness, identity and visibility all fail | `CONDUIT_DEFECTS_API_URL` |
+| `conduit-overstrict` | `https://conduit-api.bondaracademy.com/api` — validates beyond the contract | `CONDUIT_OVERSTRICT_API_URL` |
 
-Three hosted Conduit deployments were live in August 2026 and they do not behave the same way.
-The gate runs against one that conforms; switching it to another is one uncommented line in
-`.env`, and that is how their behaviour gets compared. All three are listed in
-[`.env.example`](.env.example) with what is wrong with each.
+[`api/deployments.ts`](api/deployments.ts) is the one place a name becomes a URL, for the fixture
+and for `playwright.config.ts` alike. Every name has a working default, so the repository runs
+with no `.env`; repointing one is one line. A name the registry does not know **throws and lists
+the ones that would have worked** — it never falls back to a default, because a suite that ran
+green against a deployment nobody chose is the failure this repository exists to refuse.
 
-⛔ The defects target is not interchangeable with the gate's. Those tests assert the
-**specification** against the deployment whose defects they document, so a conforming target
-turns them green — and green in that suite is supposed to mean the defect was fixed.
+Defects are documented on **two** of the three, so `tests/defects/` is not one pinned target any
+more: each test there names its own, and
+[`tests/defects/authentication.spec.ts`](tests/defects/authentication.spec.ts) names two.
+
+⛔ No defects target is interchangeable with the gate's. Those tests assert the **specification**
+against the deployment whose defects they document, so a conforming target turns them green — and
+green in that suite is supposed to mean the defect was fixed.
 
 ## Three suites, three different questions
 
@@ -50,13 +64,14 @@ turns them green — and green in that suite is supposed to mean the defect was 
 |---|---|---|
 | `contract` | is this code, and are these schemas, still in agreement with the target | every push and PR — this is the gate |
 | `unit` | does the chain artifact parser work | same |
-| `defects` | **is that one deployment still broken** | nightly, on a schedule |
+| `defects` | **is the deployment each test names still broken** | nightly, on a schedule |
 
 Reconnaissance found real defects — details in [`spec/FINDINGS.md`](spec/FINDINGS.md). They
-belong to one deployment, not to RealWorld backends in general, which is why the gate moved away
-from it and the defects suite stayed. The tests covering them assert the **specification**, so
-they are red, and each one carries a link to a filed issue. They live in their own suite because
-they answer a question about **somebody else's API**, not about this code.
+belong to particular deployments, not to RealWorld backends in general, which is why the gate
+moved away from the worst of them and why every defects test names the one it reproduces. The
+tests covering them assert the **specification**, so they are red, and each one carries a link to
+a filed issue. They live in their own suite because they answer a question about **somebody
+else's API**, not about this code.
 
 A gate that is permanently red stops being a gate. A defect that is quietly marked as expected
 to fail stops being a defect.

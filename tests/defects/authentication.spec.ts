@@ -69,3 +69,76 @@ test(
     ).toEqual([]);
   }
 );
+
+/** The four endpoints of D-9, with the payload that makes each request valid. */
+const ORDERING_PROBE = 'qa_ordering_probe';
+
+const VALIDATED_BEFORE_AUTHENTICATED: { method: 'put' | 'post'; path: string; valid: unknown }[] = [
+  { method: 'put', path: '/user', valid: { user: { bio: ORDERING_PROBE } } },
+  {
+    method: 'post',
+    path: '/articles',
+    valid: {
+      article: { title: ORDERING_PROBE, description: ORDERING_PROBE, body: ORDERING_PROBE },
+    },
+  },
+  {
+    method: 'put',
+    path: '/articles/there-is-no-such-slug-000',
+    valid: { article: { title: ORDERING_PROBE } },
+  },
+  {
+    method: 'post',
+    path: '/articles/there-is-no-such-slug-000/comments',
+    valid: { comment: { body: ORDERING_PROBE } },
+  },
+];
+
+// Turns green the day the gate deployment refuses an anonymous caller before it reads the body.
+// The other half of C-003 — the twelve guarded endpoints, sent payloads that pass validation, all
+// answering 401 — stays in tests/contract/authentication.spec.ts and is green there.
+//
+// 🔑 The whole test is the evidence: the two halves below differ in one thing, the payload. The
+// valid one is answered 401, so the guard is attached; the empty one is answered 422, so the
+// guard is not what answers first. The API tells a caller it has not authenticated what its
+// request body should have looked like.
+test(
+  'C-003 — an anonymous caller is refused before the body is validated',
+  {
+    annotation: {
+      type: 'issue',
+      description:
+        'spec/FINDINGS.md — D-9; GitHub issue to be filed when the repository is published',
+    },
+  },
+  async ({ deployment }) => {
+    // Named, not inherited: D-9 is a defect of the deployment the contract gate runs against, not
+    // of the one this project points at. D-4 above is about the other. Two deployments, one file.
+    const gate = await deployment('conduit-gate');
+
+    const control: string[] = [];
+    for (const { method, path, valid } of VALIDATED_BEFORE_AUTHENTICATED) {
+      const response =
+        method === 'put' ? await gate.put(path, valid) : await gate.post(path, valid);
+      control.push(`${method} ${path} -> ${response.status}`);
+    }
+
+    expect(
+      control,
+      'the control: with a payload that passes validation these four already answer 401, which is ' +
+        'what makes the observation below about ordering and not about a missing guard'
+    ).toEqual(VALIDATED_BEFORE_AUTHENTICATED.map(({ method, path }) => `${method} ${path} -> 401`));
+
+    const observed: string[] = [];
+    for (const { method, path } of VALIDATED_BEFORE_AUTHENTICATED) {
+      const response = method === 'put' ? await gate.put(path, {}) : await gate.post(path, {});
+      observed.push(`${method} ${path} -> ${response.status}`);
+    }
+
+    expect(
+      observed,
+      'an anonymous caller must be refused 401 whatever it sends; a 422 here means the body was ' +
+        'read and judged before the credential was looked for'
+    ).toEqual(VALIDATED_BEFORE_AUTHENTICATED.map(({ method, path }) => `${method} ${path} -> 401`));
+  }
+);

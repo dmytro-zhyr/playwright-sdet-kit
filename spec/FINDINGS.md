@@ -6,10 +6,15 @@ separately and **the specification stays authoritative**.
 
 ## Two targets, on purpose
 
-| Suite | Target | Why |
+| Suite | Default target | Why |
 |---|---|---|
-| `contract`, `unit` | **`https://realworld.habsida.net/api`** | conforms; this is the gate |
-| `defects` | **`https://api.realworld.show/api`** | the deployment D-1 to D-4 are about |
+| `contract`, `unit` | **`conduit-gate`**, `https://realworld.habsida.net/api` | conforms; this is the gate |
+| `defects` | **`conduit-unsound`**, `https://api.realworld.show/api` | the deployment D-1 to D-5 are about |
+
+📌 **Those are project defaults, not what a defects test is about.** Since D-6 to D-9 there are
+documented defects on both, so a defects test names its own deployment with the `deployment`
+fixture rather than inheriting the project's. The registry of names is `api/deployments.ts`; the
+third live deployment is named there too, as `conduit-overstrict`.
 
 Six hosted deployments were probed on 24 August 2026. Three answered, and they do not behave the
 same way:
@@ -41,8 +46,9 @@ written down.
 
 ### Switching targets
 
-Both variables live in `.env.example` and are documented there. Switching either is one line —
-that was a design decision on the first day, and this is the day it paid off.
+Every name resolves through one variable, all of them documented in `.env.example`, each with a
+working default. Switching any of them is one line — that was a design decision on the first day,
+and this is the day it paid off.
 
 ⛔ **Do not point `defects` at a conforming target.** Those tests assert the specification, so a
 conforming target turns them green — and green in that suite is supposed to mean *the target was
@@ -251,9 +257,19 @@ Found on 24 August 2026 by running the suite the chain had produced against the 
 one is a contract violation, each has a test that is **red in `tests/contract/` right now**, and
 none of them is our code being wrong.
 
-⚠️ **These four have not been moved into `tests/defects/` yet.** That suite is currently pinned to
-one deployment, and these belong to the other. The mechanism for a defect test that names its own
-deployment is the next piece of work — until it exists, the gate carries four honest reds.
+✅ **These four have been moved out of the gate.** Named deployments exist now — `api/deployments.ts`
+and the `deployment` fixture — so each of the four names `conduit-gate` explicitly and lives in
+`tests/defects/` with an `issue` annotation. Two of them were **split** rather than moved, because
+each mixed a conforming half with a violated one:
+
+| Defect | Conforming half, green in `contract` | Violated half, red in `defects` |
+|---|---|---|
+| D-6 | C-006's six read paths, answered 404 | the two delete paths, answered 204 |
+| D-9 | C-003's twelve endpoints sent a valid payload, answered 401 | the four sent `{}`, answered 422 |
+
+D-7 and D-8 are single-assertion tests and moved whole. Nothing was weakened to make the move:
+`ArticlesResponseSchema` is untouched, and both halves of each split assert exactly what the one
+test asserted before. `contract` is green.
 
 ### D-6 · Deleting something that does not exist answers 204
 
@@ -268,6 +284,10 @@ as though it had deleted something.
 📌 **The shape of it argues it is deliberate** — every read path returns 404 correctly, and only
 the two delete paths differ, which looks like an idempotent-delete choice rather than an oversight.
 It is still a spec violation, and it is the kind that will not be fixed by asking.
+
+✅ That shape is also why C-006 was split rather than moved: the six read paths stayed in
+`tests/contract/not-found.spec.ts`, green, and only the two deletes went to
+`tests/defects/not-found.spec.ts`.
 
 ### D-7 · Blank input crashes validation instead of failing it
 
@@ -297,9 +317,12 @@ payload the same endpoints answer 401 correctly.
 🔑 **So the order is wrong, not the guard.** The consequence is not cosmetic: the API tells a
 caller it has not authenticated what its request body should look like.
 
-⚠️ The test that catches this sends `{}` on purpose and therefore conflates "is the guard attached"
-with "does the guard run first". Splitting it into two would turn one muddled red into one green
-and one precise red — worth doing when these move to `tests/defects/`.
+✅ The test that caught this sent `{}` on purpose and therefore conflated "is the guard attached"
+with "does the guard run first". It has been split, and the split turned one muddled red into one
+green and one precise red: `tests/contract/authentication.spec.ts` sends each of the twelve
+endpoints a payload that passes validation and gets 401 from all of them, and
+`tests/defects/authentication.spec.ts` sends the four an empty body and gets 422. The defects half
+runs both payloads, so the evidence for the ordering claim is inside the one test.
 
 ## Two observations on the gate target that no test catches
 
