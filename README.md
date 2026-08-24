@@ -1,5 +1,7 @@
 # playwright-sdet-kit
 
+![checks](https://github.com/dmytro-zhyr/playwright-sdet-kit/actions/workflows/checks.yml/badge.svg?branch=main&event=push)
+
 A test automation framework built from scratch on **Playwright + TypeScript**: a typed API
 client, fixtures composed through `mergeTests`, test data factories, strict `zod` response
 schemas with a custom matcher, ESLint + Prettier, and CI on GitHub Actions.
@@ -65,6 +67,10 @@ green in that suite is supposed to mean the defect was fixed.
 | `contract` | is this code, and are these schemas, still in agreement with the target | every push and PR — this is the gate |
 | `unit` | does the chain artifact parser work | same |
 | `defects` | **is the deployment each test names still broken** | nightly, on a schedule |
+
+The badge above is filtered to pushes on `main` — the gate. The nightly `defects` run stays
+visible on the Actions tab, where a red run means the target is still broken, and does not stand
+in for the state of this code.
 
 Reconnaissance found real defects — details in [`spec/FINDINGS.md`](spec/FINDINGS.md). They
 belong to particular deployments, not to RealWorld backends in general, which is why the gate

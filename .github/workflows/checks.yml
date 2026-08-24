@@ -1,0 +1,166 @@
+name: checks
+
+# Three jobs, three different questions — the same split the suites make in README.md:
+#
+#   static    does this code lint, typecheck and pass its own unit tests
+#   contract  are this code and these schemas still in agreement with the gate deployment
+#   defects   is the deployment each test names still broken
+#
+# The first two are the gate and run on every push and pull request. The third is monitoring: it
+# is red by design, so it runs only on a schedule or by hand and never stands in the gate.
+#
+# Actions are pinned to their current major, v7. The plan wrote v4, which was current when it was
+# written; three majors have shipped since, and CI is the last place to run a version nobody
+# upstream is testing any more.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly, and not for coverage. This is the only place in the project where real instability
+    # can appear — a public API, a network, somebody else's uptime — and that is the data stage 2
+    # needs in order to tell a flake from a deterministically explained failure.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  static:
+    name: Lint, types, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # 24, not 20: the same version that is installed locally. A local/CI mismatch is the
+          # classic source of "works on my machine", and it is paid for while looking for the
+          # cause of a failure in the wrong place.
+          node-version: 24
+          cache: npm
+
+      # `npm ci`, not `npm install`: it requires the lock file and deliberately does not update
+      # it. That is the point — CI installs exactly what is installed locally.
+      - run: npm ci
+
+      # No `npx playwright install` anywhere in this workflow. No browser is downloaded because
+      # none is needed: every test goes through `APIRequestContext`. This is not a saving of ~40
+      # seconds, it is the proof that the suite really is browser-free — the day a test asks for
+      # the `page` fixture, this job is where it stops.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+  contract:
+    name: Contract tests against the gate deployment
+    # After `static`, because the contract tests hit a live third-party API. If that deployment
+    # is down, only this job goes red and lint, types and unit tests stay a trustworthy signal
+    # about the code.
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Repository variables, never secrets: the URL of a public Conduit deployment is not a
+      # secret, and this project has no secrets at all. Putting non-secret configuration into
+      # `secrets` is the habit that ends with nobody knowing what is actually in there.
+      #
+      # ⚠️ Why this is a step and not an `env:` block on the run below. `env: CONDUIT_API_URL:
+      # ${{ vars.CONDUIT_API_URL }}` exports the variable as an *empty string* when the
+      # repository does not define it, and `resolveDeployment` throws on set-but-empty by
+      # design — an empty base URL would send every request to nowhere. Worse, playwright.config
+      # resolves `conduit-gate` and `conduit-unsound` when it loads, so an empty variable would
+      # break even a job that touches no network. So a name is overridden only when a variable
+      # actually carries a value; otherwise the default in api/deployments.ts stands and the
+      # repository runs with no variables set at all.
+      - name: Point deployments at repository variables, if any are configured
+        env:
+          GATE_URL: ${{ vars.CONDUIT_API_URL }}
+        run: |
+          if [ -n "$GATE_URL" ]; then
+            echo "CONDUIT_API_URL=$GATE_URL" >> "$GITHUB_ENV"
+            echo "conduit-gate: overridden by the CONDUIT_API_URL repository variable"
+          else
+            echo "conduit-gate: no repository variable set, keeping the default in api/deployments.ts"
+          fi
+
+      # One worker, pinned by the `test:contract` script itself — see D-4 in spec/FINDINGS.md.
+      - run: npm run test:contract
+
+      - name: Playwright report
+        # `!cancelled()`, not `always()`: a run somebody cancelled by hand should not spill
+        # artifacts.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  defects:
+    name: Known defects of the target
+    # Schedule or by hand only. These tests assert the specification against deployments that
+    # violate it, so they are red until somebody else fixes their API. In the gate they would
+    # block every commit over a bug this repository does not control.
+    #
+    # It does not `need: static` either: monitoring somebody else's API is not blocked by whether
+    # this code lints.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Two names, because this suite is about two deployments: the project's default target is
+      # `conduit-unsound` (D-1 to D-5), and the tests that name `conduit-gate` reproduce D-6 to
+      # D-9 on the gate's own deployment. `conduit-overstrict` is in the registry but no test
+      # names it yet, so there is nothing here to override.
+      #
+      # ⛔ Do not point CONDUIT_DEFECTS_API_URL at a conforming deployment. These tests assert the
+      # specification, so a healthy target turns them green — and green here is supposed to mean
+      # the defect was fixed.
+      - name: Point deployments at repository variables, if any are configured
+        env:
+          GATE_URL: ${{ vars.CONDUIT_API_URL }}
+          DEFECTS_URL: ${{ vars.CONDUIT_DEFECTS_API_URL }}
+        run: |
+          if [ -n "$GATE_URL" ]; then
+            echo "CONDUIT_API_URL=$GATE_URL" >> "$GITHUB_ENV"
+            echo "conduit-gate: overridden by the CONDUIT_API_URL repository variable"
+          else
+            echo "conduit-gate: no repository variable set, keeping the default in api/deployments.ts"
+          fi
+          if [ -n "$DEFECTS_URL" ]; then
+            echo "CONDUIT_DEFECTS_API_URL=$DEFECTS_URL" >> "$GITHUB_ENV"
+            echo "conduit-unsound: overridden by the CONDUIT_DEFECTS_API_URL repository variable"
+          else
+            echo "conduit-unsound: no repository variable set, keeping the default in api/deployments.ts"
+          fi
+
+      # Expected to fail. A green run here is the news: it means a defect was fixed.
+      - run: npm run test:defects
+
+      - name: Defects report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: defects-report
+          path: playwright-report/
+          retention-days: 30
