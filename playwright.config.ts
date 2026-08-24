@@ -16,6 +16,11 @@ export default defineConfig({
     baseURL: withTrailingSlash(process.env.CONDUIT_API_URL ?? 'https://api.realworld.show/api'),
     extraHTTPHeaders: { 'Content-Type': 'application/json' },
   },
+  // `contract` is run with a single worker — see the npm script, which cannot carry a comment
+  // of its own. Not a workaround: under concurrency the target hands a token holder somebody
+  // else's account (spec/FINDINGS.md, D-4), and a gate must not go red on somebody else's
+  // defect. `defects` keeps the concurrency, because that is the only configuration in which
+  // D-4 exists at all. The day D-4 is fixed, the defects test turns green and this goes away.
   projects: [
     { name: 'unit', testDir: './tests/unit' },
     { name: 'contract', testDir: './tests/contract' },
