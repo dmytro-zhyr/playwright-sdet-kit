@@ -152,7 +152,7 @@ array of strings.
 ## 🔴 Five defects of `api.realworld.show`
 
 ⚠️ **Everything in this section is a fact about that one deployment**, which is why the `defects`
-suite stays pinned to it. None of the four reproduces on `realworld.habsida.net`.
+suite pins its tests to it by name. None of the five reproduces on the gate deployment.
 
 D-1 to D-3 were found by reconnaissance before any test existed. D-4 was found by the suite
 itself, running in parallel. D-5 was found by the TA agent while implementing cases, and it is
