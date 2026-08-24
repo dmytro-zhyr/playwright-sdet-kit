@@ -10,12 +10,11 @@ const REGISTRATION_SUCCESS = [200, 201];
 const REGISTRATION_SUCCESS_MESSAGE =
   'the specification states no success status for registration, only that it returns a User, so 200 and 201 are both accepted';
 
-// The same gap in the User shape: the specification's example carries `null` for bio and image,
-// but it never states what a fresh account is given, and the deployments disagree (`null` and
-// `""`). A value that is neither is a serializer handing back something nobody wrote.
-const EMPTY = [null, ''];
-const EMPTY_MESSAGE =
-  'the specification shows null in its User example but never states which empty value a fresh account carries, so null and "" are both accepted';
+// The same gap on the login side, and it is the same wording in the specification: "returns a
+// User". All three live deployments answer 200 today, which is agreement rather than a contract.
+const LOGIN_SUCCESS = [200, 201];
+const LOGIN_SUCCESS_MESSAGE =
+  'the specification states no success status for login, only that it returns a User, so 200 and 201 are both accepted';
 
 // Turns red if the factory starts reusing values, which would make parallel workers collide on
 // the same account, or if the qa_ prefix is dropped and the accounts stop being recognisable.
@@ -60,39 +59,43 @@ test('the anonymous client is not authenticated', async ({ api }) => {
   expect(response.status).toBe(401);
 });
 
-// Turns red if registration stops succeeding at all — a 404, a 422, a 500 — or if the serializer
-// changes what it hands back: a dropped or renamed field, an internal identifier leaking into the
-// envelope, a registration that issues no token. The schema is strict, so an added field is red too.
-test('C-009 — registration returns a new User', async ({ api, factories }) => {
-  const response = await api.post('/users', { user: factories.user.build() });
+// Turns red if registration stops succeeding at all — a 404, a 422, a 500 — if the serializer
+// changes what it hands back — a dropped, renamed or added field, an internal identifier leaking
+// into the envelope — if the username or the email that comes back is not the one that was sent,
+// or if a freshly created account carries anything but `null` in the two fields registration
+// cannot set. The schema is strict, so an added field is red too.
+test('C-029 — registration answers with the account it was given', async ({ api, factories }) => {
+  const account = factories.user.build();
+
+  const response = await api.post('/users', { user: account });
 
   expect(REGISTRATION_SUCCESS, REGISTRATION_SUCCESS_MESSAGE).toContain(response.status);
   expect(response.body).toMatchSchema(UserResponseSchema);
 
-  // The same trap as the status, one line further down. The specification shows `null` for both
-  // fields in its User example but never states what a fresh account carries, and the two
-  // deployments disagree: `null` on api.realworld.show, `""` on realworld.habsida.net. The strict
-  // schema already pins the type to string-or-null, so what is left to assert is "still empty".
-  const { user } = response.body as { user: { bio: unknown; image: unknown; token: string } };
-  expect(EMPTY, `a fresh account has no bio — ${EMPTY_MESSAGE}`).toContain(user.bio);
-  expect(EMPTY, `a fresh account has no image — ${EMPTY_MESSAGE}`).toContain(user.image);
-  expect(user.token.length, 'registration must issue a token').toBeGreaterThan(0);
+  const { user } = response.body as {
+    user: { username: string; email: string; bio: unknown; image: unknown };
+  };
+  expect(user.username, 'registration must echo the username it was given').toBe(account.username);
+  expect(user.email, 'registration must echo the email it was given').toBe(account.email);
+  expect(
+    [user.bio, user.image],
+    'the case states that a freshly registered account carries null for both bio and image'
+  ).toEqual([null, null]);
 });
 
 // Turns red if one of the three presence validators is dropped — the field goes missing and the
 // account is created anyway — or if a validation failure stops being a 422 whose only key is
-// `errors`, or if the complete registration at the end stops succeeding. That closing request
-// proves the payload shape and the address are right, so a 422 above cannot be the request being
-// malformed in some other way.
-test('C-010 — registration refuses a request that omits a required field', async ({
-  api,
-  factories,
-}) => {
+// `errors`. The registration at the end sends the very account the three refusals were built
+// from: it proves the payload shape and the address are right, and it proves no refused request
+// quietly consumed the username or the email, which is the half of the expectation a status
+// cannot show.
+test('C-030 — registration refuses a body missing a required field', async ({ api, factories }) => {
+  const account = factories.user.build();
   const omissions = ['email', 'username', 'password'] as const;
   const observed: string[] = [];
 
   for (const omitted of omissions) {
-    const user: Record<string, string> = { ...factories.user.build() };
+    const user: Record<string, string> = { ...account };
     delete user[omitted];
 
     const response = await api.post('/users', { user });
@@ -110,10 +113,10 @@ test('C-010 — registration refuses a request that omits a required field', asy
     omissions.map((omitted) => `without ${omitted} -> 422`)
   );
 
-  const complete = await api.post('/users', { user: factories.user.build() });
+  const complete = await api.post('/users', { user: account });
   expect(
     REGISTRATION_SUCCESS,
-    `the same request with every field must be accepted — ${REGISTRATION_SUCCESS_MESSAGE}`
+    `no refused request may have created the account, so the complete one must still be accepted — ${REGISTRATION_SUCCESS_MESSAGE}`
   ).toContain(complete.status);
 });
 
@@ -122,7 +125,7 @@ test('C-010 — registration refuses a request that omits a required field', asy
 // surfacing as a 500, an `errors` object that says nothing. The fresh registration at the end
 // proves the endpoint accepts what it should, so a red above is about the duplicate and not about
 // the request.
-test('C-011 — registration refuses an email or a username already in use', async ({
+test('C-031 — registration refuses an email or a username another account holds', async ({
   api,
   factories,
   registeredUser,
@@ -136,13 +139,12 @@ test('C-011 — registration refuses an email or a username already in use', asy
 
   expect(
     [takenEmail.status, takenUsername.status],
-    'an email or a username already in use must be refused'
+    'an email or a username another account holds must be refused'
   ).toEqual([422, 422]);
 
-  // The specification does not state which key carries a validation message — its own example
-  // keys one under `body`, and deployments key them under the offending column instead. So the
-  // key is a gap in the contract: what the contract does state is the envelope shape and that a
-  // message is there.
+  // The case asks for an `errors` envelope and nothing about which key carries the message: the
+  // specification's own example keys a validation message under `body`, so demanding a key named
+  // after the offending column would be asserting more than the contract.
   const refusals = [
     ['email', takenEmail],
     ['username', takenUsername],
@@ -152,10 +154,9 @@ test('C-011 — registration refuses an email or a username already in use', asy
     expect(refusal.body).toMatchSchema(ErrorsSchema);
 
     const { errors } = refusal.body as { errors: Record<string, string[]> };
-    const messages = Object.values(errors).flat();
     expect(
-      messages.length,
-      `the refusal of a taken ${collided} must carry at least one message; the specification does not state which key carries it — its own example uses "body" — so any key is accepted`
+      Object.values(errors).flat().length,
+      `the refusal of a taken ${collided} must carry at least one message`
     ).toBeGreaterThan(0);
   }
 
@@ -166,27 +167,29 @@ test('C-011 — registration refuses an email or a username already in use', asy
   ).toContain(fresh.status);
 });
 
-// Turns red if any link in the credential chain breaks: a registration that does not succeed, a
-// token that is not returned, a header nobody reads, a token nobody verifies, or a lookup that
-// resolves it to a different account — the last of which would show up here as somebody else's
-// email in the response.
-test('C-012 — the token from a registration identifies its account', async ({ api, factories }) => {
-  const registered = factories.user.build();
-  const registration = await api.post('/users', { user: registered });
+// Turns red if registration stores the password in a form the login comparison cannot reproduce —
+// a hash written on one side and compared on the other, a truncation, an encoding difference —
+// which is invisible to a test that only ever reads the registration response. It also turns red
+// if the login answers with an account other than the one just created.
+test('C-032 — the credentials a registration was given log in afterwards', async ({
+  api,
+  factories,
+}) => {
+  const account = factories.user.build();
 
+  const registration = await api.post('/users', { user: account });
   expect(REGISTRATION_SUCCESS, REGISTRATION_SUCCESS_MESSAGE).toContain(registration.status);
-  const { user } = registration.body as { user: { token: string } };
 
-  const response = await api.withToken(user.token).get('/user');
+  const login = await api.post('/users/login', {
+    user: { email: account.email, password: account.password },
+  });
 
-  expect(response.status, 'the issued token must identify its own account').toBe(200);
-  expect(response.body).toMatchSchema(UserResponseSchema);
+  expect(LOGIN_SUCCESS, LOGIN_SUCCESS_MESSAGE).toContain(login.status);
+  expect(login.body).toMatchSchema(UserResponseSchema);
 
-  const current = response.body as { user: { email: string; username: string } };
-  expect(current.user.email, 'the token must resolve to the account it was issued for').toBe(
-    registered.email
-  );
-  expect(current.user.username, 'the token must resolve to the account it was issued for').toBe(
-    registered.username
-  );
+  const { user } = login.body as { user: { email: string; username: string } };
+  expect(
+    [user.email, user.username],
+    'the login must answer with the account the registration created'
+  ).toEqual([account.email, account.username]);
 });

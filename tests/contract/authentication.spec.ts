@@ -1,72 +1,134 @@
 import { test, expect } from '@/fixtures';
+import { UserResponseSchema } from '@/schemas/conduit.schema';
+
+// The specification states no success status for registration or for login — it says only that
+// each "returns a User", and conforming deployments disagree: 201 on api.realworld.show, 200 on
+// realworld.habsida.net. So this set is a gap in the contract rather than a preference, and every
+// assertion using it names the gap in its message. What still makes those assertions red: a 401,
+// a 404, a 422, a 500 — anything that is not the endpoint succeeding.
+const USER_ENDPOINT_SUCCESS = [200, 201];
+const USER_ENDPOINT_SUCCESS_MESSAGE =
+  'the specification states no success status for registration or login, only that each returns a User, so 200 and 201 are both accepted';
 
 /** The client's four verbs, so the endpoint table below stays data and not a chain of branches. */
 type Method = 'get' | 'put' | 'post' | 'del';
 
-/**
- * The twelve endpoints C-003 names as requiring a credential, each with a payload that passes
- * validation.
- *
- * The guard is expected to answer before the path is resolved, so the username, slug and comment
- * identifier here are placeholders and need not exist — that is what the case says, and it is
- * also what makes the table safe to send from any worker: nothing in it reads or writes a record.
- *
- * 🔑 The payloads are the point of the `data` column, and they are not decoration. Sent `{}`,
- * four of these endpoints answer 422 rather than 401 on the gate deployment, because validation
- * runs before authentication there — D-9 in spec/FINDINGS.md, reproduced in
- * tests/defects/authentication.spec.ts. That is a question about ordering. This test asks a
- * different one — is the guard attached at all — and a valid payload is how it asks only that.
- * They are literals rather than factory output because none of these requests may ever be
- * accepted: a 401 creates nothing, so nothing here needs to be unique.
- */
-const GUARD_PROBE = 'qa_guard_probe';
+// Turns red if the API stops honouring a token it issued itself — a header nobody reads, a token
+// nobody verifies, a lookup that resolves it to a different account — or if a login token and a
+// registration token stop being the same artefact, which would show up here as one of the two
+// reads answering 401 while the other answers 200.
+test('C-001 — a token from a registration and a token from a login both authenticate as their account', async ({
+  api,
+  factories,
+}) => {
+  const account = factories.user.build();
 
-const GUARDED_ENDPOINTS: { method: Method; path: string; data?: unknown }[] = [
-  { method: 'get', path: '/user' },
-  { method: 'put', path: '/user', data: { user: { bio: GUARD_PROBE } } },
-  { method: 'post', path: '/profiles/qa_nobody_000/follow' },
-  { method: 'del', path: '/profiles/qa_nobody_000/follow' },
-  { method: 'get', path: '/articles/feed' },
-  {
-    method: 'post',
-    path: '/articles',
-    data: { article: { title: GUARD_PROBE, description: GUARD_PROBE, body: GUARD_PROBE } },
-  },
-  {
-    method: 'put',
-    path: '/articles/there-is-no-such-slug-000',
-    data: { article: { title: GUARD_PROBE } },
-  },
-  { method: 'del', path: '/articles/there-is-no-such-slug-000' },
-  {
-    method: 'post',
-    path: '/articles/there-is-no-such-slug-000/comments',
-    data: { comment: { body: GUARD_PROBE } },
-  },
-  { method: 'del', path: '/articles/there-is-no-such-slug-000/comments/999999999' },
-  { method: 'post', path: '/articles/there-is-no-such-slug-000/favorite' },
-  { method: 'del', path: '/articles/there-is-no-such-slug-000/favorite' },
-];
+  const registration = await api.post('/users', { user: account });
+  expect(
+    USER_ENDPOINT_SUCCESS,
+    `the account under test must be registered — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+  ).toContain(registration.status);
+  const registered = registration.body as { user: { token: string } };
+
+  const login = await api.post('/users/login', {
+    user: { email: account.email, password: account.password },
+  });
+  expect(
+    USER_ENDPOINT_SUCCESS,
+    `the same account must be able to log in — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+  ).toContain(login.status);
+  const loggedIn = login.body as { user: { token: string } };
+
+  const reads = [
+    { minted: 'registration', response: await api.withToken(registered.user.token).get('/user') },
+    { minted: 'login', response: await api.withToken(loggedIn.user.token).get('/user') },
+  ];
+
+  expect(
+    reads.map(({ minted, response }) => `${minted} token -> ${response.status}`),
+    'a token the API issued must be carried out rather than refused'
+  ).toEqual(reads.map(({ minted }) => `${minted} token -> 200`));
+
+  for (const { minted, response } of reads) {
+    expect(response.body).toMatchSchema(UserResponseSchema);
+
+    const { user } = response.body as { user: { email: string; username: string } };
+    expect(user.email, `the ${minted} token must resolve to the account it was issued for`).toBe(
+      account.email
+    );
+    expect(user.username, `the ${minted} token must resolve to the account it was issued for`).toBe(
+      account.username
+    );
+  }
+});
 
 // Turns red if the authentication guard stops being attached to one of these twelve endpoints, or
 // if it starts answering something other than 401 — a 403, a 404, or a 200 carrying somebody's
-// data. The read with a real token that opens the test is what proves the address and the
-// credential, so a red below it cannot be a misspelled route or an unattached token.
-test('C-003 — every endpoint that requires authentication refuses a caller with no credential', async ({
+// data — or if one of the twelve reaches its handler far enough to change the resource it names.
+// The authenticated read that opens the test is what proves the address and the credential, so a
+// 401 below it cannot be a misspelled route or an unattached token.
+test('C-002 — every endpoint that requires authentication refuses a caller with no credential', async ({
   api,
+  factories,
   registeredUser,
 }) => {
   // The positive half, and it runs first on purpose: one variable — the token — separates it from
   // the twelve below, so a 401 there cannot be a misspelled route or an unattached credential.
-  // Running it last was tried and abandoned: api.realworld.show answers 401 to an authenticated
-  // request that follows a run of consecutive anonymous ones, which is a defect of that
-  // deployment and not of this guard. See pipeline/03-report.md.
   const authorised = await registeredUser.api.get('/user');
   expect(authorised.status, 'the same endpoint must answer 200 to a caller with a token').toBe(200);
 
+  // The case asks for "an existing target" behind every path, and for an article carrying at
+  // least one comment, so that the mutating endpoints address something a later read can check.
+  const sent = factories.article.build();
+  const created = await registeredUser.api.post('/articles', { article: sent });
+  const { article } = created.body as { article: { slug: string } };
+  expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
+
+  const commentBody = factories.comment.build().body;
+  const commented = await registeredUser.api.post(`/articles/${article.slug}/comments`, {
+    comment: { body: commentBody },
+  });
+  const { comment } = commented.body as { comment: { id: number } };
+  expect(comment?.id, 'the case needs one comment that exists').toBeDefined();
+
+  const username = registeredUser.user.username;
+  const guardProbe = 'qa_guard_probe';
+
+  // 🔑 The payloads are not decoration. Sent `{}`, several of these endpoints answer 422 rather
+  // than 401 on the gate deployment, because validation runs before authentication there — that
+  // is a question about ordering, and it already has its own test in tests/defects/. This test
+  // asks a different one — is the guard attached at all — and a valid payload is how it asks only
+  // that.
+  const guarded: { method: Method; path: string; data?: unknown }[] = [
+    { method: 'get', path: '/user' },
+    { method: 'put', path: '/user', data: { user: { bio: guardProbe } } },
+    { method: 'post', path: `/profiles/${username}/follow` },
+    { method: 'del', path: `/profiles/${username}/follow` },
+    { method: 'get', path: '/articles/feed' },
+    {
+      method: 'post',
+      path: '/articles',
+      data: { article: { title: guardProbe, description: guardProbe, body: guardProbe } },
+    },
+    {
+      method: 'put',
+      path: `/articles/${article.slug}`,
+      data: { article: { title: guardProbe } },
+    },
+    { method: 'del', path: `/articles/${article.slug}` },
+    {
+      method: 'post',
+      path: `/articles/${article.slug}/comments`,
+      data: { comment: { body: guardProbe } },
+    },
+    { method: 'del', path: `/articles/${article.slug}/comments/${comment.id}` },
+    { method: 'post', path: `/articles/${article.slug}/favorite` },
+    { method: 'del', path: `/articles/${article.slug}/favorite` },
+  ];
+
   const observed: string[] = [];
 
-  for (const { method, path, data } of GUARDED_ENDPOINTS) {
+  for (const { method, path, data } of guarded) {
     const response =
       method === 'get'
         ? await api.get(path)
@@ -80,48 +142,118 @@ test('C-003 — every endpoint that requires authentication refuses a caller wit
   }
 
   expect(observed, 'every guarded endpoint must answer 401 to an anonymous caller').toEqual(
-    GUARDED_ENDPOINTS.map(({ method, path }) => `${method} ${path} -> 401`)
+    guarded.map(({ method, path }) => `${method} ${path} -> 401`)
   );
+
+  // The second half of the expectation: a refusal that already wrote is still a refusal by
+  // status, and only a later read can tell the two apart. Each read below covers the mutating
+  // endpoints that address it — the article for the update, the delete and the two favorites, the
+  // comment list for the comment create and delete, the account for the profile update, the
+  // profile for the follow and the unfollow, and the author's own listing for the create.
+  const survivor = await registeredUser.api.get(`/articles/${article.slug}`);
+  expect(survivor.status, 'an anonymous delete must not have removed the article').toBe(200);
+  const kept = survivor.body as {
+    article: { title: string; description: string; body: string; favoritesCount: number };
+  };
+  expect(
+    [kept.article.title, kept.article.description, kept.article.body],
+    'an anonymous update must not have changed the article'
+  ).toEqual([sent.title, sent.description, sent.body]);
+  expect(kept.article.favoritesCount, 'an anonymous favorite must not have been counted').toBe(0);
+
+  const comments = await registeredUser.api.get(`/articles/${article.slug}/comments`);
+  expect(comments.status, 'the comment list must still be readable').toBe(200);
+  const listed = comments.body as { comments: { id: number; body: string }[] };
+  expect(
+    listed.comments.map(({ id, body }) => `${id}:${body}`),
+    'an anonymous comment must not have been created and an anonymous delete must not have removed one'
+  ).toEqual([`${comment.id}:${commentBody}`]);
+
+  const account = await registeredUser.api.get('/user');
+  const stored = account.body as { user: { bio: string | null } };
+  expect(stored.user.bio, 'an anonymous update must not have written to the account').not.toBe(
+    guardProbe
+  );
+
+  const profile = await registeredUser.api.get(`/profiles/${username}`);
+  const relationship = profile.body as { profile: { following: boolean } };
+  expect(
+    relationship.profile.following,
+    'an anonymous follow must not have made a relationship'
+  ).toBe(false);
+
+  const authored = await registeredUser.api.get(`/articles?author=${username}`);
+  const own = authored.body as { articles: { slug: string }[] };
+  expect(
+    own.articles.map(({ slug }) => slug),
+    'an anonymous create must not have added an article to the caller'
+  ).toEqual([article.slug]);
 });
 
-// Turns red if the guard stops verifying the token it finds — accepting an invented one with a
-// 200, or answering 500 because it never expected a value it could not resolve. The genuine token
-// in the second half proves the 401 is about the token and not about the request.
-test('C-004 — a token the API never issued is not a credential', async ({ registeredUser }) => {
-  const forged = await registeredUser.api.withToken('not.a.real.token').get('/user');
-
-  expect(forged.status, 'a token the API never issued must be refused').toBe(401);
-
-  const genuine = await registeredUser.api.get('/user');
-  expect(genuine.status, 'the same request with the issued token must be served').toBe(200);
-});
-
-// Turns red if the authentication guard is attached to an endpoint that must serve anonymous
-// callers — a 401 on any of these seven — or if one of them stops carrying the envelope key its
-// own endpoint is named for, which would mean the anonymous path reached a different handler.
-test('C-005 — an endpoint that does not require authentication serves an anonymous caller', async ({
+// Turns red if the token-to-subject lookup stops distinguishing its callers — resolving every
+// token to the same stored account, or to the most recently created one — which would show up
+// here as two reads describing one account. A single token cannot see that failure, which is why
+// this case needs two.
+test('C-004 — a token addresses its own account and no other', async ({
   api,
   factories,
   registeredUser,
 }) => {
-  // The case asks for "a registered account with one article, so the profile, article and comment
-  // paths name something that exists". `registeredUser` supplies the credentials the login step
-  // needs; the article and its author are taken from the target rather than created here, because
-  // this case is about the guard and must not go red over whether a fresh article is published.
-  const list = await api.get('/articles?limit=1');
-  const { articles } = list.body as { articles: { slug: string; author: { username: string } }[] };
-  test.skip(articles.length === 0, 'the target has no articles to read anonymously');
+  const second = factories.user.build();
+  const registration = await api.post('/users', { user: second });
+  expect(
+    USER_ENDPOINT_SUCCESS,
+    `the case needs a second account — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+  ).toContain(registration.status);
+  const { user } = registration.body as { user: { token: string } };
 
-  const { slug, author } = articles[0];
+  const first = await registeredUser.api.get('/user');
+  const other = await api.withToken(user.token).get('/user');
+
+  expect([first.status, other.status], 'each account must be able to read itself').toEqual([
+    200, 200,
+  ]);
+  expect(first.body).toMatchSchema(UserResponseSchema);
+  expect(other.body).toMatchSchema(UserResponseSchema);
+
+  const firstUser = (first.body as { user: { username: string; email: string } }).user;
+  const otherUser = (other.body as { user: { username: string; email: string } }).user;
+
+  expect(
+    [firstUser.username, firstUser.email],
+    'a token must name the account it was issued for'
+  ).toEqual([registeredUser.user.username, registeredUser.user.email]);
+  expect(
+    [otherUser.username, otherUser.email],
+    'a token must name the account it was issued for'
+  ).toEqual([second.username, second.email]);
+  expect(otherUser.username, 'the two tokens must describe different accounts').not.toBe(
+    firstUser.username
+  );
+});
+
+// Turns red if the authentication guard is attached to an endpoint the specification marks as
+// needing none — a 401 on any of these four — or if one of them stops carrying the envelope key
+// its own endpoint is named for, which would mean the anonymous path reached a different handler.
+test('C-005 — an endpoint that requires no authentication serves an anonymous caller', async ({
+  api,
+  factories,
+  registeredUser,
+}) => {
+  // The case asks for "an existing account whose credentials are known, and an existing article".
+  // `registeredUser` supplies the first and authors the second.
+  const created = await registeredUser.api.post('/articles', {
+    article: factories.article.build(),
+  });
+  const { article } = created.body as { article: { slug: string } };
+  expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
+
   const credentials = { email: registeredUser.user.email, password: registeredUser.user.password };
 
   const calls = [
-    { key: 'user', response: await api.post('/users', { user: factories.user.build() }) },
     { key: 'user', response: await api.post('/users/login', { user: credentials }) },
-    { key: 'profile', response: await api.get(`/profiles/${author.username}`) },
-    { key: 'articles', response: await api.get('/articles') },
-    { key: 'article', response: await api.get(`/articles/${slug}`) },
-    { key: 'comments', response: await api.get(`/articles/${slug}/comments`) },
+    { key: 'user', response: await api.post('/users', { user: factories.user.build() }) },
+    { key: 'article', response: await api.get(`/articles/${article.slug}`) },
     { key: 'tags', response: await api.get('/tags') },
   ];
 

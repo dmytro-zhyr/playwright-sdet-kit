@@ -12,11 +12,12 @@ const ARTICLE_CREATED = [200, 201];
 const ARTICLE_CREATED_MESSAGE =
   'the specification states no success status for creating an article, only that it returns an Article, so 200 and 201 are both accepted';
 
-// Turns red if the precondition stops holding — the article is not created — if the tag endpoint
-// starts serializing tag records instead of tag names — an array of objects rather than of
-// strings — or adds a second key beside `tags`. The strict schema is what makes those red rather
-// than merely different.
-test('C-044 — the tag endpoint returns an array of strings', async ({
+// Turns red if the precondition stops holding — the tagged article is not created — if the tag
+// endpoint stops answering an anonymous caller, if it starts serializing tag records instead of
+// tag names — an array of objects rather than of strings — or if a second key appears beside
+// `tags`. The strict schema is what makes those red rather than merely different.
+test('C-025 — the tags document is an array of strings under one key', async ({
+  api,
   factories,
   registeredUser,
 }) => {
@@ -30,9 +31,9 @@ test('C-044 — the tag endpoint returns an array of strings', async ({
     `the case needs one tagged article to exist — ${ARTICLE_CREATED_MESSAGE}`
   ).toContain(created.status);
 
-  const response = await registeredUser.api.get('/tags');
+  const response = await api.get('/tags');
 
-  expect(response.status, 'the tag list must be readable').toBe(200);
+  expect(response.status, 'the tag list must be readable with no Authorization header').toBe(200);
   expect(response.body).toMatchSchema(TagsResponseSchema);
 
   const { tags } = response.body as { tags: string[] };
