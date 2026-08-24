@@ -145,10 +145,19 @@ not the zod 3 spellings `z.object({...}).strict()`, `z.string().email()`, `z.str
 
 ## Required in every test
 
-1. **The case identifier**, in the `test.describe` title or in the test name: `C-007`. This
-   applies to every test implementing a case from `pipeline/02-cases.md`. The framework's own
-   tests, written before the chain existed, carry no identifier — do not add one to them, and do
-   not read their absence as licence to omit yours.
+1. **The case identifier**, `C-007`, for every test implementing a case from
+   `pipeline/02-cases.md`. There is one default and one exception, and no choice beyond them:
+
+   - **Default — in the test name:** `test('C-007 — registration without a password is rejected', …)`.
+   - **Exception — in a `test.describe` title, only when one case needs several tests.** The
+     `describe` then carries the identifier and the test names inside do not repeat it.
+
+   One case yielding one test is the ordinary shape, and wrapping a single test in a `describe`
+   only lengthens the title in the report. `--grep "C-007"` finds both forms equally, so
+   searchability decides nothing here.
+
+   The framework's own tests, written before the chain existed, carry no identifier — do not add
+   one to them, and do not read their absence as licence to omit yours.
 2. **A one-line comment saying what would make this test red.** Every test in this repository has
    one; the existing files are the demonstration.
 
@@ -194,13 +203,19 @@ test.skip(articles.length === 0, 'the target has no articles to read');
 |---|---|---|
 | `npm run test:contract` | `contract` | `--workers=1`, deliberately — see below |
 | `npm run test:unit` | `unit` | parser, matcher and URL helpers; no network |
-| `npm run test:defects` | `defects` | red on purpose; parallel, because that is what D-4 needs |
+| `npm run test:defects` | `defects` | red on purpose; see the note below about its concurrency |
 | `npm run lint`, `npm run typecheck`, `npm run format` | — | ESLint, `tsc --noEmit`, Prettier |
 
 ⚠️ The `contract` project runs with **a single worker**, and a test must not depend on that. The
 reason is D-4 in `spec/FINDINGS.md`: under concurrency the target hands a token holder somebody
 else's account, and a gate must not go red on somebody else's defect. The day D-4 is fixed, the
 workers come back — so do not write a test that only works sequentially.
+
+📌 **The concurrency a defects test needs is inside the test, not in the worker count.** The D-4
+test issues its parallel requests with `Promise.all`; Playwright reporting "1 worker" for that
+project means only that there is one file to spread across workers. A defects test that relied on
+Playwright's parallelism instead would stop reproducing anything the moment it was the only file
+left.
 
 Formatting is Prettier with `singleQuote`, `printWidth: 100`, `trailingComma: "es5"`. Run
 `npm run format`; `npx prettier --check .` is a gate. `.prettierignore` excludes `*.md`, so
