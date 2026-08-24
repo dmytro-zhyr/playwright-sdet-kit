@@ -11,7 +11,7 @@
  */
 
 const FRONTMATTER_FENCE = '---';
-const REQUIRED_KEYS = ['name', 'description'];
+const REQUIRED_KEYS = ['name', 'description', 'model'];
 const REQUIRED_SECTIONS = ['## Your task', '## Forbidden'];
 const MINIMUM_BODY_WORDS = 50;
 

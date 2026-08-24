@@ -16,6 +16,7 @@ Do not invent endpoints, do not write tests, and do not commit anything.
 const DEFINITION = `---
 name: ba
 description: Turns the specification into numbered rules.
+model: opus
 ---
 
 ${BODY}`;
@@ -79,6 +80,23 @@ test('the frontmatter has to carry a description', () => {
   expect(problems.join(' ')).toContain('ERROR');
 });
 
+// Turns red if a definition without `model` is accepted — the agent would run on whatever model
+// the session happens to default to, and two runs of the same chain would not be comparable.
+test('the frontmatter has to carry a model', () => {
+  const problems = validateAgentDefinition(without(DEFINITION, 'model: opus'), 'ba.md');
+
+  expect(problems.join(' ')).toContain('model');
+  expect(problems.join(' ')).toContain('ERROR');
+});
+
+// Turns red if the check starts insisting on one particular model — it exists to make the choice
+// explicit and stable, not to hard-code which model the chain is allowed to run on.
+test('any pinned model satisfies the check', () => {
+  const pinned = DEFINITION.replace('model: opus', 'model: sonnet');
+
+  expect(validateAgentDefinition(pinned, 'ba.md')).toEqual([]);
+});
+
 // Turns red if the name is allowed to drift from the file name — a rename of the file would
 // leave the definition answering to an identifier nobody uses.
 test('the name has to match the file name', () => {
@@ -112,6 +130,7 @@ test('a body shorter than fifty words is a warning, not an error', () => {
   const stub = `---
 name: ba
 description: Turns the specification into numbered rules.
+model: opus
 ---
 
 ## Your task

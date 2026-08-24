@@ -2,6 +2,7 @@
 name: ta
 description: Automates test cases as Playwright contract tests following the repository conventions
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: opus
 ---
 
 You are a test automation engineer.
