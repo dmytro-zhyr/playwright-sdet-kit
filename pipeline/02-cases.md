@@ -1,763 +1,1470 @@
-# Conduit API — test cases grouped by unit of independent failure
+# Conduit test cases
 
-Produced by the `qa` agent from [`pipeline/01-rules.md`](01-rules.md), and from nothing else. The
-specification was not opened here; where a rule is ambiguous the ambiguity is recorded under
-`## Open questions` rather than settled.
-
-A case is a **unit of independent failure**. Rules that break together and for the same reason
-share a case; a rule whose two directions can fail apart gets two. Forty-five cases carry one
-hundred and thirty-five of the one hundred and thirty-eight rules; the remaining three are
-accounted for under `## Not covered`.
-
-Vocabulary follows the rules file: paths carry the `/api` prefix, and "with a token" means the
-request carries `Authorization: Token <token>` with a token the API issued to that account.
+The rules in `pipeline/01-rules.md` grouped into units of independent failure. A case is one
+place the implementation can be wrong: two rules share a case when a red on either sends the
+reader to the same guard, serializer, query or validator, and one rule is split across two cases
+when it can fail in two directions that a single response cannot tell apart.
 
 ## Cases
 
-### C-001 — A JSON response declares a JSON content type
-**Covers:** R-001
+### C-001 — A token the API issued authenticates as its account
 
-- **Grouping rationale:** it stands alone because the content type is decided once, by the layer
-  every handler returns through, and no other rule changes value when it is wrong. Every other
-  case in this file would stay green against an API that answered `text/plain` throughout. The
-  rule is universally quantified over responses, so a case can only sample; one anonymous read
-  and one authenticated write are the sample.
+**Covers:** R-001, R-021, R-054, R-064
+
+- **Grouping rationale:** all four describe one path: the string under `user.token` is handed
+  back to the API in the `Authorization` header and resolves to the account it was issued for. A
+  red anywhere here is the credential pipeline — token minting on one side, header parsing and
+  verification on the other — and it does not matter which of the two endpoints minted the token,
+  because a login token and a registration token are the same artefact by R-021.
+- **Preconditions:** an account that can be registered and then logged in as.
+
+**Steps:** Register an account and keep the token from the response. Send `GET /api/user` with
+that token in the `Authorization` header under the `Token` scheme. Log in as the same account and
+send `GET /api/user` again with the token the login returned.
+**Expected:** Both authenticated requests are carried out rather than refused, and each answers
+with the user document of the account the token was issued for.
+
+### C-002 — Every authentication-required endpoint refuses a request with no credentials
+
+**Covers:** R-003, R-070, R-073, R-092, R-099, R-118, R-130, R-146, R-156, R-162, R-175, R-181,
+R-189
+
+- **Grouping rationale:** these twelve are one general rule and its eleven instances, and they
+  break for one reason: a route that was never wired to the guard, or a guard that stopped
+  refusing. The diagnosis is the same line of the route table in every instance, which is why
+  they are swept in one case rather than eleven; what the case is really asserting is that the
+  set of guarded routes equals the set the specification marks "Authentication required".
+- **Preconditions:** an article with at least one comment on it, so that the mutating endpoints
+  have a real path to address.
+
+**Steps:** With no `Authorization` header, send `GET /api/user`, `PUT /api/user`,
+`POST /api/profiles/:username/follow`, `DELETE /api/profiles/:username/follow`,
+`GET /api/articles/feed`, `POST /api/articles`, `PUT /api/articles/:slug`,
+`DELETE /api/articles/:slug`, `POST /api/articles/:slug/comments`,
+`DELETE /api/articles/:slug/comments/:id`, `POST /api/articles/:slug/favorite` and
+`DELETE /api/articles/:slug/favorite`, each against an existing target.
+**Expected:** Every one of the twelve is answered with 401, and none of the mutating ones changes
+the resource it addressed.
+
+### C-003 — A credential that is present but unusable is refused
+
+**Covers:** R-002, R-004
+
+- **Grouping rationale:** separated from C-002 because the code is elsewhere. C-002 exercises the
+  branch that fires when the header is absent; these two exercise the branch that reads a header
+  that is there and decides it means nothing — the wrong scheme, and a token the API did not
+  issue or no longer accepts. An implementation that answers 401 whenever the header is missing
+  and waves through anything that parses passes C-002 and fails here, which is exactly the
+  failure a single anonymous request cannot see.
+- **Preconditions:** a registered account holding a token the API accepts.
+
+**Steps:** Send `GET /api/user` three times: once with the valid token under a `Bearer` scheme
+instead of `Token`, once with a syntactically plausible string that the API never issued, and
+once with the `Token` scheme but an empty value.
+**Expected:** Each of the three is answered with 401 and none of them returns a user document.
+
+### C-004 — A token addresses its own account and no other
+
+**Covers:** R-005
+
+- **Grouping rationale:** R-005 fails independently of every other authentication rule because it
+  needs two accounts to be visible at once. C-001 stays green on an implementation that resolves
+  every token to the same stored account, or to the most recently created one, since it only ever
+  has one account in play; only a comparison between two live tokens shows it. A red here is the
+  token-to-subject lookup, not the header parsing C-003 covers.
+- **Preconditions:** two registered accounts with distinct usernames and emails, each holding its
+  own token.
+
+**Steps:** Send `GET /api/user` with the first account's token, then `GET /api/user` with the
+second account's token.
+**Expected:** Each response names the account whose token was sent — its own username and email —
+and the two responses describe different accounts.
+
+### C-005 — Endpoints that require no authentication serve an anonymous request
+
+**Covers:** R-006, R-049, R-058, R-126, R-196
+
+- **Grouping rationale:** the mirror image of C-002 and the same diagnosis in the other
+  direction: a guard applied to a route the specification marks "No authentication required". A
+  guard that refuses everything passes C-002 and fails this; a guard applied to nothing passes
+  this and fails C-002. Neither case can see the other's failure, so the pair has to exist. All
+  five instances are read from the same list, so a red says the route table, not the endpoint.
+- **Preconditions:** an existing account whose credentials are known, and an existing article.
+
+**Steps:** With no `Authorization` header, send `POST /api/users/login` with valid credentials,
+`POST /api/users` with a fresh account, `GET /api/articles/:slug` for the existing article and
+`GET /api/tags`.
+**Expected:** None of the four is answered with 401; each answers with the document its endpoint
+is documented to return.
+
+### C-006 — Endpoints with optional authentication serve an anonymous request
+
+**Covers:** R-007, R-086, R-105, R-170
+
+- **Grouping rationale:** kept apart from C-005 because the specification draws the distinction
+  and the implementation usually does too: these routes carry a middleware that may read a token,
+  where C-005's carry none at all. A red here is that optional middleware refusing instead of
+  shrugging, which is a different line from a guard that should not be on the route. The four
+  instances share it, so one case covers them.
+- **Preconditions:** an existing account, and an existing article with at least one comment.
+
+**Steps:** With no `Authorization` header, send `GET /api/profiles/:username` for the existing
+account, `GET /api/articles`, and `GET /api/articles/:slug/comments` for the existing article.
+**Expected:** None is answered with 401; each answers with the profile, the article list and the
+comment list respectively.
+
+### C-007 — An optional-authentication endpoint answers as the token's user
+
+**Covers:** R-008, R-089, R-090
+
+- **Grouping rationale:** the completeness half of C-006. C-006 only proves the endpoint does not
+  refuse; an implementation that discards the token entirely stays green there and green on C-008
+  too, because both expect the anonymous reading. What shows it is a field that has to differ
+  between two authenticated callers, and `following` on a profile is that field — R-089 and R-090
+  are its two values. All three fail together on one thing: the optional middleware not putting
+  the caller into the serializer's context.
+- **Preconditions:** two registered accounts, the first following the second and the second
+  following nobody.
+
+**Steps:** Send `GET /api/profiles/:username` for the second account, authenticated as the first.
+Send `GET /api/profiles/:username` for the first account, authenticated as the first account
+itself — a request whose subject the caller does not follow.
+**Expected:** The first response reports `following` as `true`; the second reports `following` as
+`false`. Neither is refused.
+
+### C-008 — Viewer-relative fields are false when nobody is identified
+
+**Covers:** R-009, R-116
+
+- **Grouping rationale:** the soundness half of the pair whose completeness half is C-007. One
+  failure mode: a serializer that computes a relationship without a caller, or that carries over a
+  value from some other request. It shows up on both the single documents and the list entries
+  for the same reason, so R-009 and R-116 are one case; what they cannot share a case with is
+  C-007, because an implementation that hard-codes `false` passes here and fails there.
+- **Preconditions:** an account that follows another account and has favorited an article, so
+  that a `true` is available for the authenticated reading to produce.
+
+**Steps:** With no `Authorization` header, send `GET /api/profiles/:username` for the followed
+account, `GET /api/articles/:slug` for the favorited article and `GET /api/articles` covering it.
+**Expected:** `profile.following` is `false`, `article.favorited` is `false`, and `favorited` is
+`false` on every entry of the list, including the entry for the article that some account has
+favorited.
+
+### C-009 — A carried-out request answers 200 and declares JSON
+
+**Covers:** R-015, R-016
+
+- **Grouping rationale:** both are properties of the response line and headers rather than of any
+  endpoint's logic, and both are set in the one place every handler returns through. A red on
+  either says the transport layer changed under all the endpoints at once, which is why they are
+  read together across a sample of them rather than restated inside every other case. Nothing
+  else in this file asserts a success status, so without this case a run of 201s would go
+  unnoticed.
+- **Preconditions:** a registered account with a token, and an article it authored.
+
+**Steps:** Send `GET /api/tags`, `GET /api/articles`, `GET /api/articles/:slug`, `GET /api/user`
+with a token, and `POST /api/articles` with a valid body and a token.
+**Expected:** Every response carries status 200 and a `Content-Type` of
+`application/json; charset=utf-8`.
+
+### C-010 — A validation failure is 422 in the errors envelope
+
+**Covers:** R-010, R-011, R-012
+
+- **Grouping rationale:** one renderer. The status, the single `errors` key and the array-valued
+  entries under it are produced by the same branch, and a red on any of the three means that
+  branch is wrong — a different status, a bare message, a string where a list belongs. Splitting
+  the status from the shape would send the reader to the same function twice. The individual
+  endpoints' validators get their own cases; this one asserts only how a validator's verdict is
+  rendered.
 - **Preconditions:** none.
 
-**Steps:** GET /api/tags with no Authorization header, then POST /api/users registering a fresh
-account.
-**Expected:** both bodies parse as JSON, and both responses carry a Content-Type header whose
-value begins with `application/json`.
+**Steps:** Send `POST /api/users` with a `user` object missing every required field.
+**Expected:** The response carries status 422 and a body whose only top-level key is `errors`,
+whose value is an object, each of whose values is an array of strings.
 
-### C-002 — A cross-origin preflight is answered with the access-control headers
-**Covers:** R-010, R-011
+### C-011 — A failure response carries no resource document
 
-- **Grouping rationale:** both rules are the CORS middleware and nothing else. When it is not
-  mounted the OPTIONS request falls through to the router and is answered 404 or 405 while the
-  two headers are absent from that same response; when it is mounted both appear. There is no
-  arrangement of the code in which one of these rules holds and the other does not.
-- **Preconditions:** none.
+**Covers:** R-017
 
-**Steps:** send OPTIONS /api/articles carrying `Origin: https://example.test` and
-`Access-Control-Request-Method: GET`.
-**Expected:** the status is below 400 and is neither 404 nor 405, and the response carries both
-an Access-Control-Allow-Origin header and an Access-Control-Allow-Headers header.
+- **Grouping rationale:** the soundness half of C-010, and it fails on code C-010 never touches:
+  a handler that renders the error alongside a partially built resource, or an error path that
+  falls through into the success serializer. C-010 only inspects `errors` and stays green while
+  an `article` key sits beside it. Stated as one case because the leak is one behaviour whether
+  the failure was a 401, a 403, a 404 or a 422.
+- **Preconditions:** two registered accounts, and an article authored by the first.
 
-### C-003 — An endpoint that requires authentication refuses a caller who sends no credential
-**Covers:** R-004, R-030, R-037, R-047, R-051, R-069, R-088, R-100, R-105, R-112, R-120, R-127,
-R-132
+**Steps:** Collect the bodies of four failures: `GET /api/user` with no token,
+`PUT /api/articles/:slug` for the first account's article authenticated as the second,
+`GET /api/articles/:slug` for a slug no article holds, and `POST /api/users` with an empty `user`
+object.
+**Expected:** Each body carries `errors` and none of them carries any of `user`, `profile`,
+`article`, `articles`, `comment`, `comments` or `tags`.
 
-- **Grouping rationale:** thirteen rules naming one guard — the code that reads the Authorization
-  header and stops the request when there is none. R-004 states it in general and the other
-  twelve state it at an endpoint. If the guard is gone all thirteen are red at once; if one
-  endpoint was left off the list the guard is attached to, that step is red and the reader goes
-  to the same declaration to find out why. Twelve cases asserting "401 without a header" would be
-  twelve copies of one check, which is the shape this file exists to avoid.
-- **Preconditions:** none. The guard is expected to answer before the path is resolved, so the
-  username, slug and comment identifier below are placeholders that need not exist.
+### C-012 — A mutation by an account that is not the owner is refused with 403
 
-**Steps:** with no Authorization header, send GET /api/user; PUT /api/user; POST
-/api/profiles/:username/follow; DELETE /api/profiles/:username/follow; GET /api/articles/feed;
-POST /api/articles; PUT /api/articles/:slug; DELETE /api/articles/:slug; POST
-/api/articles/:slug/comments; DELETE /api/articles/:slug/comments/:id; POST
-/api/articles/:slug/favorite; DELETE /api/articles/:slug/favorite.
-**Expected:** every one of the twelve responses has status 401.
+**Covers:** R-013, R-150, R-159, R-177
 
-### C-004 — A token the API never issued is not a credential
-**Covers:** R-032
+- **Grouping rationale:** the ownership guard and its three instances. A red on any of them is
+  the same comparison — the authenticated account against the resource's author — reached from
+  three controllers; the general rule R-013 has no other place in the specification where it can
+  be observed, so it belongs with the instances that observe it. The distinction from C-014 to
+  C-016 matters: those are lookups that find nothing, this is a lookup that finds something and
+  then refuses.
+- **Preconditions:** two registered accounts; an article authored by the first with a comment on
+  it also written by the first; a token for the second.
 
-- **Grouping rationale:** deliberately not folded into C-003. C-003 goes red when the guard is
-  never run; this goes red when the guard runs, finds a value in the header and never verifies
-  it. They are opposite bugs in one piece of code and either can be green while the other is red,
-  which is what makes them two units of failure rather than two steps of one.
-- **Preconditions:** none.
+**Steps:** Authenticated as the second account, send `PUT /api/articles/:slug` with a new title,
+`DELETE /api/articles/:slug`, and `DELETE /api/articles/:slug/comments/:id` against the first
+account's article and comment.
+**Expected:** Each of the three is answered with 403.
 
-**Steps:** GET /api/user carrying `Authorization: Token not.a.real.token`.
-**Expected:** status 401.
+### C-013 — A refused mutation leaves the resource as it was
 
-### C-005 — An endpoint that does not require authentication serves an anonymous caller
-**Covers:** R-009, R-017, R-025, R-042, R-057, R-079, R-115, R-136
+**Covers:** R-150, R-159, R-177
 
-- **Grouping rationale:** the mirror of C-003, and the same declaration read from the other side:
-  these rules fail together when the guard is attached to an endpoint that must not carry it,
-  which is one mis-scoped list. R-009 is the general statement and the other seven name the
-  endpoints the rules identify as open. Each step asserts only that the answer is not a 401 and
-  that the endpoint's own envelope is present; what is inside those envelopes belongs to the
-  cases for those endpoints, which is why nothing here is repeated there.
-- **Preconditions:** one registered account with one article, so the profile, article and comment
-  paths name something that exists; that account's email, password and username and the
-  article's slug are known.
+- **Grouping rationale:** the second failure mode of the same three rules, and it is independent
+  of C-012 in both directions. An implementation that mutates and then discovers it should not
+  have, returning 403 afterwards, is green on C-012 and red here; one that refuses correctly but
+  where the reader never checks is green on both while the data rots. C-012 reads a status; this
+  case reads the resource afterwards, and only the second reading can tell a guard that runs
+  before the write from one that runs after it.
+- **Preconditions:** the same as C-012, with the article's title, body and comment recorded
+  before the refused requests are sent.
 
-**Steps:** with no Authorization header, send POST /api/users registering a fresh account; POST
-/api/users/login with the known account's email and password; GET /api/profiles/:username; GET
-/api/articles; GET /api/articles/:slug; GET /api/articles/:slug/comments; GET /api/tags.
-**Expected:** no response has status 401, and each body carries the key its endpoint names — in
-order `user`, `user`, `profile`, `articles`, `article`, `comments`, `tags`.
+**Steps:** Run the three refused requests of C-012, then, authenticated as the first account,
+send `GET /api/articles/:slug` and `GET /api/articles/:slug/comments` for the same article.
+**Expected:** The article is still fetchable under its original slug with the title, description
+and body it had before, and the comment is still present in the comment list with its original
+identifier.
 
-### C-006 — An identifier that names nothing is answered 404
-**Covers:** R-006, R-043, R-052, R-080, R-102, R-107, R-117, R-122, R-133
+### C-014 — A path naming an account nobody holds is answered with 404
 
-- **Grouping rationale:** R-006 is the general rule and the other eight are it applied wherever a
-  path segment is resolved to a record. "Not found" is one decision — the lookup that refuses to
-  invent a row — and the status it maps to is one mapping. A wrong mapping turns every step red
-  together; a single lenient lookup that answers 200 or 500 turns one step red and names the path
-  whose finder is wrong. Both readings send the reader to a finder, which is one kind of thing to
-  go and read.
-- **Preconditions:** a registered account with a token, and one article created by it, whose slug
-  supplies the one path where the article must exist and the comment must not.
+**Covers:** R-014, R-088, R-096, R-103
 
-**Steps:** GET /api/profiles/:unknown-username; POST /api/profiles/:unknown-username/follow with
-the token; GET /api/articles/:unknown-slug; PUT /api/articles/:unknown-slug with the token and a
-title; DELETE /api/articles/:unknown-slug with the token; GET
-/api/articles/:unknown-slug/comments; DELETE /api/articles/:slug/comments/:unknown-id with the
-token; POST /api/articles/:unknown-slug/favorite with the token.
-**Expected:** every one of the eight responses has status 404.
+- **Grouping rationale:** one lookup — resolve a `:username` segment to an account — reached from
+  three routes, plus the general rule the three instantiate. A red on any of them says that
+  lookup returned something instead of refusing, or that a route forgot to consult it and
+  operated on a null subject. Kept apart from C-015 and C-016 because those are different
+  lookups against different stores, and a repository that resolves usernames correctly can still
+  resolve slugs wrongly.
+- **Preconditions:** a registered account holding a token, and a username string no account holds.
 
-### C-007 — Only the author may change or remove an article
-**Covers:** R-005, R-101, R-106
+**Steps:** Send `GET /api/profiles/:username` anonymously for the unheld username, and,
+authenticated, `POST /api/profiles/:username/follow` and
+`DELETE /api/profiles/:username/follow` for the same unheld username.
+**Expected:** All three are answered with 404.
 
-- **Grouping rationale:** R-005 is the general 403 rule, and the API offers it exactly three
-  occasions; two of them are here. Both are one comparison — the article's author against the
-  caller — written into the update action and the delete action of one controller against one
-  model. A controller that omits the comparison lets a stranger through both doors, and a
-  comparison answered with 404 or 401 instead of 403 is wrong at both. The comment occasion is
-  C-008 because it is a different model in a different controller.
-- **Preconditions:** two registered accounts, each with a token; one article created by the
-  first, whose title and slug are known.
+### C-015 — A path naming a slug no article holds is answered with 404
 
-**Steps:** with the second account's token, PUT /api/articles/:slug of the first account's
-article with a new title; then DELETE /api/articles/:slug for the same article.
-**Expected:** both responses have status 403, and a following GET /api/articles/:slug still
-returns the article with its original title.
+**Covers:** R-128, R-151, R-160, R-167, R-172, R-185, R-193
 
-### C-008 — Only the commenter may delete a comment
-**Covers:** R-121
+- **Grouping rationale:** the article lookup, reached from seven routes. Every one of these seven
+  is the same two lines — find the article by slug, refuse if there is none — and a red says
+  either that the lookup is wrong or that one route ran its handler on a missing article. Sweeping
+  them together is deliberate: what the case is really checking is that no route skipped the
+  lookup, and that is a property of the set, not of any single endpoint.
+- **Preconditions:** a registered account holding a token, and a slug string no article holds.
 
-- **Grouping rationale:** deliberately not merged into C-007. The ownership comparison for a
-  comment is written in the comments controller against the comment's author; the article one is
-  written in the articles controller against the article's author. Either can exist while the
-  other does not, and a red here sends the reader to a different file than a red in C-007 does.
-- **Preconditions:** two registered accounts with tokens; an article; a comment on that article
-  written by the first account, whose identifier is known.
+**Steps:** Send `GET /api/articles/:slug` and `GET /api/articles/:slug/comments` anonymously for
+the unheld slug, and, authenticated, `PUT /api/articles/:slug` with a new title,
+`DELETE /api/articles/:slug`, `POST /api/articles/:slug/comments` with a valid body,
+`POST /api/articles/:slug/favorite` and `DELETE /api/articles/:slug/favorite`.
+**Expected:** All seven are answered with 404.
 
-**Steps:** with the second account's token, DELETE /api/articles/:slug/comments/:id naming the
-first account's comment; then GET /api/articles/:slug/comments.
-**Expected:** the delete has status 403, and the comment is still present in the list.
+### C-016 — A comment identifier that addresses nothing under that slug is 404
 
-### C-009 — Registration returns a new User
-**Covers:** R-012, R-013, R-018
+**Covers:** R-178, R-179
 
-- **Grouping rationale:** one request and the serializer that answers it. R-012 is the envelope,
-  R-013 that the object carries exactly the five User fields, R-018 that a fresh account's bio
-  and image are null. A serializer that dropped a field, leaked an identifier or defaulted bio to
-  an empty string is the same object in every reading, and an endpoint that answers with nothing
-  makes all three red at once. That registration needs no credential is C-005's, because that is
-  the guard and not the serializer.
-- **Preconditions:** none.
+- **Grouping rationale:** the comment lookup, which is the only one of the three that takes two
+  path segments, and both rules are ways for it to be wrong. R-178 is an identifier that matches
+  no comment; R-179 is an identifier that matches a comment belonging to another article — the
+  failure of an implementation that keys on `:id` alone and ignores `:slug`. They are one case
+  because both reds land on the same query and the fix to either is the same missing condition.
+- **Preconditions:** two articles authored by the same registered account, the first carrying a
+  comment by that account, the second carrying none.
 
-**Steps:** POST /api/users with a username, email and password that no account uses.
-**Expected:** the body carries a `user` object whose keys are exactly `email`, `token`,
-`username`, `bio` and `image`; `bio` is null; `image` is null; `token` is a non-empty string.
+**Steps:** Authenticated as the comment's author, send
+`DELETE /api/articles/:slug/comments/:id` against the first article with an identifier no comment
+holds, then against the second article's slug with the identifier of the comment on the first
+article. Afterwards send `GET /api/articles/:slug/comments` for the first article.
+**Expected:** Both delete requests are answered with 404, and the comment is still present in the
+first article's comment list.
 
-### C-010 — Registration refuses a request that omits a required field
-**Covers:** R-002, R-003, R-014, R-015, R-016
+### C-017 — A selection that matches nothing is an empty document, not a 404
 
-- **Grouping rationale:** three requests against one validation declaration. R-002 and R-003 are
-  the general shape of a validation failure — status 422, a body whose only key is `errors`,
-  values that are arrays of strings — and they are asserted here rather than in a case of their
-  own because they cannot be observed without a request that fails validation, and these three
-  make one each. A missing presence validator turns one step red; a status mapped elsewhere or an
-  error body of another shape turns all three red. Every reading ends at POST /api/users and what
-  it does with a user it will not accept.
-- **Preconditions:** none.
+**Covers:** R-115, R-123, R-171
 
-**Steps:** POST /api/users three times, each carrying a valid username, email and password except
-one — the first omitting `user.email`, the second `user.username`, the third `user.password`.
-**Expected:** each response has status 422 and a body whose only key is `errors`, whose values
-are arrays of strings, and which carries at least one entry.
+- **Grouping rationale:** one decision taken in three collection handlers: whether an empty result
+  set means the collection is missing. A red on any of them is a handler that treats zero rows as
+  not-found, and the reader goes to the same conditional each time. Kept out of C-015 because
+  that case is about a path that names nothing, while these three name a collection that exists
+  and happens to hold nothing — the two are opposite verdicts on similar-looking requests, and an
+  implementation that confuses them fails exactly one of the pair.
+- **Preconditions:** a registered account that follows nobody; an article by another author with
+  no comments on it; a tag string no article carries.
 
-### C-011 — Registration refuses an email or a username already in use
-**Covers:** R-019, R-020
+**Steps:** Send `GET /api/articles?tag=X` with the unused tag, `GET /api/articles/feed`
+authenticated as the account that follows nobody, and `GET /api/articles/:slug/comments` for the
+article with no comments.
+**Expected:** The first two answer with an empty `articles` array and `articlesCount` of 0; the
+third answers with an empty `comments` array. None of the three is answered with 404.
 
-- **Grouping rationale:** two uniqueness constraints on one model, declared side by side and
-  enforced in one validation pass. A model with no uniqueness rules fails both; a database that
-  enforces uniqueness without translating the violation into a 422 fails both in the same way.
-  They are separable in principle — a schema can be unique on one column and not the other — so
-  the case makes both requests and the failure names the column.
-- **Preconditions:** one registered account whose email and username are known.
+### C-018 — The user document carries its five fields
 
-**Steps:** POST /api/users with that account's email and a fresh username; then POST /api/users
-with that account's username and a fresh email.
-**Expected:** both responses have status 422; the first body carries an `errors.email` entry, the
-second an `errors.username` entry.
+**Covers:** R-018, R-019, R-020
 
-### C-012 — The token from a registration identifies its account
-**Covers:** R-007, R-008, R-021, R-029, R-031
+- **Grouping rationale:** one serializer. The `user` wrapper, the five fields inside it and the
+  admission that `bio` and `image` may be `null` are decided in the same function, and a red on
+  any of them is that function's field list or a type coercion inside it. Every endpoint that
+  returns a User goes through it, so the case reads several of them rather than repeating the
+  assertion in C-026, C-029, C-033 and C-034.
+- **Preconditions:** an account that can be registered, logged in as, read back and updated.
 
-- **Grouping rationale:** one round trip carries all five. The token has to be taken from the
-  registration response (R-008), sent as `Authorization: Token <token>` (R-007), accepted
-  (R-021), resolved to the account it was issued for (R-029) and answered with a full User object
-  (R-031). Break any link and the same request fails: a header nobody reads, a token nobody
-  verifies and a lookup that returns the wrong row are all "the credential does not identify its
-  owner". R-031 repeats R-013's shape check at a second endpoint on purpose, because a second
-  endpoint can serialize differently.
-- **Preconditions:** none; the account is registered inside the case, so the email and username
-  under test are known to be the ones the token was issued for.
+**Steps:** Collect the bodies of `POST /api/users`, `POST /api/users/login`, `GET /api/user` and
+`PUT /api/user` for one account.
+**Expected:** Each body's only top-level key is `user`; that object carries `email`, `token`,
+`username`, `bio` and `image`; the first three are strings; `bio` and `image` are each either a
+string or `null`.
 
-**Steps:** POST /api/users registering a fresh account; take `user.token` from the response; GET
-/api/user carrying `Authorization: Token <that token>`.
-**Expected:** the body carries a `user` object with exactly the five User fields, whose `email`
-and `username` are the ones registered.
+### C-019 — No response carries a password
 
-### C-013 — Login returns the account that owns the email
-**Covers:** R-022, R-028
+**Covers:** R-022
 
-- **Grouping rationale:** one successful login. R-022 is the envelope and R-028 is that the
-  account inside it is the one the email belongs to. A login that answers with no user fails
-  both; a lookup keyed on something other than the email fails R-028 while R-022 stays green —
-  and both send the reader to that lookup. That login needs no credential is C-005's.
-- **Preconditions:** a registered account whose email and password are known.
+- **Grouping rationale:** the soundness half of C-018, and it fails on the opposite mistake. C-018
+  asks whether the five documented fields are there and stays green on a serializer that returns
+  the stored row untouched, which is precisely the serializer that leaks the password. A case
+  that enumerates required fields can never see an extra one; only a case that looks for
+  something that must be absent can.
+- **Preconditions:** an account registered with a known password and then updated with a new one.
 
-**Steps:** POST /api/users/login with that email and that password.
-**Expected:** the body carries a `user` object whose `email` equals the email sent and whose
-`token` is a non-empty string.
+**Steps:** Collect the bodies of `POST /api/users`, `POST /api/users/login`, `GET /api/user` and
+a `PUT /api/user` that sent a new password.
+**Expected:** No key anywhere in any of the four bodies holds either password that was sent, and
+the user object carries no field beyond the five the user document is documented to have.
 
-### C-014 — Login refuses a request that omits a required field
-**Covers:** R-023, R-024
+### C-020 — The profile document carries its four fields
 
-- **Grouping rationale:** login's own required-field declaration, which is not registration's:
-  the two endpoints require different fields in different actions, and one can be validated while
-  the other is not. The 422 status and the errors envelope are already C-010's; what is new here
-  is which fields this endpoint insists on, and a red means this endpoint's list is wrong.
-- **Preconditions:** none.
+**Covers:** R-023, R-024, R-025
 
-**Steps:** POST /api/users/login twice, once without `user.email` and once without
-`user.password`, each carrying the other field.
-**Expected:** each response has status 422 with at least one entry under `errors`.
+- **Grouping rationale:** the profile serializer, which is a different function from C-018's and
+  is reached from three routes. The wrapper key, the four fields and the JSON type of `following`
+  fail together, because all three are that function's output shape; `following` is called out
+  separately in the rules only because a string `"false"` is the mistake this shape invites. What
+  the case does not assert is the value of `following` — that is the caller-relative logic of
+  C-007 and C-008, and it lives elsewhere.
+- **Preconditions:** two registered accounts.
 
-### C-015 — Login issues no token without matching credentials
-**Covers:** R-026, R-027
+**Steps:** Send `GET /api/profiles/:username` anonymously, then
+`POST /api/profiles/:username/follow` and `DELETE /api/profiles/:username/follow` authenticated as
+the other account, and collect all three bodies.
+**Expected:** Each body's only top-level key is `profile`; that object carries `username`, `bio`,
+`image` and `following`; `username` is a string, `bio` and `image` are strings or `null`, and
+`following` is a JSON boolean.
 
-- **Grouping rationale:** one path — find the account by email, compare the password — and the
-  two ways of asking it for something that is not there. An implementation that never performs
-  the comparison hands a token to both requests; one that answers an unknown email with a token
-  has invented an account. Both rules assert the absence of a token rather than a status because
-  the rules record no status for a failed login, and both reds land in the same handler.
-- **Preconditions:** a registered account whose email and password are known.
+### C-021 — The single-article document carries its ten fields and its body
 
-**Steps:** POST /api/users/login with that email and a password that is not the account's; then
-POST /api/users/login with an email that belongs to no account and any password.
-**Expected:** neither response body contains a `user.token`.
+**Covers:** R-026, R-027, R-028, R-029, R-030, R-032, R-033, R-034, R-127
 
-### C-016 — Updating the current user stores what it was given and keeps the rest
-**Covers:** R-033, R-035, R-036
+- **Grouping rationale:** the single-article serializer, top to bottom. The wrapper key, the ten
+  fields, the JSON types of `tagList`, `favorited`, `favoritesCount` and `slug`, the shape of the
+  embedded author and the parseability of the two timestamps are all decisions of that one
+  function, and a red on any of them sends the reader to the same field list. R-127 belongs here
+  rather than with C-023: `body` present on the single document and `body` absent from a list
+  entry are decisions of two different serializers, and this case owns the first.
+- **Preconditions:** an existing article created with at least one tag.
 
-- **Grouping rationale:** one write and one read back. R-033 is the echo in the response, R-035
-  that the value is still there on the next request, R-036 that a field the request never
-  mentioned was left alone. All three are the update action's attribute assignment: a handler
-  that ignores the payload fails the first two, one that assigns the whole object over the record
-  fails the third, and there is a single action to go and read. The password is C-017 because no
-  response shows it, and R-034 is not covered — see `## Not covered`.
-- **Preconditions:** a registered account with a token, a known username and a known email.
+**Steps:** Send `GET /api/articles/:slug` for the article and read the body of the response.
+**Expected:** The only top-level key is `article`; it carries `slug`, `title`, `description`,
+`body`, `tagList`, `createdAt`, `updatedAt`, `favorited`, `favoritesCount` and `author`; `slug`
+is a string, `tagList` is an array of strings, `favorited` is a boolean, `favoritesCount` is a
+number, `createdAt` and `updatedAt` parse as ISO-8601 instants in UTC, and `author` carries
+`username`, `bio`, `image` and `following`.
 
-**Steps:** PUT /api/user with `user.bio` set to a new value and no other field; then GET
-/api/user with the same token.
-**Expected:** the update's `user.bio` is the value sent; the following read's `user.bio` is the
-same value; the `username` and `email` in both are the ones the account already had.
+### C-022 — The multiple-articles document carries its envelope and its entries
 
-### C-017 — A password set through the update becomes the login password
-**Covers:** R-038
+**Covers:** R-037, R-038, R-040
 
-- **Grouping rationale:** the password is the one accepted field of the update whose effect no
-  response shows, so it travels a different write — a digest — and is observed at a different
-  endpoint. C-016 would stay green against a handler that accepted the password and threw it
-  away, and nothing else in this file would notice either.
-- **Preconditions:** a registered account with a token and a known email.
+- **Grouping rationale:** the list serializer, which is not the one C-021 covers. The two-key
+  envelope, the numeric count and the nine fields on each entry come out of it together, and a red
+  says that function. Kept separate from C-021 because an implementation can have a correct
+  single-article document and a list that wraps it wrongly, or a correct envelope around entries
+  that lost half their fields, and neither case would notice the other's failure.
+- **Preconditions:** at least two articles exist, at least one of them carrying a tag.
 
-**Steps:** PUT /api/user with `user.password` set to a new value; then POST /api/users/login with
-the account's email and that new password.
-**Expected:** the login body carries a `user.token`.
+**Steps:** Send `GET /api/articles` and read the body.
+**Expected:** The body's top-level keys are exactly `articles` and `articlesCount`; `articles` is
+an array; `articlesCount` is a JSON number; every entry carries `slug`, `title`, `description`,
+`tagList`, `createdAt`, `updatedAt`, `favorited`, `favoritesCount` and `author`.
 
-### C-018 — The update refuses an email another account already uses
+### C-023 — A listed article carries no body
+
 **Covers:** R-039
 
-- **Grouping rationale:** deliberately not merged into C-011. Uniqueness on create is satisfied
-  by a constraint on the column; uniqueness on update has additionally to exclude the row being
-  written. An implementation that gets create right can still let an update take an address that
-  is taken, or refuse an account its own address, and a red here points at the update action
-  rather than at the model's constraint.
-- **Preconditions:** two registered accounts; the first's email is known, the second holds a
-  token.
-
-**Steps:** PUT /api/user with the second account's token and `user.email` set to the first
-account's email.
-**Expected:** status 422 with an `errors.email` entry.
-
-### C-019 — A profile is readable by username
-**Covers:** R-040, R-041
-
-- **Grouping rationale:** one read and its serializer — that a username addresses a profile, and
-  that the profile carries exactly the four Profile fields. A serializer that leaks the email or
-  drops `image` is the same object as an endpoint that answers with no profile at all, and one
-  request shows both. What `following` holds for an anonymous reader is C-020, because that is a
-  different decision made in a different place.
-- **Preconditions:** a registered account with a known username.
-
-**Steps:** GET /api/profiles/:username.
-**Expected:** the body carries a `profile` object whose keys are exactly `username`, `bio`,
-`image` and `following`, and whose `username` is the one requested.
-
-### C-020 — A reader-relative field is false for a caller the API cannot identify
-**Covers:** R-044, R-068
-
-- **Grouping rationale:** `following` and `favorited` are the only two fields in this API whose
-  value depends on who is asking, and for an anonymous caller there is nobody to ask about. Both
-  rules fail on one mistake made in two serializers — evaluating a relation against a current
-  user that does not exist — and the symptom is the same, a true or a crash. Splitting them would
-  be splitting one decision along the endpoints that happen to expose it.
-- **Preconditions:** a registered account with a known username and at least one article of its
-  own, so both reads return something to inspect.
-
-**Steps:** with no Authorization header, GET /api/profiles/:username and GET
-/api/articles?author=:username.
-**Expected:** `profile.following` is false, and every entry of `articles` has `favorited` false.
-
-### C-021 — Following an author is recorded and survives a re-read
-**Covers:** R-045, R-046, R-048, R-053
-
-- **Grouping rationale:** one write and its readback. R-048 is that the write carries no payload,
-  R-045 that it answers with a profile, R-046 that the profile says following, R-053 that the
-  next read of the same profile still says it. A follow that is answered but not persisted passes
-  the first three and fails the fourth; a follow that is not performed fails from R-046 onward;
-  every one of those reds is the follow action and the relation it is supposed to write.
-- **Preconditions:** two registered accounts; the first's username is known, the second holds a
-  token.
-
-**Steps:** POST /api/profiles/:username/follow with the second account's token and an empty
-request body; then GET /api/profiles/:username with the same token.
-**Expected:** the write's body carries a `profile` object whose `following` is true, and the
-following read's `profile.following` is true as well.
-
-### C-022 — Unfollowing clears the follow
-**Covers:** R-049, R-050
-
-- **Grouping rationale:** the mirror of C-021 at a different handler. Delete is a separate action
-  from create and can be absent or wrong on its own, which is why it is a case and not two more
-  steps of C-021; inside it, the envelope and the `following: false` are one answer to one
-  request and cannot come apart.
-- **Preconditions:** two registered accounts, the second holding a token and already following
-  the first.
-
-**Steps:** DELETE /api/profiles/:username/follow with the second account's token.
-**Expected:** the body carries a `profile` object whose `following` is false.
-
-### C-023 — The article list is a page of author-bearing summaries
-**Covers:** R-054, R-055, R-066
-
-- **Grouping rationale:** one response and the serializer that builds it: the `articles` and
-  `articlesCount` envelope, the absence of `body` on a list entry, and the author rendered as a
-  full Profile. A list that reaches for the single-article serializer fails R-055 and R-066
-  together, because both are exactly the difference between the two serializers. Ordering, paging
-  and filtering are separate queries and have cases of their own.
-- **Preconditions:** at least one article exists; create one so the array is not empty and the
-  assertions are not vacuous.
-
-**Steps:** GET /api/articles.
-**Expected:** the body carries an `articles` array and a numeric `articlesCount`; no entry has a
-`body` key; every entry's `author` has exactly `username`, `bio`, `image` and `following`.
-
-### C-024 — The article list is ordered newest first
-**Covers:** R-056, R-094
-
-- **Grouping rationale:** one ordering clause seen from both ends. R-056 reads a page and checks
-  that `createdAt` never increases down it; R-094 writes an article and checks that it arrives at
-  the front. An ordering clause that is missing or reversed fails both. Asserting only R-056
-  would stay green against a list sorted by an unrelated field that happened to be monotonic;
-  asserting only R-094 would stay green against a list of one.
-- **Preconditions:** a registered account with a token.
-
-**Steps:** POST /api/articles creating one article; POST /api/articles creating a second; GET
-/api/articles?limit=20.
-**Expected:** the `createdAt` values of the entries are in non-increasing order, and the second
-article appears at a lower index than the first.
-
-### C-025 — A list filter excludes the articles that do not match it
-**Covers:** R-058, R-059, R-060
-
-- **Grouping rationale:** the three filters are one dispatch over the query parameters, and the
-  failure they share is the one that matters — the parameter is read and the collection comes
-  back unfiltered. Each step names a subject created inside this case: a tag no other article
-  carries, an author registered here, a favorite made here. The expected result is therefore
-  exactly one known article, and an unfiltered answer is visible at once. That a filter also
-  finds what it should is the other direction and is C-026.
-- **Preconditions:** a registered account with a token and a known username; one article created
-  by it carrying a tag string unique to this run; that article favorited by that account.
-
-**Steps:** GET /api/articles?tag=:tag; GET /api/articles?author=:username; GET
-/api/articles?favorited=:username.
-**Expected:** every entry of the first response carries that tag in its `tagList`; every entry of
-the second has `author.username` equal to that username; every entry of the third is the article
-that account favorited.
-
-### C-026 — A favorite is visible to the favorited filter
-**Covers:** R-134
-
-- **Grouping rationale:** the completeness direction of the filter C-025 checks for soundness.
-  The two fail apart: a filter that ignores its parameter returns everything, which is red in
-  C-025 and green here; a filter joined against the wrong relation returns nothing, which is
-  green in C-025 and red here. This one also depends on the Favorite endpoint having done
-  something, which C-025's tag and author steps do not.
-- **Preconditions:** two registered accounts; an article created by the first; the second holds a
-  token and a known username.
-
-**Steps:** POST /api/articles/:slug/favorite with the second account's token; then GET
-/api/articles?favorited=:username naming the second account.
-**Expected:** the `articles` array contains an entry whose `slug` is that article's.
-
-### C-027 — limit and offset cut a page out of the list
-**Covers:** R-061, R-063, R-065
-
-- **Grouping rationale:** one limit-and-offset clause. R-061 is that the page is capped, R-063
-  that the offset skips from the front of the same query, R-065 that the count accompanying a
-  page is never smaller than the page. A clause that is not applied fails R-061 and R-063
-  together; a count computed after the cut rather than before fails R-065 alone — still the same
-  query object and the same place to read. The steps run against a tag no other article carries,
-  so "the same query without the offset" names a set this case created and nobody else is writing
-  to. The two default values are not covered — see `## Not covered`.
-- **Preconditions:** a registered account with a token; three articles created by it one after
-  another, all carrying one tag string unique to this run.
-
-**Steps:** GET /api/articles?tag=:tag; GET /api/articles?tag=:tag&limit=2; GET
-/api/articles?tag=:tag&offset=1.
-**Expected:** the unrestricted response lists the three articles; the limited response holds at
-most two entries; the offset response's first entry is the second entry of the unrestricted one;
-and in every one of the three, `articlesCount` is greater than or equal to the length of its own
-`articles` array.
-
-### C-028 — Timestamps are ISO-8601 in UTC
-**Covers:** R-067
-
-- **Grouping rationale:** the timestamp format is one serializer setting, shared by articles and
-  comments and independent of every value it prints: a list can be ordered correctly and an
-  update can move `updatedAt` while both are rendered as epoch seconds, and C-024, C-036 and
-  C-041 would all stay green. Nothing else in this file looks at the shape of a timestamp.
-- **Preconditions:** a registered account with a token; one article created by it, carrying one
-  comment.
-
-**Steps:** GET /api/articles/:slug; GET /api/articles/:slug/comments.
-**Expected:** the `createdAt` and `updatedAt` of the article and of the comment all end in `Z`,
-match an ISO-8601 timestamp, and parse to a valid date.
-
-### C-029 — The feed carries nothing from an author the caller does not follow
-**Covers:** R-070, R-071, R-074, R-075
-
-- **Grouping rationale:** one query with one join. R-075 is R-071's limiting case — a caller who
-  follows nobody is a caller for whom every author is unfollowed — so a feed that ignores the
-  join fails both, one by returning articles to an empty follow set and the other by returning
-  strangers' articles. R-070 and R-074 are the envelope and the summary serializer, which the
-  feed shares with the list; they are asserted here because this is the only response that shows
-  the feed's own copy of them, and a feed that answers with single articles has drifted from the
-  list at exactly one place.
-- **Preconditions:** two registered accounts, the second holding a token and following nobody; at
-  least one article created by the first, whose username is known.
-
-**Steps:** GET /api/articles/feed with the second account's token; then POST
-/api/profiles/:username/follow naming the first account; then GET /api/articles/feed again.
-**Expected:** both bodies carry an `articles` array and a numeric `articlesCount`; the first
-array is empty and its count is 0; every entry of the second has `author.username` equal to the
-followed account's; no entry of either has a `body` key.
-
-### C-030 — An article by a followed author reaches the feed
-**Covers:** R-076
-
-- **Grouping rationale:** the completeness direction of C-029. A feed whose join returns nothing
-  at all is green throughout C-029 — an empty page satisfies both "nothing from a stranger" and
-  "empty when following nobody" — and only this case notices. It also depends on the follow and
-  the creation having taken effect, which C-029's first step does not.
-- **Preconditions:** two registered accounts with tokens, the second already following the first.
-
-**Steps:** POST /api/articles with the first account's token; then GET /api/articles/feed with
-the second account's token.
-**Expected:** the `articles` array contains an entry whose `slug` is the created article's.
-
-### C-031 — The feed is ordered and paginated like the list
-**Covers:** R-072, R-073
-
-- **Grouping rationale:** the feed's query is the list's query with a join added, so its ordering
-  clause and its limit are a second copy of the same two clauses and drift together when that
-  copy is edited. They are not part of C-029 because that case asserts membership only and would
-  stay green with the order reversed and the limit ignored.
-- **Preconditions:** two registered accounts, the second holding a token and following the first;
-  two articles created by the first one after another.
-
-**Steps:** GET /api/articles/feed with the second account's token; then GET
-/api/articles/feed?limit=1 with the same token.
-**Expected:** the `createdAt` values of the first response are in non-increasing order and the
-newer of the two articles precedes the older; the second response holds at most one entry.
-
-### C-032 — An article is fetched whole by the slug its creation returned
-**Covers:** R-077, R-078, R-081, R-089
-
-- **Grouping rationale:** one read of one article. R-089 is that the slug the creation handed back
-  is an address that works, R-077 that the address answers with an article envelope, R-081 that
-  the object carries exactly the ten Article fields, R-078 that `body` is among them and is a
-  string. A slug that does not resolve, a missing envelope and a serializer that dropped `body`
-  are three steps of one failure to hand back what was stored. R-081 is read here as governing
-  the single-article response only: list entries are required to lack `body` by R-055, so the
-  rule cannot govern both — see `## Open questions`.
-- **Preconditions:** a registered account with a token; an article created by it whose title and
-  returned slug are known.
-
-**Steps:** GET /api/articles/:slug using the slug from the creation response.
-**Expected:** the body carries an `article` object whose keys are exactly `slug`, `title`,
-`description`, `body`, `tagList`, `createdAt`, `updatedAt`, `favorited`, `favoritesCount` and
-`author`; `body` is a string; `title` is the title that was created.
-
-### C-033 — Two articles with one title get two slugs
-**Covers:** R-090
-
-- **Grouping rationale:** it is the slug generator's collision handling and nothing else
-  exercises it: every other case here creates titles that do not repeat and would stay green
-  against a generator that returns the same slug twice — or against one that refuses the second
-  article outright, which is the other way this can be wrong.
-- **Preconditions:** a registered account with a token.
-
-**Steps:** POST /api/articles twice with the same `article.title` and no other difference.
-**Expected:** both responses carry an `article` object, and their `slug` values differ.
-
-### C-034 — Creating an article returns the article the caller sent
-**Covers:** R-082, R-086, R-087, R-091, R-092, R-093
-
-- **Grouping rationale:** the create action and its serializer, in two requests. R-082 is the
-  envelope, R-087 that the tags sent came back, R-091 that the author is the caller and not
-  whoever the payload named, R-092 and R-093 the two favorite fields an article nobody has seen
-  must start at. R-086 needs the second request, the one without `tagList`, and belongs here
-  because "the field is optional" and "the field comes back as sent" are the same argument about
-  the same field. A handler that drops the payload fails every line; a serializer that takes the
-  author from the payload fails R-091 alone; both live in the create action.
-- **Preconditions:** a registered account with a token and a known username.
-
-**Steps:** POST /api/articles with a title, description, body and a `tagList` of two tags; then
-POST /api/articles with a title, description and body and no `tagList`.
-**Expected:** both responses carry an `article` object and neither is a 422; the first article's
-`tagList` contains both tags sent; in both, `author.username` is the caller's username,
-`favoritesCount` is 0 and `favorited` is false.
-
-### C-035 — Creating an article refuses a request that omits a required field
-**Covers:** R-083, R-084, R-085
-
-- **Grouping rationale:** the article model's presence validators — three fields declared
-  together and enforced in one pass, the same shape as C-010 at a different model. The 422 status
-  and the errors envelope belong to C-010; what is under test here is which fields this endpoint
-  insists on, and a red means this model's declaration is short one.
-- **Preconditions:** a registered account with a token.
-
-**Steps:** POST /api/articles three times with a valid article except one field — the first
-without `article.title`, the second without `article.description`, the third without
-`article.body`.
-**Expected:** each response has status 422 with at least one entry under `errors`.
-
-### C-036 — Updating an article changes the fields it was given and keeps the rest
-**Covers:** R-095, R-096, R-099, R-103
-
-- **Grouping rationale:** one write. R-096 is that a one-field payload is accepted, R-095 that the
-  response carries the value written, R-099 that the field left out kept what it had, R-103 that
-  `updatedAt` moved. All four are the update action's assignment: one that ignores the payload
-  fails the first two, one that assigns over the whole record fails R-099, one that writes
-  without touching the timestamp fails R-103, and there is a single action to read. The slug's
-  reaction to a new title is C-037, because it is the one consequence that leaves this endpoint.
-- **Preconditions:** a registered account with a token; an article created by it whose slug,
-  description and `updatedAt` are known.
-
-**Steps:** PUT /api/articles/:slug with `article.title` set to a new value and no other field.
-**Expected:** the response is not a 422; its `article.title` is the value sent; its
-`article.description` is the description the article already had; its `article.updatedAt` is
-later than the value recorded before the request.
-
-### C-037 — Changing the title moves the article to a new slug
-**Covers:** R-097, R-098
-
-- **Grouping rationale:** one fact seen from both ends. The slug is the article's address and the
-  update regenerates it from the title, so a new address that works and an old address that
-  stopped working are the same move. A generator that never runs leaves the response's slug equal
-  to the path's and the old address still resolving, which is both rules red at once. They part
-  only for an implementation that keeps old slugs as aliases, which would be R-098 alone; the
-  rules do not allow that, and this case says so by asserting the 404.
-- **Preconditions:** a registered account with a token; an article created by it whose slug is
-  known.
-
-**Steps:** PUT /api/articles/:slug with a new `article.title`; then GET /api/articles/:slug using
-the slug from the request path; then GET /api/articles/:slug using the slug the update returned.
-**Expected:** the update's `article.slug` differs from the slug in the request path; the read of
-the old slug has status 404; the read of the new slug returns the article.
-
-### C-038 — A deleted article is gone and the deletion returns no article
-**Covers:** R-104, R-108
-
-- **Grouping rationale:** one request and its consequence. R-108 reads the delete response and
-  R-104 the read that follows it. A handler that answers with the article it was asked to remove
-  is the same handler as one that answers and removes nothing — both are a delete that behaved
-  like a read — and this pair of steps separates them without needing a second case.
-- **Preconditions:** a registered account with a token; an article created by it.
-
-**Steps:** DELETE /api/articles/:slug with the author's token; then GET /api/articles/:slug.
-**Expected:** the delete response body contains no `article` object; the read has status 404.
-
-### C-039 — Adding a comment returns the caller's Comment
-**Covers:** R-109, R-110, R-113, R-123
-
-- **Grouping rationale:** one write and its serializer. R-109 is the envelope, R-110 the five
-  fields, R-123 that `id` is a JSON number and not a quoted string, R-113 that the author is the
-  caller. A serializer that stringifies the identifier and one that omits `author` are the same
-  object; R-113 sits here rather than alone because the only way it goes red without R-110 going
-  red is an author taken from the payload, which is still this create action.
-- **Preconditions:** two registered accounts; an article created by the first; the second holds a
-  token and a known username.
-
-**Steps:** POST /api/articles/:slug/comments with the second account's token and a
-`comment.body`.
-**Expected:** the body carries a `comment` object whose keys are exactly `id`, `createdAt`,
-`updatedAt`, `body` and `author`; `id` is a JSON number; `body` is the text sent;
-`author.username` is the second account's username.
-
-### C-040 — A comment requires a body
-**Covers:** R-111
-
-- **Grouping rationale:** the comment model's only validator. It is separate from C-039 because a
-  create action that stores what it was given and a create action that refuses what it was not
-  are different halves of the handler: C-039 stays green when the validator is missing, and this
-  stays green when the serializer is broken.
-- **Preconditions:** a registered account with a token; an article whose slug is known.
-
-**Steps:** POST /api/articles/:slug/comments with the token and an empty `comment` object.
-**Expected:** status 422 with at least one entry under `errors`.
-
-### C-041 — An article's comment list holds exactly the comments it has
-**Covers:** R-114, R-116, R-118, R-119
-
-- **Grouping rationale:** one list read three times, around the writes that change it. R-118 is
-  the list of a fresh article, R-116 the list after a comment was added, R-119 the list after it
-  was removed, R-114 the envelope all three use. Every one of them is the same index action and
-  the association it reads: an association not scoped to the article fails R-118 and R-116 alike,
-  and a delete that does not delete fails R-119 while the rest stay green — still in the same
-  controller. The 404 for an unknown slug is C-006 and the ownership check is C-008.
-- **Preconditions:** a registered account with a token; an article created by it that carries no
-  comments yet.
-
-**Steps:** GET /api/articles/:slug/comments; POST /api/articles/:slug/comments with a body,
-keeping the returned identifier; GET the comments again; DELETE
-/api/articles/:slug/comments/:id with the author's token; GET the comments a third time.
-**Expected:** every body's only key is `comments` and it holds an array; the first array is
-empty; the second contains an entry whose `id` is the returned one; the third does not.
-
-### C-042 — Favoriting marks the article and raises its count
-**Covers:** R-124, R-125, R-126, R-128
-
-- **Grouping rationale:** one write. R-128 is that it carries no payload, R-124 the envelope,
-  R-125 that the article now reports itself favorited to this caller, R-126 that
-  `favoritesCount` went up by exactly one. A handler that records nothing fails R-125 and R-126
-  together; one that records the favorite twice fails R-126 alone; both are the same relation
-  write. What the list filter makes of the same favorite is C-026, because that is another query.
-- **Preconditions:** two registered accounts; an article created by the first, whose
-  `favoritesCount` is known; the second holds a token.
-
-**Steps:** POST /api/articles/:slug/favorite with the second account's token and an empty request
-body.
-**Expected:** the body carries an `article` object; its `favorited` is true; its
-`favoritesCount` is one greater than the value recorded before the request.
-
-### C-043 — Unfavoriting clears the mark and lowers the count
-**Covers:** R-129, R-130, R-131
-
-- **Grouping rationale:** the mirror of C-042 at a different handler, which can be absent or
-  wrong on its own; inside it the envelope, the flag and the decrement are one answer to one
-  request and cannot come apart.
-- **Preconditions:** two registered accounts; an article created by the first and already
-  favorited by the second, whose `favoritesCount` is then known; the second holds a token.
-
-**Steps:** DELETE /api/articles/:slug/favorite with the second account's token.
-**Expected:** the body carries an `article` object; its `favorited` is false; its
-`favoritesCount` is one smaller than the value recorded before the request.
-
-### C-044 — The tag endpoint returns an array of strings
-**Covers:** R-135, R-137
-
-- **Grouping rationale:** one response and its shape — a body whose only key is `tags`, holding an
-  array, whose entries are strings rather than objects. An endpoint that serializes tag records
-  instead of tag names fails both rules in the same breath, and there is one serializer to go and
-  read.
-- **Preconditions:** at least one article carrying at least one tag exists; create one so the
-  array is not empty and the assertion about its entries is not vacuous.
-
-**Steps:** GET /api/tags.
-**Expected:** the body's only key is `tags`; it holds an array; every entry is a JSON string.
-
-### C-045 — A tag introduced by a new article becomes a known tag
-**Covers:** R-138
-
-- **Grouping rationale:** C-044 reads the tag list and would stay green against a list that never
-  grows; this is the only place the write side of tags is exercised, and it is a different piece
-  of code — the create action's handling of `tagList` — from the endpoint that lists them.
-- **Preconditions:** a registered account with a token.
-
-**Steps:** POST /api/articles with a `tagList` holding one tag string unique to this run; then
-GET /api/tags.
-**Expected:** the `tags` array contains that tag.
+- **Grouping rationale:** the soundness half of C-022 and the one assertion that case structurally
+  cannot make. C-022 checks that nine named fields are present and is green on a list handler that
+  returns whole articles; only a check for an absent field catches that. It is worth its own case
+  because the mistake is the commonest one here — reusing the single-article serializer for the
+  list — and because it has to be observed on both list endpoints, which C-022 does not visit.
+- **Preconditions:** a registered account that follows an author who has at least one article, so
+  that the feed is not empty.
+
+**Steps:** Send `GET /api/articles` anonymously and `GET /api/articles/feed` authenticated as
+that account.
+**Expected:** No entry of the `articles` array of either response carries a `body` field.
+
+### C-024 — The comment documents carry their fields and their envelopes
+
+**Covers:** R-041, R-042, R-043, R-045
+
+- **Grouping rationale:** the comment serializer and the two wrappers it is placed in. The single
+  document's `comment` key, the list's `comments` key, the five fields and the numeric identifier
+  are one function plus the two callers that wrap its output, and a red on any of them lands on
+  that function's field list. The identifier's type is grouped in rather than split out because
+  a string identifier is the same serializer bug as a missing field, not a different one — what
+  the identifier can be used for is C-078's business.
+- **Preconditions:** an article with at least one comment on it.
+
+**Steps:** Collect the body of the `POST /api/articles/:slug/comments` that created the comment
+and the body of a later `GET /api/articles/:slug/comments` for the same article.
+**Expected:** The first body's only top-level key is `comment`; the second's is `comments`,
+holding an array. Every comment object carries `id`, `createdAt`, `updatedAt`, `body` and
+`author`, with `id` a JSON number, `body` a string and `author` carrying the four profile fields.
+
+### C-025 — The tags document is an array of strings under one key
+
+**Covers:** R-046, R-047, R-195
+
+- **Grouping rationale:** the smallest serializer in the API, and all three rules are the same
+  statement about it — that the endpoint answers, that the answer's single key is `tags`, and that
+  the value is an array of strings. There is no way for one of the three to be red while the other
+  two are green, so splitting them would be three readings of one line. What the tag list
+  contains is C-066 and C-067; this case is only its shape.
+- **Preconditions:** at least one article carrying at least one tag exists.
+
+**Steps:** Send `GET /api/tags` with no `Authorization` header.
+**Expected:** The body's only top-level key is `tags`, its value is an array, and every entry of
+that array is a string.
+
+### C-026 — Login with an account's credentials answers with that account
+
+**Covers:** R-048, R-050, R-053
+
+- **Grouping rationale:** the login success path. The endpoint reads a `user`-wrapped body,
+  verifies it and answers with a User document for the account that was named; a red on any of the
+  three is that handler — an unwrapped body it cannot read, a refusal where it should succeed, or
+  a document describing somebody else. R-053 is grouped in rather than split out because it is
+  what makes the response the right one, and the handler that would return the wrong account is
+  the same handler.
+- **Preconditions:** two registered accounts with known credentials.
+
+**Steps:** Send `POST /api/users/login` with a body whose single top-level key is `user`, holding
+the first account's email and password.
+**Expected:** The request is carried out and answers with a user document whose `email` is the
+email that was sent, and which is not the second account's.
+
+### C-027 — Login refuses a body with no email or no password
+
+**Covers:** R-051, R-052
+
+- **Grouping rationale:** the login validator, one function with two required fields. A red on
+  either means that function is not checking presence, and the reader goes to the same list of
+  required names. Separate from C-028 because a missing field and a wrong value are decided at
+  different moments — the validator runs before anything is looked up — and an implementation
+  that treats an absent password as an empty one fails here while passing there.
+- **Preconditions:** none.
+
+**Steps:** Send `POST /api/users/login` with a `user` object holding only a password, then with a
+`user` object holding only an email.
+**Expected:** Both are answered with 422 and an `errors` envelope, and neither returns a user
+document.
+
+### C-028 — Login refuses an unknown email and a wrong password
+
+**Covers:** R-055, R-056
+
+- **Grouping rationale:** the credential check, which runs after C-027's validator has passed.
+  Both rules are the same verdict reached by the two branches of one comparison — no such account,
+  or an account whose stored secret does not match — and the rules deliberately state only that
+  no user document comes back, because the specification never says which status a failed login
+  carries. A red on either is that check being skipped or inverted, which is the same defect
+  whichever branch exposed it.
+- **Preconditions:** a registered account with a known password.
+
+**Steps:** Send `POST /api/users/login` with an email no account holds and any password, then
+with the registered account's email and a password that is not its own.
+**Expected:** Neither response is a success, and neither body carries a `user` key.
+
+### C-029 — Registration creates and echoes the account it was given
+
+**Covers:** R-057, R-059, R-063, R-065
+
+- **Grouping rationale:** the registration success path. The `user`-wrapped body, the User
+  document that comes back, the username and email being the ones that were sent and the two
+  fields registration cannot set coming back as `null` are all the same handler's doing. R-065 sits
+  here rather than in C-018 because C-018 accepts a string or `null` for `bio` and `image` by
+  R-020, and only at the moment of creation is `null` the required value.
+- **Preconditions:** a username and an email no account holds.
+
+**Steps:** Send `POST /api/users` with a body whose single top-level key is `user`, holding the
+username, the email and a password.
+**Expected:** The request is carried out and answers with a user document whose `username` and
+`email` are the values that were sent, and whose `bio` and `image` are both `null`.
+
+### C-030 — Registration refuses a body missing a required field
+
+**Covers:** R-060, R-061, R-062
+
+- **Grouping rationale:** the registration validator, one function with three required fields. A
+  red on any of the three is the same list of required names, and which of the three was omitted
+  tells the reader nothing extra. Held apart from C-031, whose refusal comes from a uniqueness
+  lookup rather than from a presence check, and which an implementation can get wrong while this
+  one is green.
+- **Preconditions:** none.
+
+**Steps:** Send `POST /api/users` three times, each with a `user` object holding two of the three
+required fields and omitting the third.
+**Expected:** Each of the three is answered with 422 and an `errors` envelope, and no account is
+created.
+
+### C-031 — Registration refuses an email or a username another account holds
+
+**Covers:** R-066, R-067
+
+- **Grouping rationale:** the uniqueness constraint at creation, over the two columns the rest of
+  the API addresses accounts by. A red on either means the constraint is missing or is checked
+  only on one column, and the reader goes to the same lookup. The consequence is what makes them
+  one case: a second holder of either value makes login ambiguous and the profile path ambiguous,
+  so the two rules are one requirement seen from two endpoints.
+- **Preconditions:** a registered account whose username and email are known.
+
+**Steps:** Send `POST /api/users` with the existing account's email and a fresh username, then
+with a fresh email and the existing account's username.
+**Expected:** Both are answered with 422 and an `errors` envelope, and neither creates an account.
+
+### C-032 — The credentials a registration was given log in afterwards
+
+**Covers:** R-068
+
+- **Grouping rationale:** the only rule that crosses registration and login, and it fails where
+  neither C-026 nor C-029 looks. C-029 reads the registration response and never presents the
+  password again; C-026 uses an account that already exists and says nothing about how it came to.
+  A registration that stores the password in a form the login comparison cannot reproduce is green
+  on both and red only here, and the diagnosis is the shared password handling rather than either
+  endpoint.
+- **Preconditions:** none.
+
+**Steps:** Send `POST /api/users` with a fresh username, email and password, then send
+`POST /api/users/login` with that same email and password.
+**Expected:** The login is carried out and answers with a user document whose `email` and
+`username` are the ones the registration was given.
+
+### C-033 — The current-user endpoint reports what the account holds
+
+**Covers:** R-069, R-071
+
+- **Grouping rationale:** one read handler. R-069 is that it answers with the caller's document
+  and R-071 is that the values in it are the current ones rather than a snapshot; both are the
+  same query being right. Separated from C-036, which asserts that a write persisted: a read that
+  serves a stale cache fails here on values nothing else changed, while an update that never
+  committed fails there — the two reds point at the read side and the write side respectively.
+- **Preconditions:** a registered account holding a token, whose bio has been set to a known
+  value.
+
+**Steps:** Send `GET /api/user` with that account's token.
+**Expected:** The response is the user document of that account, carrying the `email`, `username`
+and `bio` the account currently holds, including the bio that was set.
+
+### C-034 — An update reports the fields it was sent
+
+**Covers:** R-072, R-074, R-075, R-076
+
+- **Grouping rationale:** the update handler's success path and the completeness half of its merge.
+  The `user`-wrapped body, the five accepted names, the User document that comes back and the new
+  values inside it are one function; a field that is silently dropped and a field the handler does
+  not recognise are the same red. What this case cannot see is a merge that overwrites the fields
+  it was not given, which is why C-035 exists.
+- **Preconditions:** a registered account holding a token, with known current values.
+
+**Steps:** Send `PUT /api/user` with a body whose single top-level key is `user`, holding new
+values for all five accepted fields.
+**Expected:** The response is a user document for the same account carrying the new `email`,
+`username`, `bio` and `image` that were sent.
+
+### C-035 — An update leaves the fields it was not sent alone
+
+**Covers:** R-077, R-084
+
+- **Grouping rationale:** the soundness half of C-034's merge, and the two rules are its ordinary
+  and its extreme case. An implementation that assigns the whole `user` object over the stored
+  record clears every omitted field and stays green on C-034, which only ever looks at what it
+  sent. R-084 belongs with R-077 rather than with C-030: an empty update is the same merge with
+  nothing in it, and a 422 for it would mean the handler has invented a required field.
+- **Preconditions:** a registered account holding a token, whose bio and image are set to known
+  values.
+
+**Steps:** Send `PUT /api/user` carrying only a new email, then send `PUT /api/user` with a `user`
+object carrying none of the accepted fields, then send `GET /api/user`.
+**Expected:** The first response keeps the account's previous username, bio and image. The second
+is carried out rather than answered with 422 and returns the document unchanged. The final read
+shows the new email and the untouched bio and image.
+
+### C-036 — An update outlives the request that made it
+
+**Covers:** R-078
+
+- **Grouping rationale:** the write half of the update, which C-034 and C-035 both miss because
+  they read only the response the writing request returned. A handler that renders the merged
+  document and never commits is green on both and red only when a later request under a fresh
+  connection asks again. The diagnosis is the persistence layer, not the merge.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Send `PUT /api/user` with a new bio and a new image, then send `GET /api/user` as the
+same account in a later request.
+**Expected:** The later read reports the bio and the image the update sent.
+
+### C-037 — A new password logs in
+
+**Covers:** R-079
+
+- **Grouping rationale:** the completeness half of a password change. It is the only rule under
+  which changing `password` has any observable effect at all, since C-019 forbids the value from
+  ever appearing in a response. It fails independently of C-038: an implementation that writes the
+  new secret without retiring the old one is green here and red there, and one that clears the
+  stored secret entirely is red here and green there.
+- **Preconditions:** a registered account holding a token and a known current password.
+
+**Steps:** Send `PUT /api/user` with a new password, then send `POST /api/users/login` with the
+account's email and that new password.
+**Expected:** The login is carried out and answers with a user document for the same account.
+
+### C-038 — The replaced password stops logging in
+
+**Covers:** R-080
+
+- **Grouping rationale:** the soundness half of C-037, and the one a single successful login can
+  never establish. An implementation that appends credentials rather than replacing them, or that
+  writes the new secret to a second column the login check also consults, passes C-037 and leaves
+  the retired password working; only a login that must fail shows it. The red points at the write,
+  not at the login comparison C-028 covers.
+- **Preconditions:** the same account as C-037, immediately after its password was changed.
+
+**Steps:** Send `POST /api/users/login` with the account's email and the password it held before
+the update.
+**Expected:** The response is not a success and carries no `user` key.
+
+### C-039 — A new username moves the profile address
+
+**Covers:** R-081
+
+- **Grouping rationale:** the only rule that ties the user record to the profile route, and it
+  fails where C-034 and C-036 cannot look. Both of those read `GET /api/user`, which is addressed
+  by token and would keep working if the profile index were never updated; the profile is
+  addressed by name, so a stale index leaves the account reachable under one address and not the
+  other. A red here is that index or the join behind it.
+- **Preconditions:** a registered account holding a token, and a fresh username no account holds.
+
+**Steps:** Send `PUT /api/user` with the new username, then send `GET /api/profiles/:username`
+under the new name.
+**Expected:** The request is carried out and answers with that account's profile, whose
+`username` is the new name.
+
+### C-040 — An update refuses an email or a username another account holds
+
+**Covers:** R-082, R-083
+
+- **Grouping rationale:** the same uniqueness requirement as C-031 enforced on a different code
+  path. Creation and modification are two handlers and the constraint is commonly written into
+  only one of them, so C-031 staying green says nothing about this; conversely an update guard is
+  useless if creation lets a duplicate in. The two rules share a case because one lookup covers
+  both columns and a red on either is that lookup being absent from the update path.
+- **Preconditions:** two registered accounts, the second holding a token, with the first's email
+  and username known.
+
+**Steps:** Authenticated as the second account, send `PUT /api/user` with the first account's
+email, then send `PUT /api/user` with the first account's username.
+**Expected:** Both are answered with 422 and an `errors` envelope, and the second account keeps
+its own email and username.
+
+### C-041 — A profile answers for the username the path named
+
+**Covers:** R-085, R-087
+
+- **Grouping rationale:** the profile read handler and its lookup. R-085 is that a known username
+  produces a Profile and R-087 is that it produces the right one; the second is what makes the
+  first worth anything, and both are the same query keyed on the path segment. An implementation
+  that answers with the authenticated caller's own profile regardless of the path is red on R-087
+  while green on R-085, and both reds are that query.
+- **Preconditions:** two registered accounts with distinct usernames.
+
+**Steps:** Send `GET /api/profiles/:username` for the first account, then for the second.
+**Expected:** Each response's `profile.username` equals the username in the path that was
+requested, and the two responses differ.
+
+### C-042 — Following returns the profile with the relationship it just made
+
+**Covers:** R-091, R-093, R-094
+
+- **Grouping rationale:** the follow handler's response. That it takes no body, that it answers
+  with a Profile and that the profile reports `following` as `true` are one function's contract:
+  a red on any of them is that handler, whether it demanded a parameter, returned nothing, or
+  serialized the state as it stood before its own write. Held apart from C-044, which asks whether
+  anything was written at all.
+- **Preconditions:** two registered accounts, the first holding a token, not yet following the
+  second.
+
+**Steps:** Authenticated as the first account, send `POST /api/profiles/:username/follow` for the
+second account, with no request body and no query parameter.
+**Expected:** The request is carried out and answers with the second account's profile, whose
+`username` is the one in the path and whose `following` is `true`.
+
+### C-043 — Unfollowing returns the profile with the relationship it just ended
+
+**Covers:** R-098, R-100, R-101
+
+- **Grouping rationale:** the mirror of C-042 in a different handler. It is not grouped with
+  C-042 because the two are separate methods on the route and commonly separate functions: one
+  writes a relationship and one removes it, and an implementation that gets the write right can
+  still return a stale `true` from the delete. The three rules within it are one contract for the
+  same reason they are in C-042.
+- **Preconditions:** two registered accounts, the first holding a token and currently following
+  the second.
+
+**Steps:** Authenticated as the first account, send `DELETE /api/profiles/:username/follow` for
+the second account, with no request body and no query parameter.
+**Expected:** The request is carried out and answers with the second account's profile, whose
+`following` is `false`.
+
+### C-044 — The follow relationship outlives the requests that change it
+
+**Covers:** R-095, R-102
+
+- **Grouping rationale:** the store behind the follow, read back through an endpoint that did not
+  write it. C-042 and C-043 read only what the writing request returned and are both green on a
+  handler that renders the intended state without committing. Both directions share a case because
+  the reader goes to the same table either way — a follow that was not inserted and an unfollow
+  that was not deleted are both that store failing to record the request — and a single sequence
+  observes both.
+- **Preconditions:** two registered accounts, the first holding a token and not following the
+  second.
+
+**Steps:** Authenticated as the first account, follow the second, then send
+`GET /api/profiles/:username` for the second. Then unfollow the second and send
+`GET /api/profiles/:username` for it again.
+**Expected:** The first read reports `following` as `true` and the second reports it as `false`.
+
+### C-045 — A follow runs one way
+
+**Covers:** R-097
+
+- **Grouping rationale:** the soundness of the relationship's direction, and no other case can see
+  it. C-042, C-043 and C-044 all read the relationship from the follower's side, where a
+  symmetric implementation looks perfectly correct; only a read from the followed account's side
+  shows that a second row was written or that the lookup ignores which column is which. The red
+  points at the direction of the stored pair, not at whether it was stored.
+- **Preconditions:** two registered accounts, both holding tokens, with the first following the
+  second and the second following nobody.
+
+**Steps:** Authenticated as the second account, send `GET /api/profiles/:username` for the first
+account.
+**Expected:** The response reports `following` as `false`.
+
+### C-046 — The unfiltered list draws from every article
+
+**Covers:** R-104, R-107
+
+- **Grouping rationale:** the default selection of the list endpoint. R-104 is that it answers
+  with a multiple-articles document and R-107 is that the document is drawn globally; a red on
+  either means the base query is wrong — no rows, or rows narrowed by something nobody asked for,
+  such as the caller's own authorship. Kept out of C-022, which reads the shape of whatever came
+  back and is green on a list that silently excludes half the articles.
+- **Preconditions:** two registered accounts, each having created at least one article.
+
+**Steps:** Send `GET /api/articles` with no query parameter and no `Authorization` header.
+**Expected:** The response is a multiple-articles document, and both accounts' articles are among
+its entries.
+
+### C-047 — Both article listings are ordered newest first
+
+**Covers:** R-106, R-120
+
+- **Grouping rationale:** one ordering clause. The feed is the list query with a follow condition
+  added, and the specification words the two requirements identically; a red on either is the sort
+  going missing or inverting, and the reader goes to the same expression. This is the grouping in
+  this file most likely to be wrong — if the two endpoints are built by separate query builders,
+  one can be sorted and the other not, and a single case would name the wrong one.
+- **Preconditions:** a registered account following an author who has created at least three
+  articles in a known order.
+
+**Steps:** Send `GET /api/articles?author=X` for that author anonymously, then
+`GET /api/articles/feed` authenticated as the follower.
+**Expected:** In each response, the `createdAt` of every entry is no earlier than the `createdAt`
+of the entry after it.
+
+### C-048 — The tag filter excludes an article that does not carry the tag
+
+**Covers:** R-108
+
+- **Grouping rationale:** the soundness half of the tag clause. A filter that is ignored
+  altogether returns everything, including articles with no such tag, and a case that only checks
+  that the expected articles are present cannot see it — the expected articles are present in an
+  unfiltered list too. The red is the `WHERE` clause missing; C-049's red is the same clause being
+  too narrow, and no single response distinguishes them.
+- **Preconditions:** two articles, the first carrying a tag no other article carries and the
+  second carrying a different tag.
+
+**Steps:** Send `GET /api/articles?tag=X` with the first article's exclusive tag.
+**Expected:** Every entry of the `articles` array carries `X` in its `tagList`, and the second
+article's slug is not among them.
+
+### C-049 — The tag filter returns every article that carries the tag
+
+**Covers:** R-108
+
+- **Grouping rationale:** the completeness half of the same clause, and the failure C-048 is
+  structurally blind to: a filter that matches nothing, or that matches on an exact tag list
+  rather than on membership, returns an empty array in which every entry trivially carries the
+  tag. C-048 is green on that. Splitting the rule is the whole point — the two reds are opposite
+  errors in one expression and a test that inspects only what came back cannot tell them apart.
+- **Preconditions:** two articles by different authors, both carrying one tag that no other
+  article carries.
+
+**Steps:** Send `GET /api/articles?tag=X` with the shared tag.
+**Expected:** Both articles' slugs appear among the entries.
+
+### C-050 — The author filter excludes another author's article
+
+**Covers:** R-109
+
+- **Grouping rationale:** the soundness half of the author clause, which is a different clause
+  from C-048's — it joins the article to its author and compares a username rather than searching
+  a list. A red here is that join missing or comparing the wrong column, and it is invisible to
+  C-051, which is satisfied by an unfiltered list.
+- **Preconditions:** two registered accounts, each having created at least one article.
+
+**Steps:** Send `GET /api/articles?author=X` with the first account's username.
+**Expected:** Every entry's `author.username` is `X`, and the second account's article is not
+among the entries.
+
+### C-051 — The author filter returns the author's own articles
+
+**Covers:** R-109, R-143
+
+- **Grouping rationale:** the completeness half of the author clause, joined by R-143 because
+  R-143 is that clause seen from the create side: an article that has just been created must be
+  selectable by its creator's name. Both reds are the same join failing to match, whether because
+  the filter is too narrow or because creation did not record the author the filter looks for.
+  C-050 is green on an empty result and cannot report either.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Create two articles as that account, then send `GET /api/articles?author=X` with its
+username.
+**Expected:** Both newly created slugs appear among the entries.
+
+### C-052 — The favorited filter excludes an article that user has not favorited
+
+**Covers:** R-110
+
+- **Grouping rationale:** the soundness half of the favorited clause, which is a third distinct
+  query — it joins through the favorites table and is keyed on a username that is not the caller's
+  and not the article's author's. That combination is where the parameter is commonly wired to the
+  wrong column, and the result then looks like a plausible list. Only an article that must be
+  absent shows it.
+- **Preconditions:** two articles and a registered account that has favorited the first and not
+  the second.
+
+**Steps:** Send `GET /api/articles?favorited=X` with that account's username.
+**Expected:** The second article's slug is not among the entries.
+
+### C-053 — The favorited filter returns the articles that user favorited
+
+**Covers:** R-110, R-186
+
+- **Grouping rationale:** the completeness half of the favorited clause, with R-186 as the same
+  statement from the write side — the favorite that was just recorded must be visible to the
+  filter. A red on either is the join failing to find the row, whether because the filter looks
+  in the wrong place or because the favorite was never written. C-052 is green while the array is
+  empty, so this case has to exist beside it.
+- **Preconditions:** a registered account holding a token and an existing article it has not
+  favorited.
+
+**Steps:** Authenticated as that account, send `POST /api/articles/:slug/favorite`, then send
+`GET /api/articles?favorited=X` with its username.
+**Expected:** The article's slug is among the entries.
+
+### C-054 — An unfavorited article leaves the favorited filter
+
+**Covers:** R-194
+
+- **Grouping rationale:** the removal path, and it fails on code neither C-052 nor C-053 executes.
+  C-053 proves the row can be written and C-052 proves the filter is not blanket-true; an
+  implementation whose unfavorite never deletes the row is green on both and red only here. The
+  diagnosis is the delete, not the query.
+- **Preconditions:** a registered account holding a token that has favorited an article.
+
+**Steps:** Authenticated as that account, send `DELETE /api/articles/:slug/favorite`, then send
+`GET /api/articles?favorited=X` with its username.
+**Expected:** The article's slug is not among the entries.
+
+### C-055 — The list is paginated by limit and offset with their defaults
+
+**Covers:** R-111, R-112, R-113, R-114
+
+- **Grouping rationale:** one pagination expression with two parameters and two defaults. The
+  supplied value and its default are the same term of that expression — a red on the default is
+  the same missing fallback as a red on the parsed value — and limit and offset are read from the
+  same place and applied to the same query. What the case deliberately does not assert is what
+  `articlesCount` becomes under pagination, which no rule settles.
+- **Preconditions:** more than twenty articles exist, so that the default cap is observable, and
+  a known ordering among them.
+
+**Steps:** Send `GET /api/articles?limit=2`, then `GET /api/articles?limit=2&offset=1`, then
+`GET /api/articles` with no parameters.
+**Expected:** The first response carries at most 2 entries. The second carries at most 2 entries
+and begins with the entry that stood second in the first. The third carries at most 20 entries
+and begins with the entry the first response began with.
+
+### C-056 — The feed carries the articles of the authors the caller follows
+
+**Covers:** R-117, R-119
+
+- **Grouping rationale:** the completeness half of the feed's selection. R-117 is that the
+  endpoint answers with a multiple-articles document at all and R-119 is that a followed author's
+  article is in it; a red on either is the join between the follow relationship and the article
+  table returning nothing. C-017 already covers the legitimately empty feed, so an empty result
+  here is a real failure and not the same one.
+- **Preconditions:** two registered accounts, the first holding a token and following the second,
+  and at least one article by the second created after the follow.
+
+**Steps:** Send `GET /api/articles/feed` authenticated as the first account.
+**Expected:** The response is a multiple-articles document and the second account's article is
+among its entries.
+
+### C-057 — The feed excludes an author the caller does not follow
+
+**Covers:** R-119
+
+- **Grouping rationale:** the soundness half of R-119, and the failure C-056 cannot see: a feed
+  that ignores the follow condition and returns the global list satisfies C-056 completely.
+  Splitting the rule is what separates "the feed works" from "the feed is a feed". The red is the
+  join condition missing, where C-056's is the join finding nothing.
+- **Preconditions:** three registered accounts, the first holding a token and following only the
+  second, with articles by both the second and the third.
+
+**Steps:** Send `GET /api/articles/feed` authenticated as the first account.
+**Expected:** No entry has an `author.username` equal to the third account's, and every entry's
+`author.username` is one the first account follows.
+
+### C-058 — The feed honours limit and offset
+
+**Covers:** R-121, R-122
+
+- **Grouping rationale:** the feed's own pagination. It is a separate case from C-055 because the
+  feed's query is built separately, and the commonest failure is exactly that the parameters were
+  wired into the list endpoint and forgotten on the feed; a red here with C-055 green is that
+  omission. The two parameters share the case for the same reason they do in C-055.
+- **Preconditions:** a registered account holding a token, following an author with at least three
+  articles.
+
+**Steps:** Send `GET /api/articles/feed?limit=2`, then `GET /api/articles/feed?offset=1`.
+**Expected:** The first response carries at most 2 entries. The second begins with the entry that
+stood second in an unpaginated feed for the same account.
+
+### C-059 — Unfollowing empties the feed of that author
+
+**Covers:** R-124
+
+- **Grouping rationale:** the feed read against a relationship that has changed since, which
+  neither C-056 nor C-057 exercises: both take the follow set as fixed. An implementation that
+  materialises the feed when the follow is created, rather than selecting on the relationship as
+  it stands, is green on both and red here. The red is the feed reading a stored copy instead of
+  the live join.
+- **Preconditions:** two registered accounts, the first following the second, with at least one
+  article by the second present in the first's feed.
+
+**Steps:** Authenticated as the first account, send `DELETE /api/profiles/:username/follow` for
+the second, then send `GET /api/articles/feed`.
+**Expected:** No entry has an `author.username` equal to the second account's.
+
+### C-060 — Creating an article returns it authored by the caller
+
+**Covers:** R-129, R-131, R-137
+
+- **Grouping rationale:** the create handler's response. The `article`-wrapped request body, the
+  single-article document that comes back and the author being the authenticated account are one
+  function; a red is that it could not read the body, returned the wrong shape, or attributed the
+  article to somebody else. Authorship belongs here rather than in C-021 because C-021 checks only
+  that `author` has the four profile fields and is green when the name in it is wrong.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Send `POST /api/articles` with a body whose single top-level key is `article`, holding
+a title, a description and a body.
+**Expected:** The response is a single-article document whose `author.username` is the
+authenticated account's username.
+
+### C-061 — A created article is fetched by its slug and keeps what it was given
+
+**Covers:** R-125, R-138, R-142
+
+- **Grouping rationale:** the create-then-read round trip. R-138 is that the returned slug is the
+  address, R-125 is that the address resolves to a single-article document, and R-142 is that the
+  document holds the values the create request sent; all three are the same write having been
+  committed under the identifier the response advertised. C-060 reads only the create response and
+  is green on a handler that never persisted anything.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Create an article with a known title, description and body, take the `slug` from the
+response, and send `GET /api/articles/:slug` under it.
+**Expected:** The read is carried out and answers with a single-article document whose `title`,
+`description` and `body` are the values the create request sent.
+
+### C-062 — Creating an article refuses a body missing a required field
+
+**Covers:** R-132, R-133, R-134
+
+- **Grouping rationale:** the article validator, one function with three required fields, exactly
+  as C-030 is for registration. A red on any of the three is that function's list of required
+  names, and which field was omitted adds nothing to the diagnosis. Separate from C-063, which
+  concerns a field the validator must not require.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Send `POST /api/articles` three times, each with an `article` object holding two of
+title, description and body and omitting the third.
+**Expected:** Each is answered with 422 and an `errors` envelope, and no article is created.
+
+### C-063 — The tag list of a created article holds what was sent, or nothing
+
+**Covers:** R-135, R-136
+
+- **Grouping rationale:** the one optional field of the create body, and its two readings. Whether
+  the tags sent are stored and whether an absent `tagList` becomes an empty array are the same
+  expression — the fallback applied to the incoming value — so a red on either sends the reader
+  there. The absent case is grouped in rather than treated as a separate default because, unlike
+  C-055's defaults, there is no parameter parsing involved: the field is simply not present.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Create an article whose `article` object carries a `tagList` of two known strings, then
+create a second article whose `article` object carries no `tagList` at all.
+**Expected:** The first response's `tagList` holds exactly the two strings that were sent. The
+second response's `tagList` is an empty array.
+
+### C-064 — A new article is favorited by nobody
+
+**Covers:** R-140, R-141
+
+- **Grouping rationale:** the initial state of the two favorite fields, which is one line of the
+  create handler. A red on either — a flag that starts `true`, a count that starts at something
+  other than zero, or either field left absent and read as a default by the caller — is that
+  initialisation. Held apart from C-081 and C-084, which are about how the two fields move once
+  somebody acts on them; a correct initial state proves nothing about the increment.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Send `POST /api/articles` with a valid body and read the response.
+**Expected:** The article reports `favorited` as `false` and `favoritesCount` as `0`.
+
+### C-065 — Two articles with one title get two slugs
+
+**Covers:** R-035, R-139
+
+- **Grouping rationale:** the slug generator's uniqueness. R-035 is the requirement and R-139 is
+  the only way the API lets anybody observe it, so they are one case; the read of R-035 adopted
+  here is the observable one, since nothing in the API enumerates every article that exists. A red
+  is the generator being a pure function of the title with no disambiguation, and it is invisible
+  to C-061, which only ever creates one article.
+- **Preconditions:** a registered account holding a token.
+
+**Steps:** Send `POST /api/articles` twice with the same `title` and different bodies, then send
+`GET /api/articles/:slug` under each returned slug.
+**Expected:** The two responses carry different `slug` values, and each slug fetches the article
+that returned it rather than the other one.
+
+### C-066 — A created article's tags reach the tag list
+
+**Covers:** R-144
+
+- **Grouping rationale:** the only link the specification gives between article creation and the
+  tags endpoint, and it fails where C-025 and C-063 cannot look. C-063 proves the tag was stored
+  on the article and C-025 proves the tags endpoint answers with an array of strings; an
+  implementation whose tags endpoint reads a table nothing writes to is green on both and returns
+  an empty list forever. The red is the missing write or the wrong source.
+- **Preconditions:** a registered account holding a token, and a tag string no existing article
+  carries.
+
+**Steps:** Create an article carrying that tag, then send `GET /api/tags`.
+**Expected:** The tag the article was created with is among the entries of the `tags` array.
+
+### C-067 — A tag is listed once however many articles carry it
+
+**Covers:** R-198
+
+- **Grouping rationale:** the distinctness of the tags query, which C-066 cannot see because one
+  article produces one occurrence either way. A tags endpoint that selects taggings rather than
+  tags passes C-066 and repeats every popular tag; the red is the missing distinctness in that
+  query, not the source C-066 covers.
+- **Preconditions:** a registered account holding a token, and a tag string no existing article
+  carries.
+
+**Steps:** Create two articles both carrying that same tag, then send `GET /api/tags`.
+**Expected:** The tag appears exactly once in the `tags` array.
+
+### C-068 — Updating an article returns it as it now stands
+
+**Covers:** R-145, R-147
+
+- **Grouping rationale:** the article update handler's success path and its accepted-field list.
+  A red is that handler — a refusal where none of the three fields is required, a field it does
+  not recognise, or a document that is not the article. It is the counterpart of C-034 for
+  articles, and it is split from C-070 for the same reason C-034 is split from C-035: what was
+  sent and what was not sent fail in opposite directions.
+- **Preconditions:** a registered account holding a token and an article it authored.
+
+**Steps:** Authenticated as the author, send `PUT /api/articles/:slug` with an `article` object
+carrying a new description and a new body.
+**Expected:** The response is a single-article document for the same article carrying the new
+description and the new body.
+
+### C-069 — A new title moves the slug, and the new slug fetches the article
+
+**Covers:** R-148, R-152
+
+- **Grouping rationale:** the one side effect a title change has beyond the field itself. R-148 is
+  that the returned slug differs from the one in the path and R-152 is that the new value actually
+  resolves; they are one case because a slug that changed but does not fetch anything is the same
+  defect half-done, and both reds are the regeneration and its index. This case says nothing about
+  the old slug, which no rule settles.
+- **Preconditions:** a registered account holding a token and an article it authored.
+
+**Steps:** Authenticated as the author, send `PUT /api/articles/:slug` with a new `title`, then
+send `GET /api/articles/:slug` under the slug the update returned.
+**Expected:** The slug in the update response differs from the slug in the request path, and the
+read under the new slug answers with that article carrying the new title.
+
+### C-070 — An article update leaves the fields it was not sent alone
+
+**Covers:** R-149
+
+- **Grouping rationale:** the soundness half of C-068's merge. An update that assigns the incoming
+  `article` object over the stored record clears the two fields it was not given and stays green
+  on C-068, which only inspects what it sent. The red is the merge, and it is the same class of
+  defect as C-035's on a different resource — but a different function, so a different case.
+- **Preconditions:** a registered account holding a token and an article it authored with a known
+  title, description and body.
+
+**Steps:** Authenticated as the author, send `PUT /api/articles/:slug` carrying only a new
+`title`, then send `GET /api/articles/:slug` under the slug the update returned.
+**Expected:** Both responses carry the article's original description and body unchanged.
+
+### C-071 — An update moves updatedAt and leaves createdAt alone
+
+**Covers:** R-153, R-154
+
+- **Grouping rationale:** the timestamp handling of one write. The two rules are the two halves of
+  it — one field must move and the other must not — and both reds are the same assignment, whether
+  it touches neither field or touches both. Kept out of C-021, which only checks that the two
+  values parse, and out of C-068, which is green while both timestamps are frozen.
+- **Preconditions:** a registered account holding a token and an article it authored, with both
+  its timestamps recorded.
+
+**Steps:** Send `GET /api/articles/:slug` and record both timestamps, then, authenticated as the
+author, send `PUT /api/articles/:slug` with a new body, and read the response.
+**Expected:** The `updatedAt` in the update response is later than the one recorded before, and
+the `createdAt` is unchanged.
+
+### C-072 — Deleting an article answers success and its slug stops resolving
+
+**Covers:** R-155, R-157
+
+- **Grouping rationale:** the delete handler and the by-slug read that must stop finding the
+  article. They are one case because the read is what gives the success status any meaning: a
+  handler that answers success and deletes nothing fails both in one step. C-015 covers a slug
+  that never existed, which is a different question — this one is a slug that used to work.
+- **Preconditions:** a registered account holding a token and an article it authored.
+
+**Steps:** Authenticated as the author, send `DELETE /api/articles/:slug`, then send
+`GET /api/articles/:slug` under the same slug.
+**Expected:** The delete answers with a success status, and the read is answered with 404.
+
+### C-073 — A deleted article leaves the collection
+
+**Covers:** R-158
+
+- **Grouping rationale:** split from C-072 because the two reads select differently. A deletion
+  implemented as a flag that the by-slug lookup honours and the list query does not is green on
+  C-072 and leaves the article visible in every listing; the reverse — hidden from the list,
+  fetchable by slug — is the failure C-072 catches and this case does not. Only having both cases
+  distinguishes the two.
+- **Preconditions:** a registered account holding a token and an article it authored whose slug
+  appears in the unfiltered list.
+
+**Steps:** Authenticated as the author, send `DELETE /api/articles/:slug`, then send
+`GET /api/articles?author=X` with the author's username.
+**Expected:** No entry carries the deleted slug.
+
+### C-074 — Commenting returns the comment authored by the caller
+
+**Covers:** R-161, R-163, R-165
+
+- **Grouping rationale:** the comment create handler's response, the counterpart of C-060. The
+  `comment`-wrapped body, the single-comment document that comes back and the author being the
+  authenticated account are one function, and a red is that it could not read the body, returned
+  the wrong shape, or attributed the comment elsewhere. C-024 checks the document's fields and is
+  green when the author names the wrong person.
+- **Preconditions:** a registered account holding a token and an existing article.
+
+**Steps:** Send `POST /api/articles/:slug/comments` with a body whose single top-level key is
+`comment`, holding a known body string.
+**Expected:** The response is a single-comment document whose `body` is the string that was sent
+and whose `author.username` is the authenticated account's username.
+
+### C-075 — Commenting refuses a comment with no body
+
+**Covers:** R-164
+
+- **Grouping rationale:** the comment validator, which has exactly one required field. It fails
+  independently of C-074 in the way every validator fails independently of its handler: an
+  endpoint that accepts anything is green on C-074 and creates an empty comment here. It has its
+  own case rather than joining C-062 because it is a different endpoint's validator, and the
+  reader who sees this red goes to the comment controller, not the article one.
+- **Preconditions:** a registered account holding a token and an existing article.
+
+**Steps:** Send `POST /api/articles/:slug/comments` with a `comment` object carrying no `body`.
+**Expected:** The response carries 422 and an `errors` envelope, and no comment is created on the
+article.
+
+### C-076 — A comment joins its article's list
+
+**Covers:** R-166, R-169
+
+- **Grouping rationale:** the create-then-list round trip for comments, the counterpart of C-061.
+  R-169 is that the list endpoint answers with a multiple-comments document and R-166 is that the
+  comment just created is in it carrying the body that was sent; both reds are the same write not
+  having reached the store the list reads. C-074 reads only the create response and is green on a
+  handler that persisted nothing.
+- **Preconditions:** a registered account holding a token and an existing article.
+
+**Steps:** Create a comment on the article with a known body, then send
+`GET /api/articles/:slug/comments` for the same article.
+**Expected:** The response is a multiple-comments document, and one of its entries carries the
+body that was sent and the identifier the create response returned.
+
+### C-077 — An article's comments are only that article's
+
+**Covers:** R-173
+
+- **Grouping rationale:** the soundness of the comment list's article condition, which C-076
+  cannot see: a list endpoint that ignores `:slug` and returns every comment in the system
+  contains the one just created and passes C-076 completely. The red is the missing condition on
+  the query — the same class of defect as C-048 and C-057, on a third query.
+- **Preconditions:** two existing articles, each carrying at least one comment by a registered
+  account.
+
+**Steps:** Send `GET /api/articles/:slug/comments` for the first article.
+**Expected:** The identifier of the comment made on the second article is not among the entries.
+
+### C-078 — A comment is deleted through the identifier its creation returned
+
+**Covers:** R-044, R-168, R-174
+
+- **Grouping rationale:** the identifier's role as an address. R-168 is that the value the create
+  response carried is the one the delete path takes, R-174 is that the delete is then carried out,
+  and R-044 is the uniqueness without which neither statement is well defined; all three are the
+  same identifier being usable, and a red on any of them is the create response handing back a
+  value the delete route cannot resolve. The uniqueness is read as the observable one — two
+  comments created in succession carry different identifiers — since nothing in the API
+  enumerates every comment.
+- **Preconditions:** a registered account holding a token and an existing article.
+
+**Steps:** Create two comments on the article as that account, then send
+`DELETE /api/articles/:slug/comments/:id` using the identifier the first create response
+returned.
+**Expected:** The two create responses carry different `id` values, and the delete answers with a
+success status.
+
+### C-079 — A deleted comment leaves the list
+
+**Covers:** R-176
+
+- **Grouping rationale:** the persistence half of C-078, and it fails on the same split C-072 and
+  C-073 draw for articles: a delete that answers success without committing, or that hides the
+  comment from one read and not another. C-078 stops at the status and is green on both. The red
+  is the delete not having reached the store the list reads.
+- **Preconditions:** the article and the two comments of C-078, with the first already deleted.
+
+**Steps:** Send `GET /api/articles/:slug/comments` for the same article.
+**Expected:** No entry carries the identifier of the deleted comment, and the second comment is
+still present.
+
+### C-080 — Favoriting returns the article marked favorited
+
+**Covers:** R-180, R-182, R-183
+
+- **Grouping rationale:** the favorite handler's response, structurally identical to C-042's
+  place among the follow rules. That it takes no body, that it answers with the Article and that
+  the article reports `favorited` as `true` are one function's contract, and a red on any of them
+  is that handler serializing the state before its own write or demanding a parameter it was told
+  not to need. The count is deliberately not asserted here — see C-081.
+- **Preconditions:** a registered account holding a token and an article it has not favorited.
+
+**Steps:** Send `POST /api/articles/:slug/favorite` with no request body and no query parameter.
+**Expected:** The request is carried out and answers with a single-article document for that
+article whose `favorited` is `true`.
+
+### C-081 — Favoriting raises the count by one
+
+**Covers:** R-184
+
+- **Grouping rationale:** the counter, which is a different piece of state from the flag C-080
+  reads. The flag is a membership test against the caller and the count is an aggregate over
+  everyone; an implementation that records the favorite without touching the count, or that
+  recomputes the count from a stale source, is green on C-080 and red here. Kept apart from C-083
+  for the same reason C-037 is kept apart from C-038 — the increment and the decrement are
+  separate writes.
+- **Preconditions:** a registered account holding a token and an article it has not favorited,
+  with the article's current `favoritesCount` recorded.
+
+**Steps:** Read the article's `favoritesCount`, then send `POST /api/articles/:slug/favorite` and
+read the count in the response.
+**Expected:** The count in the response is exactly one greater than the count recorded before.
+
+### C-082 — Unfavoriting returns the article marked not favorited
+
+**Covers:** R-188, R-190, R-191
+
+- **Grouping rationale:** the mirror of C-080 in the other handler, and separate for the same
+  reason C-043 is separate from C-042: the two methods on the route are two functions, and a
+  correct write says nothing about the delete. The three rules within it are one contract — no
+  body, an Article back, and the flag showing the state the request just produced.
+- **Preconditions:** a registered account holding a token and an article it has favorited.
+
+**Steps:** Send `DELETE /api/articles/:slug/favorite` with no request body and no query parameter.
+**Expected:** The request is carried out and answers with a single-article document for that
+article whose `favorited` is `false`.
+
+### C-083 — Unfavoriting lowers the count by one
+
+**Covers:** R-192
+
+- **Grouping rationale:** the decrement, which C-081 cannot vouch for and C-082 does not read. An
+  implementation that increments on favorite and forgets to decrement is green on C-081, C-082 and
+  C-054 while the count drifts upward forever; only reading the count across the delete shows it.
+  The red is that one write.
+- **Preconditions:** a registered account holding a token and an article it has just favorited,
+  with the raised `favoritesCount` recorded.
+
+**Steps:** Read the article's `favoritesCount` while it is favorited, then send
+`DELETE /api/articles/:slug/favorite` and read the count in the response.
+**Expected:** The count in the response is exactly one less than the count recorded before.
+
+### C-084 — The favorite flag is per caller while the count is not
+
+**Covers:** R-031, R-187
+
+- **Grouping rationale:** the one place the two fields are required to disagree, and neither
+  C-080 nor C-081 can reach it: both read the article as the account that did the favoriting,
+  where `favorited` is `true` and the count is raised, and an implementation that derives the flag
+  from the count being non-zero looks perfectly correct. A second, uninvolved caller separates
+  them. R-031 belongs here because a count that varied by caller is the same defect from the other
+  side.
+- **Preconditions:** two registered accounts holding tokens and an article the first has
+  favorited and the second has not.
+
+**Steps:** Send `GET /api/articles/:slug` authenticated as the second account, and again with no
+`Authorization` header.
+**Expected:** Both responses report `favorited` as `false` while reporting the same
+`favoritesCount` the first account's favorite produced, and that count is not negative.
+
+### C-085 — A preflight request is answered and names what is allowed
+
+**Covers:** R-199, R-200, R-201
+
+- **Grouping rationale:** one middleware. Whether `OPTIONS` is handled at all and which two
+  headers the answer carries are decided in the same place, and a red on any of them is that
+  middleware being absent or misconfigured; there is no implementation in which the method is
+  handled by one component and the headers set by another. The rules are stated unconditionally
+  while their source is conditional on how the deployment is served — that is recorded under the
+  open questions rather than resolved here.
+- **Preconditions:** none.
+
+**Steps:** Send an `OPTIONS` request to `/api/articles` carrying an `Origin` request header.
+**Expected:** The request is answered rather than refused as an unknown method, and the response
+carries both an `Access-Control-Allow-Origin` header and an `Access-Control-Allow-Headers` header
+whose value lists at least `Content-Type`.
 
 ## Not covered
 
-- **R-034** — "`PUT /api/user` carrying only fields drawn from `email`, `username`, `password`,
-  `image` and `bio` is not answered 422." Read as written, R-039 contradicts it: a request that
-  sets `email` to an address another account holds carries only accepted fields and must be
-  answered 422. The rule becomes testable only under a reading it does not state — that it is
-  about field names and not about values — and adopting that reading here would be amending a
-  rule that belongs to the BA agent. What it was reaching for is already asserted by R-033 and
-  R-036 in C-016.
-- **R-062** — "`GET /api/articles` with no `limit` returns at most 20 entries." The assertion is
-  satisfied by any deployment holding fewer than twenty articles, so a green says nothing unless
-  the test first establishes that the collection is larger than one page. The only figure the API
-  offers for that is `articlesCount`, and Open question 3 of `01-rules.md` records that its
-  meaning is undeclared — it may be the size of the page itself. Establishing the precondition by
-  creating twenty-one articles is a cost this rule does not repay.
-- **R-064** — "`GET /api/articles` and `GET /api/articles?offset=0` return the same first entry."
-  Both requests read the unfiltered global list, which any other caller may write to between
-  them. Nothing in the rules gives a test a way to hold that list still, so the assertion is a
-  race whose red would read "somebody published an article", not "the default offset is wrong".
-  R-063, in C-027, covers what the offset parameter actually does, against a set this suite
-  created.
+- R-036 — "No particular slug format is required" states that a constraint does not exist. There
+  is no response that can violate it: any slug an implementation returns satisfies it, including
+  one derived from the title and one that is not. A case covering it would be green against every
+  possible implementation, which makes it a statement about the test suite rather than about the
+  API. The part of the slug contract that is checkable — that it is unique and that it addresses
+  its article — is covered by C-065 and C-021.
+- R-197 — "a tag no article carries is absent from the `tags` array" cannot be checked over the
+  HTTP API. Establishing it needs the full set of tags every article carries, and nothing in the
+  API enumerates that; the only affordable check is that some arbitrary string is absent from the
+  list, which is green whatever the endpoint does. The half of the tag list's provenance that can
+  be checked — that a newly created article's tags appear — is C-066, and the distinctness is
+  C-067. If the rules gain a way to observe an article losing its last tag, this becomes testable
+  and should be picked up.
 
 ## Open questions
 
-1. **R-081 and R-055 contradict each other if R-081 is read broadly.** R-081 says a returned
-   `article` object has exactly ten fields, `body` among them; R-055 says no entry of the article
-   list has a `body` field. C-032 reads R-081 as governing the single-article response only. The
-   BA agent should say which responses it governs.
-2. **R-011 asks for a preflight header on every cross-origin response.** It requires both
-   `Access-Control-Allow-Origin` and `Access-Control-Allow-Headers` on "a response to a request
-   carrying an `Origin` header". C-002 satisfies it on a preflight, where both headers are
-   defined. Read as a statement about every cross-origin response it would also demand
-   `Access-Control-Allow-Headers` on an ordinary GET, which is not a header that mechanism sends
-   there. The rule wants splitting in two.
-3. **R-009 names a set the rules never enumerate.** It governs "an endpoint marked Authentication
-   optional", and `01-rules.md` nowhere lists which endpoints carry that marking. C-005
-   reconstructs the set from R-017, R-025, R-042, R-057, R-079, R-115 and R-136; if the
-   specification marks another endpoint that way, this file cannot know. R-004, R-005 and R-006
-   have the same shape, but their instances are enumerated by the per-endpoint rules, so they
-   were recoverable.
-4. **"Succeeds" is undefined.** R-017, R-025, R-048 and R-128 say a request "succeeds", while
-   Open question 1 of `01-rules.md` records that no success status is documented anywhere. Every
-   case here reads "succeeds" as "answers with the envelope that endpoint's own rule names, and
-   is not an error status". No status assertion can be written until the rules make the choice.
-5. **R-026 and R-027 are satisfied by a crash.** They assert only the absence of a token, so any
-   response without a `user` object passes — a 500 included. The rules decline to name a status
-   for a failed login and this file does not add one, but the resulting assertions are weak by
-   construction, and a green in C-015 should not be read as evidence that a failed login is
-   handled well.
-6. **R-103 depends on a timestamp resolution no rule states.** It requires `updatedAt` to be
-   later after an update. The examples behind R-067 carry milliseconds and C-036 assumes that; at
-   second resolution a fast update would be indistinguishable from one that never moved the
-   field.
-7. **R-005 names no action.** It gives 403 to "a caller who lacks permission" without saying which
-   permissions exist. C-007 and C-008 take the three owner-only actions named by R-101, R-106 and
-   R-121 to be the whole of it. If the API has another permission, no rule in the file describes
-   it.
+- R-015 assumes 200 for every success, and the rules' own open questions record that 201 is the
+  conventional answer for `POST /api/users` and `POST /api/articles`. C-009 asserts 200 across a
+  sample that includes `POST /api/articles`, so a deployment answering 201 there fails C-009 on a
+  point the specification never settles. If the BA agent can resolve the creation codes, C-009
+  should be narrowed; as written it takes R-015 literally, which is the only reading the rules
+  offer.
+- R-155 and R-174 say "a success status" without naming it, while R-015 says every carried-out
+  request answers 200. C-072 and C-078 therefore assert only a success status, and C-009 does not
+  include either delete in its sample. Whether that is the intended reading of R-015 is
+  undecidable from the rules.
+- R-093, R-100, R-182 and R-190 say the request "is carried out with no request body and no query
+  parameter". Read as a permission — none is needed — the case sends none, which is what C-042,
+  C-043, C-080 and C-082 do. Read as a prohibition — one must be refused — the cases would need a
+  request that carries a body and expects a failure, and no rule names a status for it. The
+  permissive reading was adopted.
+- R-125 and R-126 mark Get Article "No authentication required" while R-009, R-029 and R-116 make
+  `favorited` and `author.following` caller-relative. The rules' own open questions raise this and
+  leave it open. C-084 reads the single article as an authenticated second account and expects
+  `favorited` false, which is true under both readings; but C-007's completeness argument would
+  extend to Get Article under the second reading and there is no rule that says so. No case
+  asserts a `true` on a single-article read.
+- R-035 and R-044 are stated over every article and every comment that exists at the same time.
+  Neither is observable that way through the API: nothing enumerates all articles or all comments
+  of a deployment. C-065 and C-078 adopt the observable reading — two resources created in
+  succession carry different identifiers — which is strictly weaker than what the rules say.
+- R-112 requires more than twenty articles to exist before the default cap can be observed at all.
+  On a deployment with fewer, C-055 is vacuous on that point and the rules give no way to tell the
+  two situations apart. The precondition is stated, but nothing in the rules guarantees it can be
+  met.
+- R-111 to R-114 say nothing about `articlesCount` under pagination, and the rules' open questions
+  confirm it is undefined. C-055 therefore asserts only the size of the `articles` array. This is
+  the largest hole in the pagination coverage and it is the BA agent's to close.
+- R-108, R-109 and R-110 each describe one parameter alone and no rule covers a request carrying
+  two. C-048 to C-053 send one parameter each. A deployment that ignores the second of two
+  parameters is unobserved by this file.
+- R-148 and R-152 settle the new slug and nothing settles the old one. C-069 reads only the new
+  slug. Whether the previous slug should now answer 404 — which would make it an instance of
+  C-015 — or keep working is undecidable from the rules.
+- R-150 and R-151, and R-159 and R-160, each describe one condition in isolation, so a non-author
+  addressing a slug that does not exist has no expected status. C-012 uses an existing article and
+  C-015 uses the author's own token, so neither case enters the overlap.
+- R-091, R-098, R-180 and R-188 describe only the first such request, and R-184 and R-192 are
+  written against the state before the request. Repeating a follow or a favorite is therefore
+  unspecified, and every case here is written to run against a clean starting relationship. A
+  deployment that double-counts a repeated favorite is unobserved.
+- R-004 covers only endpoints that require authentication. Whether an unusable token on an
+  optional-authentication endpoint is refused or read as anonymous is undecided, so C-003 sends
+  its three bad credentials only to `GET /api/user`.
+- R-119 is silent on whether a user's own articles appear in their feed, because the rules leave
+  self-following undecided. C-056 and C-057 use articles by other accounts throughout and neither
+  asserts anything about the caller's own.
+- R-147 lists three accepted fields for the article update and no rule says what happens to a
+  `tagList` sent to it. C-068 and C-070 send only the three, so the behaviour is unobserved.
+- R-199 to R-201 are stated as rules of the API while their source is conditional on the API being
+  served to a frontend on another host or port. C-085 assumes the condition holds. If it does not
+  for a given deployment, the case is not a defect report but a mismatch between the rule and the
+  deployment, and the rules give no way to tell which.
+- R-060 to R-062 cover only the absence of `username`, `email` and `password`, and no rule
+  constrains their content. C-030 therefore sends absences only; an empty string, a very long
+  value or an email that is not an address are all outside this file.
