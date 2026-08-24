@@ -9,6 +9,15 @@ import {
   UserResponseSchema,
 } from '@/schemas/conduit.schema';
 
+// The specification states no success status for registration — anywhere, and for any endpoint.
+// It says only that the call "returns a User". Conforming deployments disagree: 201 on
+// api.realworld.show, 200 on realworld.habsida.net. So this set is a gap in the contract rather
+// than a preference, and the assertion using it names the gap in its message. What still makes it
+// red: a 404, a 422, a 500 — anything that is not the endpoint succeeding.
+const REGISTRATION_SUCCESS = [200, 201];
+const REGISTRATION_SUCCESS_MESSAGE =
+  'the specification states no success status for registration, only that it returns a User, so 200 and 201 are both accepted';
+
 // Turns red if GET /tags changes shape — tags disappears, stops being an array of strings, or a
 // new field appears alongside it.
 test('GET /tags matches the schema', async ({ api }) => {
@@ -18,12 +27,12 @@ test('GET /tags matches the schema', async ({ api }) => {
   expect(response.body).toMatchSchema(TagsResponseSchema);
 });
 
-// Turns red if registration stops returning a user envelope, or starts returning a field the
-// contract does not describe.
+// Turns red if registration stops succeeding at all — a 404, a 422, a 500 — or stops returning a
+// user envelope, or starts returning a field the contract does not describe.
 test('POST /users matches the user response schema', async ({ api, factories }) => {
   const response = await api.post('/users', { user: factories.user.build() });
 
-  expect(response.status, 'registration returns 201 on this target').toBe(201);
+  expect(REGISTRATION_SUCCESS, REGISTRATION_SUCCESS_MESSAGE).toContain(response.status);
   expect(response.body).toMatchSchema(UserResponseSchema);
 });
 
