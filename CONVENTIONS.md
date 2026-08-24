@@ -219,7 +219,14 @@ left.
 
 Formatting is Prettier with `singleQuote`, `printWidth: 100`, `trailingComma: "es5"`. Run
 `npm run format`; `npx prettier --check .` is a gate. `.prettierignore` excludes `*.md`, so
-Markdown in this repository — including this file — is wrapped by hand at roughly 100 columns.
+Markdown in this repository — including this file and the `pipeline/*.md` chain artifacts — is
+wrapped by hand at roughly 100 columns.
+
+📌 **That includes the fields of a rule or a case: a `**Source:**`, `**Kind:**`, `**Statement:**`
+or `**Covers:**` value may wrap onto as many further lines as it needs.** The parser in
+`pipeline/parse.ts` reads a field value up to the first line that opens another field, opens a
+heading, or is blank, and joins the pieces with a single space. A long statement wraps like any
+other line in this repository and keeps its whole meaning.
 
 ## Known defects of the target
 
