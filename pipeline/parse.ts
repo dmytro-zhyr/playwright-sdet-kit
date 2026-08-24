@@ -30,6 +30,59 @@
  *   `validateCases` report these, together with all of the above.
  */
 
+/**
+ * **Known limitations** — the artifacts this parser still misreads without saying so.
+ *
+ * Everything above describes what the parser now catches. This describes what it does not. Each
+ * entry was reproduced against the code as it stands, not carried over from a report: the first
+ * sentence is what the parser does, the second is what a reader is told instead of the truth.
+ *
+ * 1. **A `###` heading carrying the other letter.** `### C-009 — …` in a rules file matches
+ *    neither `RULE_HEADING` nor, once `headingProblem` sees the wrong letter, the loose form, so
+ *    the heading and every line under it are appended to the previous rule's block; `### R-009` in
+ *    a cases file goes the same way. The reader gets a clean validation and a rule set with that
+ *    block missing — or, when the swallowed block repeats a field the previous one already has, a
+ *    `the Source field appears twice` naming a rule whose text contains one `**Source:**` line.
+ *
+ * 2. **Any other `###` heading.** `### Notes on the above`, `### R-XXX — …` whose number is not
+ *    digits, and `###R-003` written without the space after the hashes are all absorbed into the
+ *    preceding block together with their prose, because only `### ` followed by something the
+ *    loose expression recognises can close a block. The reader gets a clean validation for a file
+ *    that visibly contains a heading the format has no place for.
+ *
+ * 3. **`####` and deeper headings, and free prose inside a block.** Neither is a field line, a
+ *    `### ` heading or a `## ` section, so `readFields` walks past both and nothing counts them.
+ *    The reader gets a clean validation for a rule whose real content is a paragraph the QA agent
+ *    will never receive, and no hint that the block held anything besides its fields.
+ *
+ * 4. **A repeated identifier inside one `Covers` list.** `**Covers:** R-001, R-001` passes every
+ *    entry check, so the `Case` carries `R-001` twice and no problem is reported. The reader gets
+ *    a clean validation and a case that claims two references where the file names one rule;
+ *    `ruleCoverage` happens to hide it by counting a `Set`, so the metric does not move either.
+ *
+ * 5. **The mandatory-section check is `markdown.includes(section)`.** Any occurrence of the
+ *    literal text satisfies it — inside a fenced code block, or mid-sentence in `The template also
+ *    asks for a ## Open questions section.` The reader gets a clean validation for a file that has
+ *    no such section, which is exactly the case the check exists to catch.
+ *
+ * 6. **A fenced code block is not recognised at all.** A ```` ```markdown ```` fence showing
+ *    `### R-003 — An example for the reader` with its three fields is read as a third rule. The
+ *    reader gets a clean validation, a rule count one larger than the file states, and a rule the
+ *    author wrote down as an illustration now standing in the contract the QA agent works from.
+ *
+ * 7. **A field whose value starts after a blank line.** `**Steps:**` followed by a blank line and
+ *    a bullet list stops at the blank line, so the value is the empty string. Since `Steps` and
+ *    `Expected` became required the reader now gets `C-001: missing Steps field` for a case whose
+ *    steps are sitting two lines below the field that is said to be missing.
+ *
+ * 8. **The `## Not covered` list is never read.** Its presence is checked and its contents are
+ *    not, so nothing compares the rules parked there against the rules the cases actually cover.
+ *    The reader gets a clean validation for a file that both parks `R-001` as not covered and
+ *    covers it in `C-001`, and the two statements go down the chain contradicting each other.
+ *
+ * These are tracked and are to be closed before this repository is presented as a reusable tool.
+ */
+
 export interface Rule {
   id: string;
   title: string;
@@ -43,6 +96,8 @@ export interface Case {
   id: string;
   title: string;
   rules: string[];
+  steps: string;
+  expected: string;
 }
 
 /**
@@ -310,7 +365,13 @@ function readCases(markdown: string): Read<Case> {
       }
     }
 
-    items.push({ id: block.id, title: block.title, rules });
+    items.push({
+      id: block.id,
+      title: block.title,
+      rules,
+      steps: fields.values.get('Steps') ?? '',
+      expected: fields.values.get('Expected') ?? '',
+    });
   }
 
   return { items, problems, malformedHeadings: scanned.malformedHeadings };
@@ -418,9 +479,16 @@ export function validateCases(rulesMd: string, casesMd: string): string[] {
   );
 
   for (const testCase of cases) {
+    // A missing Covers field is deliberately not a problem of its own. `references no rule at all`
+    // already covers it, and it covers more: a Covers line that is present but empty, and one
+    // whose every entry was malformed, are both cases that name no rule while the field is there.
+    // Adding `missing Covers field` alongside it would print two complaints about one absent line
+    // and still leave those other two shapes to the message that already says the useful thing.
     if (testCase.rules.length === 0) {
       problems.push(`${testCase.id}: references no rule at all`);
     }
+    if (!testCase.steps) problems.push(`${testCase.id}: missing Steps field`);
+    if (!testCase.expected) problems.push(`${testCase.id}: missing Expected field`);
     for (const ruleId of testCase.rules) {
       if (!knownRules.has(ruleId)) {
         problems.push(`${testCase.id}: references rule ${ruleId}, which does not exist`);

@@ -363,3 +363,41 @@ test('parseRules still returns for an artifact it read exactly as written', () =
   expect(parseRules(withoutStatement)[0].statement).toBe('');
   expect(validateRules(withoutStatement).join(' ')).toContain('R-001: missing Statement field');
 });
+
+// Turns red if a case can lose its Steps or its Expected without a word — the TA agent would be
+// handed a case that names a rule and says nothing about what to do or what should come back.
+test('validateCases reports a missing Steps and a missing Expected by name', () => {
+  const bare = CASES.replace('**Steps:** POST /users\n**Expected:** 201, user.token\n', '');
+
+  expect(validateCases(RULES, bare)).toEqual([
+    'C-001: missing Steps field',
+    'C-001: missing Expected field',
+  ]);
+  expect(validateCases(RULES, CASES.replace('**Steps:** POST /users\n', '')).join(' ')).toContain(
+    'C-001: missing Steps field'
+  );
+  expect(
+    validateCases(RULES, CASES.replace('**Expected:** 201, user.token\n', '')).join(' ')
+  ).toContain('C-001: missing Expected field');
+});
+
+// Turns red if a case that carries both fields starts being reported as missing them — every
+// honest cases artifact in the chain would fail, and the validator would stop being read.
+test('a case that states its steps and its expectation is not complained about', () => {
+  expect(validateCases(RULES, CASES)).toEqual([]);
+  expect(parseCases(CASES)[0].steps).toBe('POST /users');
+  expect(parseCases(CASES)[0].expected).toBe('201, user.token');
+});
+
+// Turns red if an absent Covers line starts being reported twice — one missing line would produce
+// both "missing Covers field" and "references no rule at all", and the reader would hunt for two
+// mistakes where there is one. The second message is kept because it says more: it also covers a
+// Covers line that is present and empty, and one whose every entry was malformed.
+test('an absent Covers field is reported once, by the message that says the most', () => {
+  const noCovers = CASES.replace('**Covers:** R-001\n', '');
+
+  expect(validateCases(RULES, noCovers)).toEqual(['C-001: references no rule at all']);
+  expect(validateCases(RULES, CASES.replace('**Covers:** R-001', '**Covers:**'))).toEqual([
+    'C-001: references no rule at all',
+  ]);
+});
