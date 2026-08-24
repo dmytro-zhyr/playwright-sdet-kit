@@ -16,17 +16,33 @@ The agents commit nothing themselves. They produce **proposals** in `pipeline/`;
 ```bash
 npm install
 cp .env.example .env      # optional — only to point at a different target
-npm run test:contract     # contract tests against the Conduit API
+npm run test:contract     # contract tests against the gate target
 npm run test:unit         # tests for the chain artifact parser
-npm run test:defects      # known defects of the target — red on purpose, see below
+npm run test:defects      # known defects of one deployment — red on purpose, see below
 npm run lint
 npm run typecheck
 ```
 
 No browser is needed: the tests go through `APIRequestContext` only.
 
-`.env` is optional — without it the default from the config applies. It exists to **switch the
-target** to another implementation of the same Conduit specification.
+`.env` is optional — without it the defaults from the config apply, and the whole repository runs
+without one.
+
+## Two targets, on purpose
+
+| Project | Target | Variable |
+|---|---|---|
+| `contract`, `unit` | `https://realworld.habsida.net/api` — conforms | `CONDUIT_API_URL` |
+| `defects` | `https://api.realworld.show/api` — pinned | `CONDUIT_DEFECTS_API_URL` |
+
+Three hosted Conduit deployments were live in August 2026 and they do not behave the same way.
+The gate runs against one that conforms; switching it to another is one uncommented line in
+`.env`, and that is how their behaviour gets compared. All three are listed in
+[`.env.example`](.env.example) with what is wrong with each.
+
+⛔ The defects target is not interchangeable with the gate's. Those tests assert the
+**specification** against the deployment whose defects they document, so a conforming target
+turns them green — and green in that suite is supposed to mean the defect was fixed.
 
 ## Three suites, three different questions
 
@@ -34,10 +50,11 @@ target** to another implementation of the same Conduit specification.
 |---|---|---|
 | `contract` | is this code, and are these schemas, still in agreement with the target | every push and PR — this is the gate |
 | `unit` | does the chain artifact parser work | same |
-| `defects` | **is the target still broken** | nightly, on a schedule |
+| `defects` | **is that one deployment still broken** | nightly, on a schedule |
 
-Reconnaissance found real defects in the chosen target — details in
-[`spec/FINDINGS.md`](spec/FINDINGS.md). The tests covering them assert the **specification**, so
+Reconnaissance found real defects — details in [`spec/FINDINGS.md`](spec/FINDINGS.md). They
+belong to one deployment, not to RealWorld backends in general, which is why the gate moved away
+from it and the defects suite stayed. The tests covering them assert the **specification**, so
 they are red, and each one carries a link to a filed issue. They live in their own suite because
 they answer a question about **somebody else's API**, not about this code.
 

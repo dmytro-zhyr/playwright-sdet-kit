@@ -184,10 +184,17 @@ Pass a message as the second argument — it reaches the report:
 expect(response.status, 'registration without a password must be rejected').toBe(422);
 ```
 
-Assert the **exact** status the target returns, not a range. Registration returns `201` here, an
-unknown slug returns `404`, a validation failure returns `422`; all of it is recorded in
-`spec/FINDINGS.md`. `toBeGreaterThanOrEqual(400)` would keep passing through a change worth
-noticing.
+Assert the **exact** status the target returns, not a range: an unknown slug returns `404`, a
+validation failure returns `422`. `toBeGreaterThanOrEqual(400)` would keep passing through a
+change worth noticing.
+
+⚠️ **Exact does not mean target-specific.** Assert a status the **specification** states. Where it
+states none, the two deployments disagree and an exact assertion pins the suite to whichever one
+it was written against — registration answers `201` on `api.realworld.show` and `200` on
+`realworld.habsida.net`, and the specification only says it "returns a User". The same trap sits
+in the error body: the specification's own example keys a validation error under `body`, so a test
+demanding `errors.email` is asserting more than the contract. Before writing an exact value, check
+that `spec/conduit-api.md` states it.
 
 When a test depends on data the target may not have, skip on the condition instead of guessing:
 
@@ -206,10 +213,30 @@ test.skip(articles.length === 0, 'the target has no articles to read');
 | `npm run test:defects` | `defects` | red on purpose; see the note below about its concurrency |
 | `npm run lint`, `npm run typecheck`, `npm run format` | — | ESLint, `tsc --noEmit`, Prettier |
 
+### Two targets, and which suite talks to which
+
+| Project | Environment variable | Default |
+|---|---|---|
+| `contract`, `unit` | `CONDUIT_API_URL` | `https://realworld.habsida.net/api` — conforms; this is the gate |
+| `defects` | `CONDUIT_DEFECTS_API_URL` | `https://api.realworld.show/api` — pinned to the deployment D-1 to D-5 are about |
+
+Both have working defaults, so the repository runs with no `.env`. The `defects` project carries
+its own `use.baseURL` in `playwright.config.ts`, so moving the gate never moves it.
+
+⛔ **Never point `CONDUIT_DEFECTS_API_URL` at a conforming target.** Those tests assert the
+specification, so a healthy target turns them green — and green in that suite is supposed to mean
+the defect was fixed.
+
+⚠️ A contract test may talk to a deployment that is not the one reconnaissance was written
+against. Write it against `spec/conduit-api.md`; where a deployment diverges, that is a finding
+for `spec/FINDINGS.md`, not an assertion to loosen and not an assertion to re-pin.
+
 ⚠️ The `contract` project runs with **a single worker**, and a test must not depend on that. The
-reason is D-4 in `spec/FINDINGS.md`: under concurrency the target hands a token holder somebody
-else's account, and a gate must not go red on somebody else's defect. The day D-4 is fixed, the
-workers come back — so do not write a test that only works sequentially.
+reason is D-4 in `spec/FINDINGS.md`: under concurrency that target hands a token holder somebody
+else's account, and a gate must not go red on somebody else's defect. The gate no longer runs
+against the deployment with D-4, so the setting is now a conservative one rather than a necessary
+one — restoring the workers is a separate, deliberate change. Either way, do not write a test that
+only works sequentially.
 
 📌 **The concurrency a defects test needs is inside the test, not in the worker count.** The D-4
 test issues its parallel requests with `Promise.all`; Playwright reporting "1 worker" for that
@@ -228,11 +255,12 @@ or `**Covers:**` value may wrap onto as many further lines as it needs.** The pa
 heading, or is blank, and joins the pieces with a single space. A long statement wraps like any
 other line in this repository and keeps its whole meaning.
 
-## Known defects of the target
+## Known defects of the pinned target
 
-Tests that assert the specification where the target violates it live in `tests/defects/`, not in
-`tests/contract/`. They are red on purpose, they run on a schedule rather than in the PR gate, and
-each one carries an `issue` annotation naming the defect:
+Tests that assert the specification where a deployment violates it live in `tests/defects/`, not
+in `tests/contract/`. They run against `CONDUIT_DEFECTS_API_URL`, they are red on purpose, they
+run on a schedule rather than in the PR gate, and each one carries an `issue` annotation naming
+the defect:
 
 ```ts
 test(
@@ -272,5 +300,7 @@ would mean, not what turning red would mean.
   the wrong thing.
 - Do not try to clean up users — there is no delete endpoint, and that is a known limitation, not
   an oversight.
-- Do not assert the shape of a token. This target returns an opaque `token_<hex>`, not a JWT.
+- Do not assert the shape of a token. The two deployments do not agree on it: `api.realworld.show`
+  returns an opaque `token_<hex>` and `realworld.habsida.net` returns a JWT. The specification
+  guarantees only a string.
 - Do not assert a format for `slug`. The specification guarantees only that it is a unique string.
