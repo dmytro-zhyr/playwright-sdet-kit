@@ -56,7 +56,7 @@ const gate = await deployment('conduit-gate');
 
 | Name | Default | What it is |
 |---|---|---|
-| `conduit-gate` | `https://realworld.habsida.net/api` | the deployment the `contract` gate is measured against; D-6 to D-9 are its |
+| `conduit-gate` | `https://realworld.habsida.net/api` | the deployment the `contract` gate is measured against; D-6 to D-11 are its |
 | `conduit-unsound` | `https://api.realworld.show/api` | uniqueness, identity and visibility all fail here; D-1 to D-5 are its |
 | `conduit-overstrict` | `https://conduit-api.bondaracademy.com/api` | conforms, but rejects a username over 20 characters, a limit the specification never states |
 

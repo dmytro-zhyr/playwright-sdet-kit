@@ -211,6 +211,14 @@ the document case. This agent may do neither.
 was lowered, no assertion was widened after seeing a response. The two `[200, 201]` sets and the
 one `[200, 204]` set were decided before the run and are argued for in the code, not fitted to it.
 
+> **Corrected on 26 August 2026:** both reds above have been split. The unheld-slug sweep is five
+> paths in `tests/contract/not-found.spec.ts`, green, and two paths in
+> `tests/defects/not-found.spec.ts` — the delete already documented as D-6, and the comment route
+> filed as D-10. The registration echo keeps its `username`/`email` assertion in
+> `tests/contract/registration.spec.ts`, green, and the `bio`/`image` assertion moved to
+> `tests/defects/registration.spec.ts`, filed as D-11. Both halves now behave as designed: green
+> where the target conforms, red where it does not. See `spec/FINDINGS.md`, D-10 and D-11.
+
 ## Feedback
 
 **No artifact in the chain fixes a success status, and `CONVENTIONS.md` demands an exact one.**

@@ -37,7 +37,7 @@ export const DEPLOYMENTS = [
     envVar: 'CONDUIT_API_URL',
     defaultUrl: 'https://realworld.habsida.net/api',
     description:
-      'the deployment the contract gate is measured against; conforms broadly, and D-6 to D-9 in spec/FINDINGS.md are its',
+      'the deployment the contract gate is measured against; conforms broadly, and D-6 to D-11 in spec/FINDINGS.md are its',
   },
   {
     name: 'conduit-unsound',
