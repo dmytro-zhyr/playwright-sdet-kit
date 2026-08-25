@@ -695,13 +695,34 @@ test('parseObjections reads the artifact, the references and the question', () =
   expect(objections[0].risk).toContain('implementation');
 });
 
-// Turns red if a malformed objection heading starts being reported in the vocabulary of another
-// artifact. `scan` used to derive its noun from a two-way ternary, so an objections file was
-// told what a cases file carries — a message that sends the reader to the wrong document.
-test('a malformed objection heading is reported as an objection, not as a case', () => {
+// Turns red if `LOOSE_HEADING` stops covering the `O` prefix — a malformed objection heading
+// would then fall through to the generic "unexpected heading" catch-all instead of being
+// diagnosed precisely, the way a malformed rule or case heading already is.
+test('an objection identifier is recognised in an objections file', () => {
   const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('### O-001 —', '### O-1 —'));
 
   expect(problems).toContain('O-1: the identifier must be exactly three digits, as in O-001');
+});
+
+// Turns red if a fenced code block in an objections file is described in the vocabulary of a
+// different artifact. `scan` used to derive its noun from a two-way ternary, so an objections
+// file was told that nothing inside a fence is read as a "case" — a message that sends the
+// reader to the wrong format to find out what they did wrong.
+test('a fenced code block in an objections file is reported as an objection', () => {
+  const fenced = OBJECTIONS.replace('## Verdict', '```\nnot part of the format\n```\n\n## Verdict');
+
+  expect(validateObjections(RULES, CASES, fenced).join(' ')).toContain('read as an objection');
+});
+
+// Turns red if an unexpected heading in an objections file is answered with another artifact's
+// sections. The message names the sections the reader may use; naming a cases file's sections
+// here would send them to fix the file against a format it is not written in.
+test('an unexpected heading in an objections file names the objection sections', () => {
+  const extra = OBJECTIONS.replace('## Verdict', '#### Notes\n\n## Verdict');
+
+  expect(validateObjections(RULES, CASES, extra).join(' ')).toContain(
+    'an objections file carries ## Objections, ## Verdict sections'
+  );
 });
 
 // Turns red if an objection stops having to name an artifact this chain actually produces. A free

@@ -227,11 +227,15 @@ const KNOWN_ARTIFACTS = [
 
 const CONCERN_REFERENCE = /^[RC]-\d{3}$/;
 
-/** What each identifier prefix is called, so a message names the artifact the reader is holding. */
-const NOUNS: Record<string, { singular: string; plural: string }> = {
-  R: { singular: 'rule', plural: 'rules' },
-  C: { singular: 'case', plural: 'cases' },
-  O: { singular: 'objection', plural: 'objections' },
+/**
+ * What each identifier prefix is called, so a message names the artifact the reader is holding.
+ * `article` exists because `singular`/`plural` are not all consonant-initial: "a rule" and
+ * "a case" read fine with a literal "a", but "a objection" and "a objections file" do not.
+ */
+const NOUNS: Record<string, { singular: string; plural: string; article: string }> = {
+  R: { singular: 'rule', plural: 'rules', article: 'a' },
+  C: { singular: 'case', plural: 'cases', article: 'a' },
+  O: { singular: 'objection', plural: 'objections', article: 'an' },
 };
 
 /** How many identifiers a problem naming a list of them prints before it starts counting. */
@@ -438,6 +442,7 @@ function scan(markdown: string, heading: RegExp, prefix: string, knownSections: 
   }
   const noun = nouns.plural;
   const singular = nouns.singular;
+  const article = nouns.article;
 
   const blocks: Block[] = [];
   const problems: string[] = [];
@@ -464,7 +469,7 @@ function scan(markdown: string, heading: RegExp, prefix: string, knownSections: 
       if (fenceOpenedAt === null) {
         fenceOpenedAt = lineNumber;
         problems.push(
-          `${where()}: a fenced code block — this format has none, and nothing inside one is read as a ${singular}`
+          `${where()}: a fenced code block — this format has none, and nothing inside one is read as ${article} ${singular}`
         );
       } else {
         fenceOpenedAt = null;
@@ -516,7 +521,7 @@ function scan(markdown: string, heading: RegExp, prefix: string, knownSections: 
       // below it stay attached to the block they were written in, and only the heading is refused.
       if (hashes[1].length <= 3) close();
       problems.push(
-        `Unexpected heading "${quoted(line)}" — a ${noun} file carries ${knownSections.join(', ')} sections and "### ${prefix}-001 ${EM_DASH} Title" blocks, and no other heading`
+        `Unexpected heading "${quoted(line)}" — ${article} ${noun} file carries ${knownSections.join(', ')} sections and "### ${prefix}-001 ${EM_DASH} Title" blocks, and no other heading`
       );
       malformedHeadings += 1;
       continue;
