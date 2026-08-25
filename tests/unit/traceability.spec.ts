@@ -72,10 +72,12 @@ test('a case reported in the wrong file is a problem in both directions', () => 
 });
 
 // Turns red if a row naming a case with an empty file cell is dropped in silence instead of being
-// reported. Before the fix, the row simply never matched the table-row pattern, so the identifier
-// vanished from the map exactly as if the row had never been written — the same silent failure
-// this module exists to catch, just one step earlier.
-test('a row with an empty file cell is reported, not dropped', () => {
+// reported, or if that one empty cell is reported twice. Before the fix, the row never matched the
+// table-row pattern, so the identifier vanished from the map exactly as if the row had never been
+// written; after it, the identifier was reported but never registered, so the test that names the
+// case was also accused of naming a case the report does not automate — one root cause, two
+// problems, and the second one sends the reader to the wrong file.
+test('a row with an empty file cell is reported exactly once', () => {
   const report = `# Report
 
 ## Automated
@@ -85,7 +87,7 @@ test('a row with an empty file cell is reported, not dropped', () => {
 | C-001 || the token stops resolving |
 `;
 
-  expect(traceabilityProblems(report, [])).toEqual([
+  expect(traceabilityProblems(report, [AUTHENTICATION])).toEqual([
     'C-001 is reported in ## Automated with no file',
   ]);
 });

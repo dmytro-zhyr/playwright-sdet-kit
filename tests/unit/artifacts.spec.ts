@@ -185,15 +185,22 @@ test('pipeline/03-report.md accounts for every case exactly once', () => {
 });
 
 // Turns red if a test names a case the report does not automate in that file, or if the report
-// names a file that does not carry the case it claims. The accounting test above already refuses
-// a report that stays silent about a case; this one refuses a report that agrees with itself and
-// disagrees with the tree — which is how a `C-###` left over from a previous run went on
-// resolving quietly while naming a case about something else.
+// names a file that does not carry the case it claims — and red, too, if both directories exist
+// and hold no spec file at all. Without that floor an empty tree produces an empty problem list
+// and the whole check passes about nothing, which is the one shape of "cannot go red" the
+// module's own doc comment warns against. The accounting test above already refuses a report that
+// stays silent about a case; this one refuses a report that agrees with itself and disagrees with
+// the tree — which is how a `C-###` left over from a previous run went on resolving quietly while
+// naming a case about something else.
 test('every case identifier in the suite agrees with the report', () => {
-  const problems = traceabilityProblems(
-    read('pipeline', '03-report.md'),
-    specFiles('tests/contract', 'tests/defects')
-  );
+  const files = specFiles('tests/contract', 'tests/defects');
+
+  expect(
+    files.length,
+    'tests/contract and tests/defects must hold spec files for this check to be about anything'
+  ).toBeGreaterThan(0);
+
+  const problems = traceabilityProblems(read('pipeline', '03-report.md'), files);
 
   expect(
     problems,

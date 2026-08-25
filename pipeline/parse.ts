@@ -65,10 +65,12 @@
  *    which means the justification the QA agent is told is the main output of its work reaches no
  *    caller of `parseCases`. Nothing reports that it was discarded.
  *
- * 5. **Contradictions in content are invisible.** `C-018` admitting `bio` as a string or `null`
- *    while `C-029` requires `null`, or `R-015` naming 200 where `R-155` says only "a success
- *    status", are agreements between sentences, and this file checks shapes and identifiers. The
- *    reader gets a clean validation for an artifact that argues with itself.
+ * 5. **Disagreements in content are invisible.** `C-018` admitting `bio` as a string or `null`
+ *    where its stricter neighbour `C-029` requires `null` at the moment of creation — a strictness
+ *    gap rather than a contradiction, adjudicated in `pipeline/BASELINE.md` — or `R-015` naming 200
+ *    where `R-155` says only "a success status", are relations between sentences, and this file
+ *    checks shapes and identifiers. The reader gets a clean validation for artifacts that do not
+ *    line up.
  *
  * 6. **`pipeline/03-report.md` has no parser.** The only thing holding it to the cases is a test
  *    in `tests/unit/artifacts.spec.ts` that counts identifier occurrences in four named sections.
@@ -202,11 +204,13 @@ const OBJECTION_FIELDS = [
 
 const KNOWN_RULE_SECTIONS = ['## Rules', '## Assumed rules', '## Open questions'];
 const KNOWN_CASE_SECTIONS = ['## Cases', '## Not covered', '## Open questions'];
-const KNOWN_OBJECTION_SECTIONS = ['## Objections', '## Verdict'];
+const VERDICT = '## Verdict';
+
+const KNOWN_OBJECTION_SECTIONS = ['## Objections', VERDICT];
 
 const REQUIRED_RULE_SECTIONS = ['## Assumed rules', '## Open questions'];
 const REQUIRED_CASE_SECTIONS = ['## Not covered'];
-const REQUIRED_OBJECTION_SECTIONS = ['## Verdict'];
+const REQUIRED_OBJECTION_SECTIONS = [VERDICT];
 
 const NOT_COVERED = '## Not covered';
 
@@ -216,14 +220,33 @@ const NOT_COVERED = '## Not covered';
  * Deliberately not a check that the path exists on disk: the acceptance run works on copies in a
  * temporary directory, so an existence check would pass or fail depending on where the validator
  * was started from. A closed set answers the same question and answers it the same way everywhere.
+ *
+ * `CONVENTIONS.md` is on the list because it is genuinely an input: `pipeline/03-report.md` says
+ * in its own header that the batch was produced from `pipeline/02-cases.md` **and**
+ * `CONVENTIONS.md`. A critic of link 3 asked whether the output follows from the input, while
+ * holding only half of it, has to raise every assertion sourced from the conventions — control
+ * pairing, where the identifier goes, the `Steps`/`Expected` field set — as unsupported. Those
+ * objections would be well formed and wrong.
  */
 const KNOWN_ARTIFACTS = [
   'spec/conduit-api.md',
   'pipeline/01-rules.md',
   'pipeline/02-cases.md',
   'pipeline/03-report.md',
+  'CONVENTIONS.md',
   'tests/',
 ];
+
+/**
+ * The two sentences a critic may close on, worded exactly as `.claude/agents/critic.md` mandates
+ * them, as a closed set.
+ *
+ * Requiring the `## Verdict` **section** guards the verdict's place and not its statement: a file
+ * whose verdict section is empty, or reads "mostly fine I think", satisfies a section check while
+ * deciding nothing. That is the plausible defect — a critic that trails off rather than stops —
+ * and a check that cannot go red on the defect it was written for is worse than no check.
+ */
+const KNOWN_VERDICTS = ['No further objections. The stage may continue.', 'Objections remain.'];
 
 const CONCERN_REFERENCE = /^[RC]-\d{3}$/;
 
@@ -993,6 +1016,23 @@ export function validateObjections(
   // the literal text also occurs inside a fence and mid-sentence.
   for (const section of REQUIRED_OBJECTION_SECTIONS) {
     if (!read.sections.includes(section)) problems.push(`Missing mandatory section: ${section}`);
+  }
+
+  // The section's own text, not merely its heading. Reported only when the section is there: a
+  // file missing it altogether is already named above, and saying so twice sends the reader
+  // looking for a verdict to fix in a file that has nowhere to write one.
+  if (read.sections.includes(VERDICT)) {
+    const stated = (read.sectionLines.get(VERDICT) ?? [])
+      .map((line) => line.trim())
+      .filter((line) => line !== '');
+
+    if (stated.length !== 1 || !KNOWN_VERDICTS.includes(stated[0])) {
+      const written = stated.length === 0 ? 'is blank' : `reads "${quoted(stated.join(' '))}"`;
+      problems.push(
+        `The ${VERDICT} section ${written}, and a verdict is one of exactly two sentences: ` +
+          KNOWN_VERDICTS.map((verdict) => `"${verdict}"`).join(' or ')
+      );
+    }
   }
 
   return problems;

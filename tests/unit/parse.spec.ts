@@ -757,3 +757,58 @@ test('validateObjections requires the Verdict section', () => {
 
   expect(problems).toContain('Missing mandatory section: ## Verdict');
 });
+
+// Turns red if a verdict section may say anything at all. The check above guards the verdict's
+// *place*; this one guards its *statement*. `.claude/agents/critic.md` mandates exactly one of two
+// sentences, and the plausible defect is not a missing section — it is a critic that trails off
+// into "mostly fine I think", which decided nothing and passed a section check anyway.
+test('validateObjections refuses a verdict that is neither of the two sentences', () => {
+  const problems = validateObjections(
+    RULES,
+    CASES,
+    OBJECTIONS.replace('Objections remain.', 'Mostly fine I think.')
+  );
+
+  expect(problems.join(' ')).toContain('a verdict is one of exactly two sentences');
+  expect(problems.join(' ')).toContain('Mostly fine I think.');
+});
+
+// Turns red if a `## Verdict` heading with nothing under it counts as a verdict — the emptiest way
+// to end a run without deciding, and the one a section check is least able to see. The message
+// says "is blank" rather than quoting nothing, so the reader is told what is wrong with the file
+// rather than shown an empty pair of quotes.
+test('validateObjections refuses a Verdict section with nothing under it', () => {
+  const blank = OBJECTIONS.replace('Objections remain.', '');
+  const problems = validateObjections(RULES, CASES, blank);
+
+  expect(problems).toContain(
+    'The ## Verdict section is blank, and a verdict is one of exactly two sentences: ' +
+      '"No further objections. The stage may continue." or "Objections remain."'
+  );
+});
+
+// Turns red if either allowed verdict stops being accepted — a check that refuses the two
+// sentences the definition mandates would make the format unwritable, which is the mirror image of
+// one that accepts anything and just as useless.
+test('each of the two verdicts a critic may close on is accepted', () => {
+  for (const verdict of ['No further objections. The stage may continue.', 'Objections remain.']) {
+    expect(
+      validateObjections(RULES, CASES, OBJECTIONS.replace('Objections remain.', verdict)),
+      `the verdict "${verdict}" is one of the two the critic may close on`
+    ).toEqual([]);
+  }
+});
+
+// Turns red if `CONVENTIONS.md` stops being an artifact a critic may object about. It is half of
+// link 3's input — `pipeline/03-report.md` says in its own header that the batch was produced from
+// `pipeline/02-cases.md` and `CONVENTIONS.md` — so a critic that cannot name it has to report
+// every conventions-derived assertion in the report as unsupported by its input.
+test('validateObjections accepts CONVENTIONS.md as an artifact of the chain', () => {
+  const problems = validateObjections(
+    RULES,
+    CASES,
+    OBJECTIONS.replace('**Artifact:** pipeline/01-rules.md', '**Artifact:** CONVENTIONS.md')
+  );
+
+  expect(problems).toEqual([]);
+});
