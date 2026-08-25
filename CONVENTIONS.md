@@ -185,6 +185,21 @@ not the zod 3 spellings `z.object({...}).strict()`, `z.string().email()`, `z.str
 
    The framework's own tests, written before the chain existed, carry no identifier — do not add
    one to them, and do not read their absence as licence to omit yours.
+
+   **A `C-###` appears only where the report agrees.** `tests/unit/artifacts.spec.ts` checks both
+   directions: every identifier in `tests/contract/` and `tests/defects/` must be reported as
+   automated in that same file, and every row of `## Automated` must name a file that carries its
+   identifier. This holds for prose in comments as well as for test names — a reference that only
+   has to resolve is exactly what went stale on 25 August. Refer to a neighbouring test by its
+   file, not by an identifier you are not implementing. Tests in `tests/defects/` carry `D-###`
+   from `spec/FINDINGS.md` instead, because they document a target, not a case.
+
+   ⚠️ **`spec/` is outside that check and is maintained by hand.** The scan covers
+   `tests/contract/` and `tests/defects/` only, and `spec/FINDINGS.md` is not a file the report's
+   `## Automated` table describes, so widening the scan to it would change what the check means
+   rather than strengthen it. A `C-###` written in `spec/` therefore only has to *resolve* —
+   exactly the weakness this rule closes everywhere else. Three of them went stale there on
+   25 August and were found by reading. Re-read them by hand whenever the cases are regenerated.
 2. **A one-line comment saying what would make this test red.** Every test in this repository has
    one; the existing files are the demonstration.
 

@@ -95,7 +95,7 @@ const VALIDATED_BEFORE_AUTHENTICATED: { method: 'put' | 'post'; path: string; va
 ];
 
 // Turns green the day the gate deployment refuses an anonymous caller before it reads the body.
-// The other half of C-003 — the twelve guarded endpoints, sent payloads that pass validation, all
+// The conforming half — the twelve guarded endpoints, sent payloads that pass validation, all
 // answering 401 — stays in tests/contract/authentication.spec.ts and is green there.
 //
 // 🔑 The whole test is the evidence: the two halves below differ in one thing, the payload. The
@@ -103,7 +103,7 @@ const VALIDATED_BEFORE_AUTHENTICATED: { method: 'put' | 'post'; path: string; va
 // guard is not what answers first. The API tells a caller it has not authenticated what its
 // request body should have looked like.
 test(
-  'C-003 — an anonymous caller is refused before the body is validated',
+  'D-9 — an anonymous caller is refused before the body is validated',
   {
     annotation: {
       type: 'issue',

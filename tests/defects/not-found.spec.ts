@@ -11,10 +11,10 @@ const DELETE_SUCCESS_MESSAGE =
   'the specification states no success status for a delete, so 200 and 204 are both accepted';
 
 // Turns green the day the gate deployment stops answering 204 for a resource it never held. The
-// other half of C-006 — the six read paths, which answer 404 correctly — stays in
+// conforming half — the six read paths, which answer 404 correctly — stays in
 // tests/contract/not-found.spec.ts and is green there.
 test(
-  'C-006 — deleting an identifier that names nothing is answered 404',
+  'D-6 — deleting an identifier that names nothing is answered 404',
   {
     annotation: {
       type: 'issue',

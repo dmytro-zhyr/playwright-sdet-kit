@@ -3,8 +3,10 @@ import {
   ArtifactError,
   parseRules,
   parseCases,
+  parseObjections,
   validateRules,
   validateCases,
+  validateObjections,
   ruleCoverage,
 } from '@/pipeline/parse';
 
@@ -659,4 +661,154 @@ test('a field whose value starts after a blank line is named for what it is', ()
 test('a field with its value beside the name is not reported', () => {
   expect(validateCases(RULES, CASES)).toEqual([]);
   expect(parseCases(CASES)[0].steps).toBe('POST /users');
+});
+
+// ---------------------------------------------------------------------------------------------
+// Objections: the third artifact, written by a reviewing agent rather than the BA or the QA.
+// ---------------------------------------------------------------------------------------------
+
+const OBJECTIONS = `# Objections
+
+## Objections
+
+### O-001 — The chain never settles a success status
+**Artifact:** pipeline/01-rules.md
+**Concerns:** R-001, R-002
+**Question:** R-001 fixes 201 for a registration; does every other rule agree?
+**Risk if ignored:** a contract test takes its expectation from an implementation
+**Possible alternative:** state the status per endpoint
+
+## Verdict
+
+Objections remain.
+`;
+
+// Turns red if the objection heading or the field syntax stops being recognised — the file would
+// then read as empty and every count taken from it would be zero for a file full of objections.
+test('parseObjections reads the artifact, the references and the question', () => {
+  const objections = parseObjections(OBJECTIONS);
+
+  expect(objections).toHaveLength(1);
+  expect(objections[0].id).toBe('O-001');
+  expect(objections[0].artifact).toBe('pipeline/01-rules.md');
+  expect(objections[0].concerns).toEqual(['R-001', 'R-002']);
+  expect(objections[0].risk).toContain('implementation');
+});
+
+// Turns red if `LOOSE_HEADING` stops covering the `O` prefix — a malformed objection heading
+// would then fall through to the generic "unexpected heading" catch-all instead of being
+// diagnosed precisely, the way a malformed rule or case heading already is.
+test('an objection identifier is recognised in an objections file', () => {
+  const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('### O-001 —', '### O-1 —'));
+
+  expect(problems).toContain('O-1: the identifier must be exactly three digits, as in O-001');
+});
+
+// Turns red if a fenced code block in an objections file is described in the vocabulary of a
+// different artifact. `scan` used to derive its noun from a two-way ternary, so an objections
+// file was told that nothing inside a fence is read as a "case" — a message that sends the
+// reader to the wrong format to find out what they did wrong.
+test('a fenced code block in an objections file is reported as an objection', () => {
+  const fenced = OBJECTIONS.replace('## Verdict', '```\nnot part of the format\n```\n\n## Verdict');
+
+  expect(validateObjections(RULES, CASES, fenced).join(' ')).toContain('read as an objection');
+});
+
+// Turns red if an unexpected heading in an objections file is answered with another artifact's
+// sections. The message names the sections the reader may use; naming a cases file's sections
+// here would send them to fix the file against a format it is not written in.
+test('an unexpected heading in an objections file names the objection sections', () => {
+  const extra = OBJECTIONS.replace('## Verdict', '#### Notes\n\n## Verdict');
+
+  expect(validateObjections(RULES, CASES, extra).join(' ')).toContain(
+    'an objections file carries ## Objections, ## Verdict sections'
+  );
+});
+
+// Turns red if an objection stops having to name an artifact this chain actually produces. A free
+// path would let a critic object about a file nobody in the chain writes, and the objection would
+// be unactionable while looking well formed.
+test('validateObjections refuses an artifact outside the closed set', () => {
+  const problems = validateObjections(
+    RULES,
+    CASES,
+    OBJECTIONS.replace('**Artifact:** pipeline/01-rules.md', '**Artifact:** pipeline/99-notes.md')
+  );
+
+  expect(problems.join(' ')).toContain('is not an artifact of this chain');
+});
+
+// Turns red if a reference in Concerns stops being resolved against the real rules and cases.
+// A reference that only has to look like an identifier is the exact weak link BASELINE.md named:
+// it resolves, so nothing goes red, and it points at whatever now holds that number.
+test('validateObjections refuses a reference no rule or case holds', () => {
+  const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('R-002', 'R-777'));
+
+  expect(problems).toContain(
+    'O-001: Concerns names R-777, which no rule or case in the chain holds'
+  );
+});
+
+// Turns red if the file stops having to carry a verdict. The critic's stopping condition is the
+// difference between a measurement and an impression: without a place to write "no further
+// objections", the run ends when whoever is reading gets tired.
+test('validateObjections requires the Verdict section', () => {
+  const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('## Verdict', '## Summary'));
+
+  expect(problems).toContain('Missing mandatory section: ## Verdict');
+});
+
+// Turns red if a verdict section may say anything at all. The check above guards the verdict's
+// *place*; this one guards its *statement*. `.claude/agents/critic.md` mandates exactly one of two
+// sentences, and the plausible defect is not a missing section — it is a critic that trails off
+// into "mostly fine I think", which decided nothing and passed a section check anyway.
+test('validateObjections refuses a verdict that is neither of the two sentences', () => {
+  const problems = validateObjections(
+    RULES,
+    CASES,
+    OBJECTIONS.replace('Objections remain.', 'Mostly fine I think.')
+  );
+
+  expect(problems.join(' ')).toContain('a verdict is one of exactly two sentences');
+  expect(problems.join(' ')).toContain('Mostly fine I think.');
+});
+
+// Turns red if a `## Verdict` heading with nothing under it counts as a verdict — the emptiest way
+// to end a run without deciding, and the one a section check is least able to see. The message
+// says "is blank" rather than quoting nothing, so the reader is told what is wrong with the file
+// rather than shown an empty pair of quotes.
+test('validateObjections refuses a Verdict section with nothing under it', () => {
+  const blank = OBJECTIONS.replace('Objections remain.', '');
+  const problems = validateObjections(RULES, CASES, blank);
+
+  expect(problems).toContain(
+    'The ## Verdict section is blank, and a verdict is one of exactly two sentences: ' +
+      '"No further objections. The stage may continue." or "Objections remain."'
+  );
+});
+
+// Turns red if either allowed verdict stops being accepted — a check that refuses the two
+// sentences the definition mandates would make the format unwritable, which is the mirror image of
+// one that accepts anything and just as useless.
+test('each of the two verdicts a critic may close on is accepted', () => {
+  for (const verdict of ['No further objections. The stage may continue.', 'Objections remain.']) {
+    expect(
+      validateObjections(RULES, CASES, OBJECTIONS.replace('Objections remain.', verdict)),
+      `the verdict "${verdict}" is one of the two the critic may close on`
+    ).toEqual([]);
+  }
+});
+
+// Turns red if `CONVENTIONS.md` stops being an artifact a critic may object about. It is half of
+// link 3's input — `pipeline/03-report.md` says in its own header that the batch was produced from
+// `pipeline/02-cases.md` and `CONVENTIONS.md` — so a critic that cannot name it has to report
+// every conventions-derived assertion in the report as unsupported by its input.
+test('validateObjections accepts CONVENTIONS.md as an artifact of the chain', () => {
+  const problems = validateObjections(
+    RULES,
+    CASES,
+    OBJECTIONS.replace('**Artifact:** pipeline/01-rules.md', '**Artifact:** CONVENTIONS.md')
+  );
+
+  expect(problems).toEqual([]);
 });
