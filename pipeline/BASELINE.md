@@ -125,3 +125,82 @@ would otherwise have read.
 three times and never shows it; both QA runs settled it by reading the parser instead. `ta.md`
 forbids committing while every dispatch requires it. `ba.md` never mentions that `## ` headings are
 a closed set of three, so an agent adding a reasonable `## Scope` would be rejected.
+
+## The acceptance run
+
+**Date:** 25 August 2026. **Verdict against the spec 8 criterion: partial.** One of the two
+suppressed contradictions was raised as designed; the other was not.
+
+The criterion was split into two falsifiable halves before the run — see
+`.superpowers/sdd/2026-08-25-critic-acceptance/progress.md` for the ruling and why the original,
+single-question form was already invalid before a critic ran.
+
+**A — FIND, call 2 (`01-rules.md` → `02-cases.md`) raises `C-018`/`C-029`: no.** Call 2 returned
+six objections (O-007 through O-012 in `pipeline/04-objections.md`). None names both `C-018` and
+`C-029`; `C-018` appears once, alone, in an objection about an unstated closure requirement
+(O-008), and `C-029` does not appear in call 2 at all. The contradiction this file records above —
+"the same document both allows and forbids the same value" — was not independently found by the
+critic reading `01-rules.md` against `02-cases.md`.
+
+A related but distinct thing did happen one link downstream: call 3 (O-019) read the *report's*
+Triage of that same contradiction and objected that the report's own framing is wrong — `C-018`
+accepts a string or `null`, `C-029` requires `null` specifically at creation, and a `null` response
+satisfies both at once, so nothing about the two cases forces a choice between them the way the
+report's paragraph claims. Whether that counter-reading is itself correct is not resolved here; it
+is recorded as what call 3 said, not folded into criterion A, which was written for call 2 alone.
+
+**B — CLOSE, calls 1 and 3 turn the `R-015`/`R-155`/`R-174` open question into a blocking
+objection: yes, both.** Call 1's O-002 names all five identifiers the rules file's own open
+question ties together (`R-015`, `R-129`, `R-155`, `R-161`, `R-174`) and asks which reading a
+downstream case should take. Call 3 never saw `01-rules.md` and could not have cited those
+identifiers — it received only `02-cases.md` and `tests/` + `03-report.md` — yet its O-014
+independently re-opened the same substance from the other end of the chain: it shows the report's
+Feedback section claiming "no artifact in the chain fixes a success status" for endpoints,
+including `POST /articles`, that `C-009` (which exists specifically to cover `R-015`/`R-016`)
+already asserts 200 for. Two calls, given disjoint artifact pairs, converged on the same
+unresolved question from opposite ends of the chain. Both verdicts read `Objections remain.`
+
+**Objection counts.** Call 1: 6 (O-001–O-006). Call 2: 6 (O-007–O-012). Call 3: 7 (O-013–O-019).
+Nineteen total.
+
+**Noise: one of nineteen, and it is the run's own doing, not the critic's.** O-015 (call 3) objects
+that the report cites `tests/unit/artifacts.spec.ts` as the file that enforces exhaustive case
+accounting, when no such file exists in the `tests/` the critic was given. The file is real — it is
+this repository's own validation harness — but Step 1 of the acceptance run's own procedure
+deliberately excludes `tests/unit/` from the frozen copy (the brief's copy script names only
+`tests/contract` and `tests/defects`), because that directory is this SDD project's tooling, not
+part of the API test batch the `ta` agent produces. Call 3 was correct about the artifact it was
+handed and wrong about the repository, through no fault of its own: the run's scoping choice
+manufactured a false positive. The other eighteen objections were checked by hand against the real
+files — quoted lines, Covers-list counts, precondition text, test-file contents — and every one of
+them holds. Two are worth naming for what they caught beyond the acceptance criterion itself: O-013
+shows the report's provenance claim ("neither `spec/conduit-api.md` … was opened") contradicted by
+spec-derived wording inside the very tests that batch produced, and O-017 shows a Feedback item
+describing `tests/defects/not-found.spec.ts` as still carrying a stale `C-006` name, when Task 3 of
+this branch had already renamed it to `D-6` before this report was read — the report is stale on a
+point Task 3 fixed, not on a point nobody had touched.
+
+**Did each critic say it was done.** Yes, all three. Each of the three replies ends on exactly one
+of the two sentences its definition allows, and all three chose the same one: `Objections remain.`
+None trailed off, none invented a third state.
+
+**What follows for three runs per branch.** Nothing — this run cannot speak to it, and saying
+otherwise would repeat the exact mistake the amendment above was written to avoid. "Three runs per
+branch" is a question about *agreement between independent runs of the same link*: given the same
+two artifacts twice, does the critic converge or scatter? This acceptance run dispatched each of
+the three links exactly once. A low noise rate on a single pass (here, one in nineteen, and that
+one caused by the harness rather than the model) says the critic reads carefully; it says nothing
+about whether a second, independent call on the same `01-rules.md` → `02-cases.md` pair would
+return the same six objections, a different six, or six plus one more that this run's single call
+happened not to raise. Measuring that requires running the same link more than once and comparing
+the outputs, which is exactly the retry/escalation machinery `spec/` section 9 defers — this run is
+evidence for building it, not a substitute for it.
+
+⚠️ **The honesty boundary, spec section 10 ("Межа чесності"), quoted verbatim, not paraphrased:**
+
+> Прийомний тест міряє критика на **двох дефектах, які вже знайдені людиною**. Із цього не
+> випливає, що критик знаходить дефекти взагалі — лише що він знаходить **цей клас**: суперечність
+> між двома місцями одного артефакта і між двома артефактами ланцюжка.
+>
+> ⚠️ **Так це й треба формулювати в README і в розмові.** Твердження «критик працює» на одному
+> прогоні по відомих відповідях — це рівно та сама помилка, проти якої побудований весь проєкт.

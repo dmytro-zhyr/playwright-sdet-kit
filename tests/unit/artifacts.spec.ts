@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { validateRules, validateCases, ruleCoverage, parseCases } from '@/pipeline/parse';
+import {
+  validateRules,
+  validateCases,
+  validateObjections,
+  ruleCoverage,
+  parseCases,
+} from '@/pipeline/parse';
 import { validateAgentDefinition } from '@/pipeline/agentDefinition';
 import { traceabilityProblems, type TestFile } from '@/pipeline/traceability';
 
@@ -193,4 +199,18 @@ test('every case identifier in the suite agrees with the report', () => {
     problems,
     'the report and the suite disagree about which file automates which case'
   ).toEqual([]);
+});
+
+// Turns red if the objections file stops being readable as written — a gap in the numbering, an
+// objection with no Concerns, a reference to a rule or case the chain does not hold, or a lost
+// Verdict. The verdict matters most: without it the run ends when the reader tires, and an
+// impression is not a measurement.
+test('pipeline/04-objections.md passes validation', () => {
+  const problems = validateObjections(
+    read('pipeline', '01-rules.md'),
+    read('pipeline', '02-cases.md'),
+    read('pipeline', '04-objections.md')
+  );
+
+  expect(problems, 'problems found in the objections file').toEqual([]);
 });
