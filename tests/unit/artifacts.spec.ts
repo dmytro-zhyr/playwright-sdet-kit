@@ -124,6 +124,27 @@ test('.claude/agents/ta.md passes validation', () => {
   expect(validateAgentDefinition(markdown, 'ta.md'), 'problems found in the TA agent').toEqual([]);
 });
 
+// Turns red if the critic's own definition drifts out of shape — and one drift matters more than
+// the rest: `tools` is what makes the critic read-only. Restore Write or Edit to that line and
+// the one agent whose value is its independence from what it judges can edit what it judges.
+test('.claude/agents/critic.md passes validation', () => {
+  const markdown = read('.claude', 'agents', 'critic.md');
+
+  expect(validateAgentDefinition(markdown, 'critic.md'), 'problems found in the critic').toEqual(
+    []
+  );
+});
+
+// Turns red if the critic is granted a tool that writes. The definition above only has to carry a
+// `tools` line; this one says what may be on it. A prohibition in prose is an agreement, and an
+// agent can decide an agreement does not apply this once.
+test('the critic holds no tool that can write', () => {
+  const markdown = read('.claude', 'agents', 'critic.md');
+  const tools = /^tools:\s*(.+)$/m.exec(markdown)?.[1] ?? '';
+
+  expect(tools.split(',').map((tool) => tool.trim())).toEqual(['Read', 'Grep', 'Glob']);
+});
+
 // Turns red if the report stops accounting for every case exactly once — a case implemented and
 // then also parked under `## Not attempted`, a case quietly dropped when a batch grew, a renamed
 // section heading that takes its whole table out of the count, or a new case added upstream that
