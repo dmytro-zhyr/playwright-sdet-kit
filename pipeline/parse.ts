@@ -95,6 +95,20 @@ export interface Case {
   expected: string;
 }
 
+export interface Objection {
+  id: string;
+  title: string;
+  /** One of `KNOWN_ARTIFACTS`: which artifact of the chain the objection is about. */
+  artifact: string;
+  /** The rule and case identifiers the objection concerns, in the order written. */
+  concerns: string[];
+  question: string;
+  risk: string;
+  /** Empty when the critic had no alternative to offer — which is allowed, and better than one
+   * invented to fill the field. */
+  alternative: string;
+}
+
 /**
  * Thrown by `parseRules` and `parseCases` when the artifact cannot be read at face value.
  *
@@ -145,13 +159,14 @@ interface Read<T> {
 
 const RULE_HEADING = /^### (R-\d{3}) — (.+)$/;
 const CASE_HEADING = /^### (C-\d{3}) — (.+)$/;
+const OBJECTION_HEADING = /^### (O-\d{3}) — (.+)$/;
 
 /**
- * A `###` heading that names a rule or a case identifier, however badly punctuated. It exists so
- * that a heading the strict expressions above reject can still be recognised well enough to say
- * what is wrong with it, instead of vanishing and leaving "No rules found" behind.
+ * A `###` heading that names a rule, a case or an objection identifier, however badly punctuated.
+ * It exists so that a heading the strict expressions above reject can still be recognised well
+ * enough to say what is wrong with it, instead of vanishing and leaving "No rules found" behind.
  */
-const LOOSE_HEADING = /^### ([RC])-(\d+)[ \t]*([^\w\s]*)[ \t]*(.*)$/u;
+const LOOSE_HEADING = /^### ([RCO])-(\d+)[ \t]*([^\w\s]*)[ \t]*(.*)$/u;
 
 const EM_DASH = '—';
 
@@ -177,14 +192,47 @@ const PARKED_ENTRY = /^- (R-\d{3})(?=[ \t]|$)/;
 
 const RULE_FIELDS = ['Source', 'Kind', 'Statement'];
 const CASE_FIELDS = ['Covers', 'Steps', 'Expected'];
+const OBJECTION_FIELDS = [
+  'Artifact',
+  'Concerns',
+  'Question',
+  'Risk if ignored',
+  'Possible alternative',
+];
 
 const KNOWN_RULE_SECTIONS = ['## Rules', '## Assumed rules', '## Open questions'];
 const KNOWN_CASE_SECTIONS = ['## Cases', '## Not covered', '## Open questions'];
+const KNOWN_OBJECTION_SECTIONS = ['## Objections', '## Verdict'];
 
 const REQUIRED_RULE_SECTIONS = ['## Assumed rules', '## Open questions'];
 const REQUIRED_CASE_SECTIONS = ['## Not covered'];
+const REQUIRED_OBJECTION_SECTIONS = ['## Verdict'];
 
 const NOT_COVERED = '## Not covered';
+
+/**
+ * The artifacts a critic of this chain may object about, as a closed set.
+ *
+ * Deliberately not a check that the path exists on disk: the acceptance run works on copies in a
+ * temporary directory, so an existence check would pass or fail depending on where the validator
+ * was started from. A closed set answers the same question and answers it the same way everywhere.
+ */
+const KNOWN_ARTIFACTS = [
+  'spec/conduit-api.md',
+  'pipeline/01-rules.md',
+  'pipeline/02-cases.md',
+  'pipeline/03-report.md',
+  'tests/',
+];
+
+const CONCERN_REFERENCE = /^[RC]-\d{3}$/;
+
+/** What each identifier prefix is called, so a message names the artifact the reader is holding. */
+const NOUNS: Record<string, { singular: string; plural: string }> = {
+  R: { singular: 'rule', plural: 'rules' },
+  C: { singular: 'case', plural: 'cases' },
+  O: { singular: 'objection', plural: 'objections' },
+};
 
 /** How many identifiers a problem naming a list of them prints before it starts counting. */
 const NAMED_IN_A_LIST = 8;
@@ -382,8 +430,14 @@ function headingProblem(line: string, prefix: string): string | null {
  * fence used to be read as a rule of the contract.
  */
 function scan(markdown: string, heading: RegExp, prefix: string, knownSections: string[]): Scan {
-  const noun = prefix === 'R' ? 'rules' : 'cases';
-  const singular = prefix === 'R' ? 'rule' : 'case';
+  const nouns = NOUNS[prefix];
+  if (!nouns) {
+    throw new Error(
+      `scan: unknown identifier prefix "${prefix}". Known prefixes: ${Object.keys(NOUNS).join(', ')}`
+    );
+  }
+  const noun = nouns.plural;
+  const singular = nouns.singular;
 
   const blocks: Block[] = [];
   const problems: string[] = [];
@@ -577,6 +631,65 @@ function readCases(markdown: string): Read<Case> {
   };
 }
 
+/** Read an objections artifact without deciding what to do about what was noticed. */
+function readObjections(markdown: string): Read<Objection> {
+  const scanned = scan(markdown, OBJECTION_HEADING, 'O', KNOWN_OBJECTION_SECTIONS);
+  const items: Objection[] = [];
+  const problems = [...scanned.problems];
+  const valueBelowBlankLine = new Set<string>();
+
+  for (const block of scanned.blocks) {
+    const fields = readFields(block, OBJECTION_FIELDS);
+    problems.push(...fields.problems);
+    for (const name of fields.valueBelowBlankLine) valueBelowBlankLine.add(`${block.id}:${name}`);
+
+    const written = fields.values.get('Concerns') ?? '';
+    const concerns: string[] = [];
+
+    // An absent Concerns field is not a malformed one: `validateObjections` reports it as missing,
+    // and splitting an empty string here would add a second complaint about the same line.
+    if (written !== '') {
+      for (const entry of written.split(',')) {
+        const token = entry.trim();
+        if (CONCERN_REFERENCE.test(token)) {
+          if (concerns.includes(token)) {
+            problems.push(
+              `${block.id}: Concerns names ${token} twice; each identifier is referenced once`
+            );
+          } else {
+            concerns.push(token);
+          }
+        } else if (token === '') {
+          problems.push(`${block.id}: Concerns has an empty entry — a stray or trailing comma`);
+        } else {
+          problems.push(
+            `${block.id}: "${token}" in Concerns is not a rule or case identifier — the forms are R-001 and C-001`
+          );
+        }
+      }
+    }
+
+    items.push({
+      id: block.id,
+      title: block.title,
+      artifact: fields.values.get('Artifact') ?? '',
+      concerns,
+      question: fields.values.get('Question') ?? '',
+      risk: fields.values.get('Risk if ignored') ?? '',
+      alternative: fields.values.get('Possible alternative') ?? '',
+    });
+  }
+
+  return {
+    items,
+    problems,
+    malformedHeadings: scanned.malformedHeadings,
+    sections: scanned.sections,
+    sectionLines: scanned.sectionLines,
+    valueBelowBlankLine,
+  };
+}
+
 /**
  * The rules, or an {@link ArtifactError} naming everything the file does not say the way it
  * looks like it says it. There is deliberately no way to get the first without the second.
@@ -591,6 +704,13 @@ export function parseRules(markdown: string): Rule[] {
 export function parseCases(markdown: string): Case[] {
   const read = readCases(markdown);
   if (read.problems.length > 0) throw new ArtifactError('cases', read.problems);
+  return read.items;
+}
+
+/** The objections, on the same terms as {@link parseRules}. */
+export function parseObjections(markdown: string): Objection[] {
+  const read = readObjections(markdown);
+  if (read.problems.length > 0) throw new ArtifactError('objections', read.problems);
   return read.items;
 }
 
@@ -791,6 +911,82 @@ export function validateCases(rulesMd: string, casesMd: string): string[] {
   }
 
   for (const section of REQUIRED_CASE_SECTIONS) {
+    if (!read.sections.includes(section)) problems.push(`Missing mandatory section: ${section}`);
+  }
+
+  return problems;
+}
+
+/**
+ * The objections file, checked against the rules and cases it claims to be about.
+ *
+ * Deliberately not `parseRules` / `parseCases`: a broken upstream artifact is those validators'
+ * news to break, and throwing here would replace a list of problems in the objections file with
+ * an exception about a different one.
+ */
+export function validateObjections(
+  rulesMd: string,
+  casesMd: string,
+  objectionsMd: string
+): string[] {
+  const known = new Set([
+    ...readRules(rulesMd).items.map((rule) => rule.id),
+    ...readCases(casesMd).items.map((testCase) => testCase.id),
+  ]);
+
+  const read = readObjections(objectionsMd);
+  const objections = read.items;
+  const problems: string[] = [...read.problems];
+
+  for (const id of duplicates(objections.map((objection) => objection.id))) {
+    problems.push(`Duplicate objection identifier: ${id}`);
+  }
+
+  problems.push(
+    ...sequence(
+      objections.map((objection) => objection.id),
+      'Objection',
+      'O'
+    )
+  );
+
+  for (const objection of objections) {
+    const stated = (field: string): boolean =>
+      !read.valueBelowBlankLine.has(`${objection.id}:${field}`);
+
+    if (!objection.artifact && stated('Artifact')) {
+      problems.push(`${objection.id}: missing Artifact field`);
+    }
+    if (objection.concerns.length === 0 && stated('Concerns')) {
+      problems.push(
+        `${objection.id}: missing Concerns field — an objection names what it is about`
+      );
+    }
+    if (!objection.question && stated('Question')) {
+      problems.push(`${objection.id}: missing Question field`);
+    }
+    if (!objection.risk && stated('Risk if ignored')) {
+      problems.push(`${objection.id}: missing Risk if ignored field`);
+    }
+
+    if (objection.artifact && !KNOWN_ARTIFACTS.includes(objection.artifact)) {
+      problems.push(
+        `${objection.id}: Artifact is "${objection.artifact}", which is not an artifact of this chain. Known artifacts: ${KNOWN_ARTIFACTS.join(', ')}`
+      );
+    }
+
+    for (const reference of objection.concerns) {
+      if (!known.has(reference)) {
+        problems.push(
+          `${objection.id}: Concerns names ${reference}, which no rule or case in the chain holds`
+        );
+      }
+    }
+  }
+
+  // Deliberately the headings the scan really found, for the same reason `validateRules` does it:
+  // the literal text also occurs inside a fence and mid-sentence.
+  for (const section of REQUIRED_OBJECTION_SECTIONS) {
     if (!read.sections.includes(section)) problems.push(`Missing mandatory section: ${section}`);
   }
 

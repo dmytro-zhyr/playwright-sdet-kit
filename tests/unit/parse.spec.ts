@@ -3,8 +3,10 @@ import {
   ArtifactError,
   parseRules,
   parseCases,
+  parseObjections,
   validateRules,
   validateCases,
+  validateObjections,
   ruleCoverage,
 } from '@/pipeline/parse';
 
@@ -659,4 +661,78 @@ test('a field whose value starts after a blank line is named for what it is', ()
 test('a field with its value beside the name is not reported', () => {
   expect(validateCases(RULES, CASES)).toEqual([]);
   expect(parseCases(CASES)[0].steps).toBe('POST /users');
+});
+
+// ---------------------------------------------------------------------------------------------
+// Objections: the third artifact, written by a reviewing agent rather than the BA or the QA.
+// ---------------------------------------------------------------------------------------------
+
+const OBJECTIONS = `# Objections
+
+## Objections
+
+### O-001 — The chain never settles a success status
+**Artifact:** pipeline/01-rules.md
+**Concerns:** R-001, R-002
+**Question:** R-001 fixes 201 for a registration; does every other rule agree?
+**Risk if ignored:** a contract test takes its expectation from an implementation
+**Possible alternative:** state the status per endpoint
+
+## Verdict
+
+Objections remain.
+`;
+
+// Turns red if the objection heading or the field syntax stops being recognised — the file would
+// then read as empty and every count taken from it would be zero for a file full of objections.
+test('parseObjections reads the artifact, the references and the question', () => {
+  const objections = parseObjections(OBJECTIONS);
+
+  expect(objections).toHaveLength(1);
+  expect(objections[0].id).toBe('O-001');
+  expect(objections[0].artifact).toBe('pipeline/01-rules.md');
+  expect(objections[0].concerns).toEqual(['R-001', 'R-002']);
+  expect(objections[0].risk).toContain('implementation');
+});
+
+// Turns red if a malformed objection heading starts being reported in the vocabulary of another
+// artifact. `scan` used to derive its noun from a two-way ternary, so an objections file was
+// told what a cases file carries — a message that sends the reader to the wrong document.
+test('a malformed objection heading is reported as an objection, not as a case', () => {
+  const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('### O-001 —', '### O-1 —'));
+
+  expect(problems).toContain('O-1: the identifier must be exactly three digits, as in O-001');
+});
+
+// Turns red if an objection stops having to name an artifact this chain actually produces. A free
+// path would let a critic object about a file nobody in the chain writes, and the objection would
+// be unactionable while looking well formed.
+test('validateObjections refuses an artifact outside the closed set', () => {
+  const problems = validateObjections(
+    RULES,
+    CASES,
+    OBJECTIONS.replace('**Artifact:** pipeline/01-rules.md', '**Artifact:** pipeline/99-notes.md')
+  );
+
+  expect(problems.join(' ')).toContain('is not an artifact of this chain');
+});
+
+// Turns red if a reference in Concerns stops being resolved against the real rules and cases.
+// A reference that only has to look like an identifier is the exact weak link BASELINE.md named:
+// it resolves, so nothing goes red, and it points at whatever now holds that number.
+test('validateObjections refuses a reference no rule or case holds', () => {
+  const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('R-002', 'R-777'));
+
+  expect(problems).toContain(
+    'O-001: Concerns names R-777, which no rule or case in the chain holds'
+  );
+});
+
+// Turns red if the file stops having to carry a verdict. The critic's stopping condition is the
+// difference between a measurement and an impression: without a place to write "no further
+// objections", the run ends when whoever is reading gets tired.
+test('validateObjections requires the Verdict section', () => {
+  const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('## Verdict', '## Summary'));
+
+  expect(problems).toContain('Missing mandatory section: ## Verdict');
 });
