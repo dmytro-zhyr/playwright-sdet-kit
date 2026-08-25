@@ -24,10 +24,14 @@ export interface AutomatedEntry {
 
 const AUTOMATED_SECTION = '## Automated';
 const SECTION_HEADING = /^## /;
-const TABLE_ROW = /^\|\s*(C-\d{3})\s*\|\s*([^|]+?)\s*\|/;
-const CASE_REFERENCE = /C-\d{3}/g;
+const TABLE_ROW = /^\|\s*(C-\d{3})\s*\|([^|]*)\|/;
+const CASE_REFERENCE = /(?<![A-Za-z0-9_-])C-\d{3}(?!\d)/g;
 
-/** The rows of the report's `## Automated` table, and of no other section. */
+/**
+ * The rows of the report's `## Automated` table, and of no other section, exactly as written —
+ * including a row whose file cell is empty. This function's job is to read the table honestly,
+ * not to judge it; turning an empty cell into a problem is `traceabilityProblems`'s job below.
+ */
 export function parseAutomatedTable(reportMd: string): AutomatedEntry[] {
   const entries: AutomatedEntry[] = [];
   let inside = false;
@@ -42,7 +46,7 @@ export function parseAutomatedTable(reportMd: string): AutomatedEntry[] {
     if (!inside) continue;
 
     const match = TABLE_ROW.exec(line);
-    if (match) entries.push({ id: match[1], file: match[2] });
+    if (match) entries.push({ id: match[1], file: match[2].trim() });
   }
 
   return entries;
@@ -64,6 +68,10 @@ export function traceabilityProblems(reportMd: string, files: TestFile[]): strin
   for (const entry of parseAutomatedTable(reportMd)) {
     if (reported.has(entry.id)) {
       problems.push(`${entry.id} appears twice in ${AUTOMATED_SECTION}`);
+      continue;
+    }
+    if (entry.file === '') {
+      problems.push(`${entry.id} is reported in ${AUTOMATED_SECTION} with no file`);
       continue;
     }
     reported.set(entry.id, entry.file);

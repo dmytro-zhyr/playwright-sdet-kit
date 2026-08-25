@@ -70,3 +70,54 @@ test('a case reported in the wrong file is a problem in both directions', () => 
     'tests/contract/not-found.spec.ts names C-001, which ## Automated reports in tests/contract/authentication.spec.ts',
   ]);
 });
+
+// Turns red if a row naming a case with an empty file cell is dropped in silence instead of being
+// reported. Before the fix, the row simply never matched the table-row pattern, so the identifier
+// vanished from the map exactly as if the row had never been written — the same silent failure
+// this module exists to catch, just one step earlier.
+test('a row with an empty file cell is reported, not dropped', () => {
+  const report = `# Report
+
+## Automated
+
+| Case | File | What would make the test red |
+|---|---|---|
+| C-001 || the token stops resolving |
+`;
+
+  expect(traceabilityProblems(report, [])).toEqual([
+    'C-001 is reported in ## Automated with no file',
+  ]);
+});
+
+// Turns red if a foreign token that merely contains a case-shaped substring — TC-001, or the
+// longer C-0011 — is counted as if it named a case. Before the fix, the unanchored pattern
+// matched "C-001" inside both, producing a problem about a string that is not a case reference.
+test('a token that only contains a case-shaped substring is not counted as a reference', () => {
+  const decorated = {
+    path: 'tests/contract/not-found.spec.ts',
+    content:
+      "// see TC-001 and C-0011 for background\ntest('C-014 — a missing account is 404', () => {});",
+  };
+
+  expect(traceabilityProblems(REPORT, [AUTHENTICATION, decorated])).toEqual([]);
+});
+
+// Turns red if the same case appears twice in the Automated table and the duplicate branch either
+// never fires or reports the wrong text — nothing previously exercised this branch, so neither
+// its reachability nor its wording was proven.
+test('a case listed twice in the Automated table is reported as a duplicate', () => {
+  const report = `# Report
+
+## Automated
+
+| Case | File | What would make the test red |
+|---|---|---|
+| C-001 | tests/contract/authentication.spec.ts | the token stops resolving |
+| C-001 | tests/contract/authentication.spec.ts | the token stops resolving |
+`;
+
+  expect(traceabilityProblems(report, [AUTHENTICATION])).toEqual([
+    'C-001 appears twice in ## Automated',
+  ]);
+});
