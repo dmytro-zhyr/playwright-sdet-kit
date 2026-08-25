@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { validateRules, validateCases, ruleCoverage, parseCases } from '@/pipeline/parse';
 import { validateAgentDefinition } from '@/pipeline/agentDefinition';
+import { traceabilityProblems, type TestFile } from '@/pipeline/traceability';
 
 // The repository root, reached from tests/unit/, so the paths below do not depend on the
 // directory the runner happened to be started from.
@@ -10,6 +11,23 @@ const ROOT = join(__dirname, '..', '..');
 
 function read(...segments: string[]): string {
   return readFileSync(join(ROOT, ...segments), 'utf-8');
+}
+
+/**
+ * Every spec file of the named directories, addressed the way the report addresses them.
+ *
+ * `tests/unit/` is deliberately absent: its files carry `C-001` strings as fixtures for the
+ * validator, not as references to cases.
+ */
+function specFiles(...directories: string[]): TestFile[] {
+  return directories.flatMap((directory) =>
+    readdirSync(join(ROOT, directory))
+      .filter((name) => name.endsWith('.spec.ts'))
+      .map((name) => ({
+        path: `${directory}/${name}`,
+        content: read(directory, name),
+      }))
+  );
 }
 
 // Turns red if the real artifact stops satisfying the format the parser enforces — a duplicate or
@@ -136,5 +154,22 @@ test('pipeline/03-report.md accounts for every case exactly once', () => {
   expect(
     miscounted,
     `every case must appear in exactly one of ${ACCOUNTING_SECTIONS.join(', ')}`
+  ).toEqual([]);
+});
+
+// Turns red if a test names a case the report does not automate in that file, or if the report
+// names a file that does not carry the case it claims. The accounting test above already refuses
+// a report that stays silent about a case; this one refuses a report that agrees with itself and
+// disagrees with the tree — which is how a `C-###` left over from a previous run went on
+// resolving quietly while naming a case about something else.
+test('every case identifier in the suite agrees with the report', () => {
+  const problems = traceabilityProblems(
+    read('pipeline', '03-report.md'),
+    specFiles('tests/contract', 'tests/defects')
+  );
+
+  expect(
+    problems,
+    'the report and the suite disagree about which file automates which case'
   ).toEqual([]);
 });
