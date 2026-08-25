@@ -41,13 +41,13 @@ Close with a verdict on its own line, one of exactly these two:
 - `No further objections. The stage may continue.`
 - `Objections remain.`
 
+**Emit no `## ` headings of your own.** Your reply is objection blocks and one verdict line, and
+nothing else. The file those blocks are assembled into carries its own sections, and whoever
+assembles it writes them — a heading of yours inside a block would be read as a malformed one.
+
 **An objection you cannot phrase as a question about a named place is not an objection.** Say
 nothing rather than fill the format. A file with two objections and an honest verdict is worth
 more than a file with twenty.
-
-If an objection you raised was answered by a change you can see, and the answer does not hold, say
-so once and escalate it to the human rather than repeating it: `Unclosed objection: [topic] —
-decide whether to continue.` You do not block, and you do not insist.
 
 ## Forbidden
 
