@@ -251,7 +251,7 @@ in two, always one of two tests, green again on a rerun, green at `--workers=1`.
 Running in parallel is not only a way to go faster here — **it is a different test**, and it is the
 only configuration in which this defect exists at all.
 
-## 🔴 Four defects of `realworld.habsida.net` — the gate target
+## 🔴 Six defects of `realworld.habsida.net` — the gate target
 
 Found on 24 August 2026 by running the suite the chain had produced against the new target. Each
 one is a contract violation, each has a test that is **red in `tests/contract/` right now**, and
@@ -269,7 +269,14 @@ each mixed a conforming half with a violated one:
 
 D-7 and D-8 are single-assertion tests and moved whole. Nothing was weakened to make the move:
 `ArticlesResponseSchema` is untouched, and both halves of each split assert exactly what the one
-test asserted before. `contract` is green.
+test asserted before.
+
+📌 **That last sentence used to read "`contract` is green," and it was false when written.**
+C-015 and C-029 were still red at the time, for the two reasons filed below as D-10 and D-11 — the
+regeneration of `pipeline/02-cases.md` had put a defect back into each. Both are now split the same
+way D-6 and D-9 were, and `contract` is green, with the one qualification the whole suite carries:
+the target rate-limits under load, which is a separate, infrastructure-level observation recorded
+below and is not any of the six defects.
 
 ### D-6 · Deleting something that does not exist answers 204
 
@@ -338,6 +345,49 @@ green and one precise red: `tests/contract/authentication.spec.ts` sends each of
 endpoints a payload that passes validation and gets 401 from all of them, and
 `tests/defects/authentication.spec.ts` sends the four an empty body and gets 422. The defects half
 runs both payloads, so the evidence for the ordering claim is inside the one test.
+
+### D-10 · A comment on an unheld slug is validated before it is looked up
+
+```
+POST /articles/there-is-no-such-slug-000/comments {"comment":{"body":"..."}}  →  422
+```
+
+An authenticated caller, a payload that passes validation, a slug no article holds — and the
+answer is 422, not 404. The same request against a slug that does exist is accepted.
+
+🔑 **So this is the same family as D-6, not the same defect as D-9.** D-9 is validation running
+ahead of authentication, found on an anonymous caller sending an empty body. Here the caller is
+authenticated and the body is valid; what the route skips is the article lookup, exactly like the
+two deletes D-6 already names — just answered with a 422 dressed as a validation failure instead
+of a 204 dressed as a success.
+
+✅ This was found inside C-015, which the regenerated `pipeline/02-cases.md` had re-swept across
+all seven article-slug paths, undoing the split D-6 was already given. It has been split the same
+way now: the five paths that do answer 404 stay in `tests/contract/not-found.spec.ts`, green, and
+this one moved to `tests/defects/not-found.spec.ts`, where it sends the same valid payload to a
+slug that exists — accepted — and then to the unheld slug — 422 — so the evidence that the lookup
+was skipped sits inside the one test.
+
+### D-11 · A freshly registered account represents an unset bio and an unset image differently
+
+```
+POST /users {"user": {...}}  →  {"user": {..., "bio": "", "image": null}}
+```
+
+Registration accepts neither field, and the specification's canonical User example shows both as
+`null`. `R-065` in `pipeline/01-rules.md` says exactly that, and its `Kind` is `assumed` — the
+honest complaint against an assumed rule is that it is assumed, nothing more.
+
+⚠️ **What raises this from an assumption to a finding is the second field.** `image` comes back
+`null`; `bio`, on the same response, comes back `""`. One handler, two fields it cannot set, two
+different representations of "not given". The target does not only disagree with the
+specification here — it disagrees with itself.
+
+✅ C-029 asserted both fields as `null` in one assertion, which conflated "does registration echo
+what it was given" with "does a fresh account represent absence the same way in both fields" — the
+first is true here, the second is not. The test has been split: `tests/contract/registration.spec.ts`
+keeps the echo assertion, green, and `tests/defects/registration.spec.ts` asserts the
+inconsistency directly, `image` is `null` and `bio` is not, inside the one response.
 
 ## ⬜ The gate deployment rate-limits, and CI makes it likelier
 
