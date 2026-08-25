@@ -49,12 +49,13 @@ test('C-014 — a path naming an account nobody holds is answered 404', async ({
   expect(known.body).toMatchSchema(ProfileResponseSchema);
 });
 
-// Turns red if the article lookup stops refusing to invent a row, or if one of these seven routes
-// skips the lookup and runs its handler on a missing article — which shows up as anything other
-// than 404, including a delete that reports having removed something that was never there and a
-// comment endpoint that validates the payload before it looks for the article. The five controls
-// at the end use the same verbs, the same path shapes and the same credential against a slug that
-// does name an article, so a red above cannot be the address, the auth or the payload.
+// Turns red if the article lookup stops refusing to invent a row, or if one of these five routes
+// skips the lookup and runs its handler on a missing article. Two routes that used to sweep here
+// moved to tests/defects/not-found.spec.ts: `DELETE /articles/:unheld` answers 204 instead of 404
+// (D-6), and `POST /articles/:unheld/comments` answers 422 instead of 404 because its payload
+// validator runs before the article lookup (D-10). The five controls at the end use the same
+// verbs, the same path shapes and the same credential against a slug that does name an article, so
+// a red above cannot be the address, the auth or the payload.
 test('C-015 — a path naming a slug no article holds is answered 404', async ({
   api,
   factories,
@@ -76,16 +77,6 @@ test('C-015 — a path naming a slug no article holds is answered 404', async ({
       name: 'PUT /articles/:unheld',
       response: await registeredUser.api.put(`/articles/${UNHELD_SLUG}`, {
         article: { title: factories.article.build().title },
-      }),
-    },
-    {
-      name: 'DELETE /articles/:unheld',
-      response: await registeredUser.api.del(`/articles/${UNHELD_SLUG}`),
-    },
-    {
-      name: 'POST /articles/:unheld/comments',
-      response: await registeredUser.api.post(`/articles/${UNHELD_SLUG}/comments`, {
-        comment: { body: factories.comment.build().body },
       }),
     },
     {

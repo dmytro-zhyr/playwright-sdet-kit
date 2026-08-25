@@ -61,9 +61,11 @@ test('the anonymous client is not authenticated', async ({ api }) => {
 
 // Turns red if registration stops succeeding at all — a 404, a 422, a 500 — if the serializer
 // changes what it hands back — a dropped, renamed or added field, an internal identifier leaking
-// into the envelope — if the username or the email that comes back is not the one that was sent,
-// or if a freshly created account carries anything but `null` in the two fields registration
-// cannot set. The schema is strict, so an added field is red too.
+// into the envelope — or if the username or the email that comes back is not the one that was
+// sent. The schema is strict, so an added field is red too. What used to close this test — that a
+// freshly registered account carries `null` in both `bio` and `image` — moved to
+// tests/defects/registration.spec.ts: the gate deployment answers `bio: ""` at creation, which is
+// D-11.
 test('C-029 — registration answers with the account it was given', async ({ api, factories }) => {
   const account = factories.user.build();
 
@@ -72,15 +74,9 @@ test('C-029 — registration answers with the account it was given', async ({ ap
   expect(REGISTRATION_SUCCESS, REGISTRATION_SUCCESS_MESSAGE).toContain(response.status);
   expect(response.body).toMatchSchema(UserResponseSchema);
 
-  const { user } = response.body as {
-    user: { username: string; email: string; bio: unknown; image: unknown };
-  };
+  const { user } = response.body as { user: { username: string; email: string } };
   expect(user.username, 'registration must echo the username it was given').toBe(account.username);
   expect(user.email, 'registration must echo the email it was given').toBe(account.email);
-  expect(
-    [user.bio, user.image],
-    'the case states that a freshly registered account carries null for both bio and image'
-  ).toEqual([null, null]);
 });
 
 // Turns red if one of the three presence validators is dropped — the field goes missing and the
