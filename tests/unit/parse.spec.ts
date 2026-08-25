@@ -254,7 +254,13 @@ test('validateCases reports every malformed entry in Covers', () => {
 // Turns red if a well-formed Covers list starts being reported as malformed — the validator would
 // complain about every honest artifact in the chain and stop being read at all.
 test('a Covers list of well-formed identifiers is read and not complained about', () => {
-  const two = CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-002');
+  // The park goes with it. Covering R-002 while `## Not covered` still parks it is now a problem
+  // of its own — see "a rule cannot be both covered and parked" below — and this test is about
+  // the shape of the Covers list, not about that.
+  const two = CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-002').replace(
+    '- R-002 — needs an existing user, kept separate',
+    'none'
+  );
 
   expect(validateCases(RULES, two)).toEqual([]);
   expect(parseCases(two)[0].rules).toEqual(['R-001', 'R-002']);
@@ -326,10 +332,22 @@ test('ruleCoverage counts distinct identifiers, not repetitions', () => {
       '**Statement:** POST /users with a new email returns 201 and user.token\n\n' +
       '## Assumed rules'
   );
-  const repeatedReference = CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-001');
+  // The reference half used to be `**Covers:** R-001, R-001` in one list. That shape is now
+  // refused outright when the file is read — see "validateCases reports a rule named twice in one
+  // Covers list" — so the repetition the metric can still meet is two cases covering one rule,
+  // which is grouping and must not move the number either.
+  const twoCases = CASES.replace(
+    '## Not covered',
+    `### C-002 — Register another user
+**Covers:** R-001
+**Steps:** POST /users with another new email
+**Expected:** 201, user.token
+
+## Not covered`
+  );
 
   expect(ruleCoverage(repeatedRule, CASES)).toEqual({ total: 2, covered: 1 });
-  expect(ruleCoverage(RULES, repeatedReference)).toEqual({ total: 2, covered: 1 });
+  expect(ruleCoverage(RULES, twoCases)).toEqual({ total: 2, covered: 1 });
 });
 
 // Turns red if an artifact the parser could not read at face value can still be parsed into a
@@ -396,8 +414,249 @@ test('a case that states its steps and its expectation is not complained about',
 test('an absent Covers field is reported once, by the message that says the most', () => {
   const noCovers = CASES.replace('**Covers:** R-001\n', '');
 
-  expect(validateCases(RULES, noCovers)).toEqual(['C-001: references no rule at all']);
-  expect(validateCases(RULES, CASES.replace('**Covers:** R-001', '**Covers:**'))).toEqual([
+  // Filtered to what is said about C-001. A case that covers nothing also leaves R-001 accounted
+  // for by no case and by no park, and that second message is about the rule, not about this line.
+  const aboutTheCase = (problems: string[]): string[] =>
+    problems.filter((problem) => problem.startsWith('C-001'));
+
+  expect(aboutTheCase(validateCases(RULES, noCovers))).toEqual([
     'C-001: references no rule at all',
   ]);
+  expect(
+    aboutTheCase(validateCases(RULES, CASES.replace('**Covers:** R-001', '**Covers:**')))
+  ).toEqual(['C-001: references no rule at all']);
+});
+
+// ---------------------------------------------------------------------------------------------
+// The rules-to-cases link. A reference that resolves is not the same as a case that is current.
+// ---------------------------------------------------------------------------------------------
+
+/** The same rules with one more rule in them, which is what a regeneration looks like from here. */
+const THREE_RULES = RULES.replace(
+  '## Assumed rules',
+  `### R-003 — Registration with a taken username
+**Source:** spec §Registration
+**Kind:** explicit
+**Statement:** POST /users with an existing username returns 422 and errors.username
+
+## Assumed rules`
+);
+
+// Turns red if the rules can be regenerated without the cases and nothing says so. Every
+// reference the old cases carry still resolves, which is the shape the 25 August drift had: a
+// clean validation and a coverage figure computed over two documents describing different work.
+test('validateCases reports a rule no case covers and no park accounts for', () => {
+  expect(validateCases(RULES, CASES)).toEqual([]);
+
+  const problems = validateCases(THREE_RULES, CASES).join(' ');
+
+  expect(problems).toContain('R-003 is covered by no case and not parked under "## Not covered"');
+  expect(problems).toContain('regenerated');
+});
+
+// Turns red if the accounting hardens into "exactly one case per rule" — seven rules in the real
+// 02-cases.md are exercised by two cases each from different directions, and deciding that is
+// what the QA agent is for.
+test('a rule two cases cover is not drift', () => {
+  const twoCases = CASES.replace(
+    '## Not covered',
+    `### C-002 — Register a second user
+**Covers:** R-001
+**Steps:** POST /users with another new email
+**Expected:** 201, user.token
+
+## Not covered`
+  );
+
+  expect(validateCases(RULES, twoCases)).toEqual([]);
+});
+
+// Turns red if a rule can be covered and parked at once — the file would say both that R-001 is
+// tested and that it deliberately is not, and both statements would go down the chain.
+test('a rule cannot be both covered and parked', () => {
+  const both = CASES.replace(
+    '- R-002 — needs an existing user',
+    '- R-001 — needs an existing user'
+  );
+
+  expect(validateCases(RULES, both).join(' ')).toContain(
+    'R-001 is both covered by a case and parked under "## Not covered"'
+  );
+});
+
+// Turns red if `## Not covered` goes back to being checked for existence and never for contents —
+// a park left behind by a regeneration accounts for a rule that no longer exists, while the rule
+// that took its number is covered by nobody.
+test('a park naming a rule the rules file does not define is reported', () => {
+  expect(validateCases(RULES, CASES.replace('- R-002 —', '- R-999 —')).join(' ')).toContain(
+    '"## Not covered" parks R-999, which the rules file does not define'
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
+// Headings, fences and prose: the content that used to disappear into the block above it.
+// ---------------------------------------------------------------------------------------------
+
+// Turns red if a heading carrying the other artifact's letter is swallowed again — the heading and
+// everything under it used to be appended to the block above, and the reader was told either
+// nothing at all or that a rule containing one **Source:** line carries two.
+test('a ### heading with the other letter is reported, in both artifacts', () => {
+  const caseInTheRules = RULES.replace(
+    '### R-002 — Registration with a taken email',
+    '### C-009 — Register a new user'
+  );
+  const problems = validateRules(caseInTheRules).join(' ');
+
+  expect(problems).toContain('Unexpected heading "### C-009 — Register a new user"');
+  expect(problems).not.toContain('appears twice');
+
+  expect(validateCases(RULES, CASES.replace('### C-001 —', '### R-009 —')).join(' ')).toContain(
+    'Unexpected heading "### R-009'
+  );
+});
+
+// Turns red if any other ### heading goes back to being absorbed together with its prose — a file
+// that visibly carries a heading the format has no place for used to validate clean.
+test('a ### heading that names no identifier is reported', () => {
+  const withNotes = RULES.replace(
+    '### R-002',
+    `### Notes on the above
+
+Some prose.
+
+### R-002`
+  );
+
+  expect(validateRules(withNotes).join(' ')).toContain(
+    'Unexpected heading "### Notes on the above"'
+  );
+});
+
+// Turns red if a heading written without the space after its hashes is absorbed again — `###R-002`
+// used to leave the reader with three complaints about a rule repeating fields it states once.
+test('a ### heading written without its space is reported', () => {
+  expect(validateRules(RULES.replace('### R-002', '###R-002')).join(' ')).toContain(
+    'Unexpected heading "###R-002'
+  );
+});
+
+// Turns red if a heading nested inside a block goes back to being invisible — and equally if it
+// starts taking the fields under it out of the block it was written in, which would report a rule
+// as missing the Statement sitting right there.
+test('a #### heading inside a block is reported and leaves the block intact', () => {
+  const deeper = RULES.replace(
+    '**Kind:** explicit',
+    `#### Worth noting
+
+**Kind:** explicit`
+  );
+  const problems = validateRules(deeper).join(' ');
+
+  expect(problems).toContain('Unexpected heading "#### Worth noting"');
+  expect(problems).not.toContain('missing Statement');
+});
+
+// Turns red if free prose inside a block goes back to being walked past — that paragraph is the
+// real content of the rule, and no caller of parseRules ever receives it.
+test('a line inside a block that no field and no bullet accounts for is reported', () => {
+  const withProse = RULES.replace(
+    '**Statement:** POST /users with a new email',
+    `
+The real content of this rule is this paragraph.
+
+**Statement:** POST /users with a new email`
+  );
+
+  expect(validateRules(withProse).join(' ')).toContain(
+    'is neither a field, a bullet nor the continuation of either'
+  );
+});
+
+// Turns red if the bulleted notes a case is required to carry start being reported as content
+// nothing reads. `**Grouping rationale:**` and `**Preconditions:**` are bullets precisely because
+// a case may carry only three field names, and every case in 02-cases.md has both, wrapped onto
+// indented lines.
+test('bulleted notes and their wrapped lines are accepted inside a case', () => {
+  const withNotes = CASES.replace(
+    '**Steps:** POST /users',
+    `
+- **Grouping rationale:** one path, and this sentence is long enough that it wraps onto
+  an indented line below it.
+- **Preconditions:** none.
+
+**Steps:** POST /users`
+  );
+
+  expect(validateCases(RULES, withNotes)).toEqual([]);
+});
+
+// Turns red if a fenced example goes back to being read as part of the contract — the fence used
+// to produce a third rule that the author wrote down as an illustration for the reader.
+test('a fenced code block is reported and its contents are not read as rules', () => {
+  const fenced = RULES.replace(
+    '## Assumed rules',
+    `\`\`\`markdown
+### R-003 — An example for the reader
+**Source:** none
+**Kind:** explicit
+**Statement:** an illustration
+\`\`\`
+
+## Assumed rules`
+  );
+  const problems = validateRules(fenced).join(' ');
+
+  expect(problems).toContain('a fenced code block');
+  expect(problems).not.toContain('R-003');
+  expect(() => parseRules(fenced)).toThrow(ArtifactError);
+  expect(validateRules(RULES)).toEqual([]);
+});
+
+// Turns red if the mandatory-section check goes back to `markdown.includes` — a sentence about the
+// section satisfied it, and so did the heading inside a code fence, which is exactly the file the
+// check exists to catch.
+test('a section named in prose does not satisfy the mandatory-section check', () => {
+  const mentioned = RULES.replace(
+    `## Open questions
+
+none`,
+    'The template also asks for a ## Open questions section, and this file does not carry one.'
+  );
+
+  expect(validateRules(mentioned).join(' ')).toContain(
+    'Missing mandatory section: ## Open questions'
+  );
+  expect(validateRules(RULES)).toEqual([]);
+});
+
+// Turns red if one Covers list can name a rule twice — the case claims two references where the
+// file names one rule, and `ruleCoverage` hides it by counting a Set, so the metric never moves.
+// The green direction is the well-formed list two tests above.
+test('validateCases reports a rule named twice in one Covers list', () => {
+  expect(
+    validateCases(RULES, CASES.replace('**Covers:** R-001', '**Covers:** R-001, R-001')).join(' ')
+  ).toContain('C-001: Covers names R-001 twice');
+});
+
+// Turns red if a value written below a blank line goes back to being reported as a missing field —
+// the reader was sent looking for steps that were sitting two lines under the complaint.
+test('a field whose value starts after a blank line is named for what it is', () => {
+  const below = CASES.replace(
+    '**Steps:** POST /users',
+    `**Steps:**
+
+- POST /users with a new email
+- read the token from the response`
+  );
+  const problems = validateCases(RULES, below).join(' ');
+
+  expect(problems).toContain('C-001: the Steps field takes no value on its own line');
+  expect(problems).not.toContain('missing Steps field');
+});
+
+// Turns red if that sharper message starts firing on the shape every real case uses — a value
+// beside the field name, and bulleted notes further down the same block.
+test('a field with its value beside the name is not reported', () => {
+  expect(validateCases(RULES, CASES)).toEqual([]);
+  expect(parseCases(CASES)[0].steps).toBe('POST /users');
 });

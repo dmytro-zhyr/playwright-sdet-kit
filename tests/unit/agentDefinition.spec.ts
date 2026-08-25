@@ -16,6 +16,7 @@ Do not invent endpoints, do not write tests, and do not commit anything.
 const DEFINITION = `---
 name: ba
 description: Turns the specification into numbered rules.
+tools: Read, Write, Grep, Glob
 model: opus
 ---
 
@@ -89,6 +90,31 @@ test('the frontmatter has to carry a model', () => {
   expect(problems.join(' ')).toContain('ERROR');
 });
 
+// Turns red if a definition without `tools` is accepted — the agent would be handed whatever tool
+// set the session defaults to. `ta.md` is the one that would suffer: it is the only agent granted
+// `Bash` and `Edit`, and without them it would report half its cases as impossible to automate
+// rather than say it had been given no way to write a file.
+test('the frontmatter has to carry a tools line', () => {
+  const problems = validateAgentDefinition(
+    without(DEFINITION, 'tools: Read, Write, Grep, Glob'),
+    'ba.md'
+  );
+
+  expect(problems.join(' ')).toContain('tools');
+  expect(problems.join(' ')).toContain('ERROR');
+});
+
+// Turns red if the check starts insisting on one particular tool set — it exists to make the
+// grant explicit, not to decide which tools an agent is allowed to hold.
+test('any declared tool set satisfies the check', () => {
+  const wider = DEFINITION.replace(
+    'tools: Read, Write, Grep, Glob',
+    'tools: Read, Write, Edit, Grep, Glob, Bash'
+  );
+
+  expect(validateAgentDefinition(wider, 'ba.md')).toEqual([]);
+});
+
 // Turns red if the check starts insisting on one particular model — it exists to make the choice
 // explicit and stable, not to hard-code which model the chain is allowed to run on.
 test('any pinned model satisfies the check', () => {
@@ -130,6 +156,7 @@ test('a body shorter than fifty words is a warning, not an error', () => {
   const stub = `---
 name: ba
 description: Turns the specification into numbered rules.
+tools: Read, Write, Grep, Glob
 model: opus
 ---
 

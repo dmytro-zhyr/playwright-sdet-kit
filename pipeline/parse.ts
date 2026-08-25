@@ -10,24 +10,29 @@
  * Vocabulary: rules are `R-\d{3}`, cases are `C-\d{3}`, and a case declares what it covers.
  *
  * Failing out loud is the whole point, so every shape the parser cannot read is reported rather
- * than skipped: an unknown `## ` section, a heading whose separator is not an em dash, a field
- * name that is nearly right, a field written twice, a `Covers` entry that is not an identifier.
- * A field value, by contrast, is allowed to wrap onto further lines — `CONVENTIONS.md` asks for
- * Markdown wrapped at roughly 100 columns, and a parser that silently kept only the first line
- * would turn that request into data loss.
+ * than skipped: an unknown `## ` section, a `### ` heading that names neither a rule nor a case,
+ * a heading whose separator is not an em dash, a field name that is nearly right, a field written
+ * twice, a line inside a block that no field and no bullet accounts for, a fenced code block, a
+ * `Covers` entry that is not an identifier. A field value, by contrast, is allowed to wrap onto
+ * further lines — `CONVENTIONS.md` asks for Markdown wrapped at roughly 100 columns, and a parser
+ * that silently kept only the first line would turn that request into data loss.
  *
- * Two kinds of problem exist here and the difference decides which function reports them.
+ * Three kinds of problem exist here and the difference decides which function reports them.
  *
  * - **The text was not read as written** — a heading that vanished, a second `**Kind:**` that was
- *   ignored, a `**Statment:**` nobody will ever read, an `R-1` dropped from a `Covers` list.
- *   Whatever a caller does next, it is working from something other than the file on disk. These
- *   make `parseRules` and `parseCases` throw an {@link ArtifactError}: there is no correct value
- *   for them to return, and returning a plausible one is how a corrupt artifact travels down the
- *   chain unnoticed.
+ *   ignored, a `**Statment:**` nobody will ever read, an `R-1` dropped from a `Covers` list, a
+ *   paragraph sitting in a block that no field carries. Whatever a caller does next, it is working
+ *   from something other than the file on disk. These make `parseRules` and `parseCases` throw an
+ *   {@link ArtifactError}: there is no correct value for them to return, and returning a plausible
+ *   one is how a corrupt artifact travels down the chain unnoticed.
  * - **The text was read exactly as written, and what it says is wrong** — a missing `Statement`,
  *   a `Kind` that is neither explicit nor assumed, a gap in the numbering, a case pointing at a
  *   rule that does not exist. The parse is faithful, so parsing succeeds; `validateRules` and
  *   `validateCases` report these, together with all of the above.
+ * - **Both artifacts are fine and they no longer describe the same work** — a rule the cases
+ *   neither cover nor park, a rule they do both. Nothing is malformed; the two files were simply
+ *   produced from different inputs. `validateCases` reports these, because the rules-to-cases link
+ *   is the only place both files are in scope at once. See `ruleAccounting` below.
  */
 
 /**
@@ -37,48 +42,38 @@
  * entry was reproduced against the code as it stands, not carried over from a report: the first
  * sentence is what the parser does, the second is what a reader is told instead of the truth.
  *
- * 1. **A `###` heading carrying the other letter.** `### C-009 — …` in a rules file matches
- *    neither `RULE_HEADING` nor, once `headingProblem` sees the wrong letter, the loose form, so
- *    the heading and every line under it are appended to the previous rule's block; `### R-009` in
- *    a cases file goes the same way. The reader gets a clean validation and a rule set with that
- *    block missing — or, when the swallowed block repeats a field the previous one already has, a
- *    `the Source field appears twice` naming a rule whose text contains one `**Source:**` line.
+ * 1. **Accounting is by identifier, never by meaning.** `ruleAccounting` fails the moment a rule
+ *    is neither covered nor parked, which is what a regeneration that changes the rule *count*
+ *    produces. A regeneration that keeps 201 rules and moves what `R-001` says leaves every
+ *    reference resolving and every rule accounted for. The reader gets a clean validation for
+ *    cases written against a different reading of the specification. Closing this needs the cases
+ *    to record something about the rules they were derived from — a digest — and that is a change
+ *    to what the QA agent must write, not to the parser alone.
  *
- * 2. **Any other `###` heading.** `### Notes on the above`, `### R-XXX — …` whose number is not
- *    digits, and `###R-003` written without the space after the hashes are all absorbed into the
- *    preceding block together with their prose, because only `### ` followed by something the
- *    loose expression recognises can close a block. The reader gets a clean validation for a file
- *    that visibly contains a heading the format has no place for.
+ * 2. **A `## Not covered` entry is read only in the shape `- R-036 — reason`.** An entry written
+ *    `- R-036: reason`, or as prose naming the rule mid-sentence, parks nothing. The failure is
+ *    loud — the rule is then reported as accounted for by nobody — but the message names drift
+ *    between the artifacts when the real fault is one character of punctuation.
  *
- * 3. **`####` and deeper headings, and free prose inside a block.** Neither is a field line, a
- *    `### ` heading or a `## ` section, so `readFields` walks past both and nothing counts them.
- *    The reader gets a clean validation for a rule whose real content is a paragraph the QA agent
- *    will never receive, and no hint that the block held anything besides its fields.
+ * 3. **Prose outside a block is not read at all.** The preamble, `## Assumed rules`, and
+ *    `## Open questions` are checked for existence and for stray headings and fences, and their
+ *    sentences are never looked at. A rule stated in prose under `## Assumed rules` instead of as
+ *    a `### R-2xx` block is invisible to every count in this file, and the reader is told nothing.
  *
- * 4. **A repeated identifier inside one `Covers` list.** `**Covers:** R-001, R-001` passes every
- *    entry check, so the `Case` carries `R-001` twice and no problem is reported. The reader gets
- *    a clean validation and a case that claims two references where the file names one rule;
- *    `ruleCoverage` happens to hide it by counting a `Set`, so the metric does not move either.
+ * 4. **The bulleted notes in a case are accepted and then dropped.** `**Grouping rationale:**` and
+ *    `**Preconditions:**` are written as bullets precisely so the field reader walks past them,
+ *    which means the justification the QA agent is told is the main output of its work reaches no
+ *    caller of `parseCases`. Nothing reports that it was discarded.
  *
- * 5. **The mandatory-section check is `markdown.includes(section)`.** Any occurrence of the
- *    literal text satisfies it — inside a fenced code block, or mid-sentence in `The template also
- *    asks for a ## Open questions section.` The reader gets a clean validation for a file that has
- *    no such section, which is exactly the case the check exists to catch.
+ * 5. **Contradictions in content are invisible.** `C-018` admitting `bio` as a string or `null`
+ *    while `C-029` requires `null`, or `R-015` naming 200 where `R-155` says only "a success
+ *    status", are agreements between sentences, and this file checks shapes and identifiers. The
+ *    reader gets a clean validation for an artifact that argues with itself.
  *
- * 6. **A fenced code block is not recognised at all.** A ```` ```markdown ```` fence showing
- *    `### R-003 — An example for the reader` with its three fields is read as a third rule. The
- *    reader gets a clean validation, a rule count one larger than the file states, and a rule the
- *    author wrote down as an illustration now standing in the contract the QA agent works from.
- *
- * 7. **A field whose value starts after a blank line.** `**Steps:**` followed by a blank line and
- *    a bullet list stops at the blank line, so the value is the empty string. Since `Steps` and
- *    `Expected` became required the reader now gets `C-001: missing Steps field` for a case whose
- *    steps are sitting two lines below the field that is said to be missing.
- *
- * 8. **The `## Not covered` list is never read.** Its presence is checked and its contents are
- *    not, so nothing compares the rules parked there against the rules the cases actually cover.
- *    The reader gets a clean validation for a file that both parks `R-001` as not covered and
- *    covers it in `C-001`, and the two statements go down the chain contradicting each other.
+ * 6. **`pipeline/03-report.md` has no parser.** The only thing holding it to the cases is a test
+ *    in `tests/unit/artifacts.spec.ts` that counts identifier occurrences in four named sections.
+ *    A report that renames a section, or explains a case in a sentence rather than a table row, is
+ *    read by nothing here.
  *
  * These are tracked and are to be closed before this repository is presented as a reusable tool.
  */
@@ -125,8 +120,12 @@ interface Block {
 interface Scan {
   blocks: Block[];
   problems: string[];
-  /** How many `###` headings named an identifier but could not be read as one. */
+  /** How many `###` headings were rejected, whether or not they named an identifier. */
   malformedHeadings: number;
+  /** The `## ` headings the file really carries — line-initial, and outside every code fence. */
+  sections: string[];
+  /** The lines of each `## ` section that belong to no block, keyed by the heading line. */
+  sectionLines: Map<string, string[]>;
 }
 
 /** Blocks turned into records, plus everything reading them showed was not read as written. */
@@ -134,6 +133,14 @@ interface Read<T> {
   items: T[];
   problems: string[];
   malformedHeadings: number;
+  sections: string[];
+  sectionLines: Map<string, string[]>;
+  /**
+   * `${id}:${field}` for every field written with nothing after the colon and its apparent value
+   * below a blank line. `readFields` has already said so in a sentence that names the real fault,
+   * so `validateRules` and `validateCases` skip their own `missing X field` for these.
+   */
+  valueBelowBlankLine: Set<string>;
 }
 
 const RULE_HEADING = /^### (R-\d{3}) — (.+)$/;
@@ -153,9 +160,20 @@ const FIELD_LINE = /^\*\*([^*]+):\*\*[ \t]*(.*)$/;
 /** The same shape, used to decide where a wrapped value stops. */
 const ANY_FIELD = /^\*\*[^*]+:\*\*/;
 const ANY_HEADING = /^#{1,6} /;
+/** Any heading, and its level, whether or not the space the format asks for is there. */
+const HASH_HEADING = /^(#{1,6})(?:[^#]|$)/;
+/** The opening or closing line of a fenced code block. */
+const FENCE = /^(?:```|~~~)/;
+/** A list item. The rationale and the preconditions of a case are written as these. */
+const BULLET = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\S/;
+/** A line that is indented, and so continues the bullet above it rather than starting anything. */
+const INDENTED = /^[ \t]+\S/;
 
 /** What a `**Covers:**` entry has to look like. */
 const RULE_REFERENCE = /^R-\d{3}$/;
+
+/** What an entry under `## Not covered` has to look like for the rule to count as parked. */
+const PARKED_ENTRY = /^- (R-\d{3})(?=[ \t]|$)/;
 
 const RULE_FIELDS = ['Source', 'Kind', 'Statement'];
 const CASE_FIELDS = ['Covers', 'Steps', 'Expected'];
@@ -166,14 +184,34 @@ const KNOWN_CASE_SECTIONS = ['## Cases', '## Not covered', '## Open questions'];
 const REQUIRED_RULE_SECTIONS = ['## Assumed rules', '## Open questions'];
 const REQUIRED_CASE_SECTIONS = ['## Not covered'];
 
+const NOT_COVERED = '## Not covered';
+
+/** How many identifiers a problem naming a list of them prints before it starts counting. */
+const NAMED_IN_A_LIST = 8;
+
+/** A line as it appears in a message: trimmed, and short enough not to bury the sentence. */
+function quoted(line: string): string {
+  const trimmed = line.trim();
+  return trimmed.length <= 60 ? trimmed : `${trimmed.slice(0, 57)}...`;
+}
+
+/** A field line's value together with the index of the last line that value consumed. */
+interface FieldValue {
+  value: string;
+  end: number;
+}
+
 /**
  * The value of a field line, including any continuation lines.
  *
  * A value runs to the first line that starts a new field, starts a heading, or is blank. The
- * pieces are joined with a single space, which is what hand-wrapping a sentence means.
+ * pieces are joined with a single space, which is what hand-wrapping a sentence means. `end` is
+ * the index of the last line taken, so the caller knows which lines are already accounted for and
+ * does not go on to report them as content nothing reads.
  */
-function continuedValue(lines: string[], index: number, first: string): string {
+function continuedValue(lines: string[], index: number, first: string): FieldValue {
   const parts = [first.trim()];
+  let end = index;
 
   for (let next = index + 1; next < lines.length; next += 1) {
     const continuation = lines[next].trim();
@@ -181,56 +219,123 @@ function continuedValue(lines: string[], index: number, first: string): string {
     if (ANY_FIELD.test(continuation)) break;
     if (ANY_HEADING.test(continuation)) break;
     parts.push(continuation);
+    end = next;
   }
 
-  return parts
-    .filter((part) => part !== '')
-    .join(' ')
-    .trim();
+  return {
+    value: parts
+      .filter((part) => part !== '')
+      .join(' ')
+      .trim(),
+    end,
+  };
+}
+
+/**
+ * Whether a field that took no value on its own line has one sitting below a blank line.
+ *
+ * This is the difference between `**Steps:**` at the end of a block, which is simply empty, and
+ * `**Steps:**` followed by a blank line and the steps, which is a value the parser will not read.
+ * Only the second is worth a sentence of its own.
+ */
+function contentBelowBlankLine(lines: string[], index: number): boolean {
+  let sawBlank = false;
+
+  for (let next = index + 1; next < lines.length; next += 1) {
+    const line = lines[next].trim();
+    if (line === '') {
+      sawBlank = true;
+      continue;
+    }
+    if (!sawBlank) return false;
+    return !ANY_FIELD.test(line) && !ANY_HEADING.test(line);
+  }
+
+  return false;
 }
 
 interface Fields {
   values: Map<string, string>;
   problems: string[];
+  /** The names of the fields whose value was left below a blank line. */
+  valueBelowBlankLine: Set<string>;
 }
 
 /**
- * Every `**Name:**` line in a block, read once and checked on the way.
+ * Every line of a block, read once and accounted for.
  *
- * Two shapes used to disappear here. A name that is not one of `known` — `**Statment:**` — used
+ * Four shapes used to disappear here. A name that is not one of `known` — `**Statment:**` — used
  * to produce nothing but `missing Statement field`, which sends the reader hunting for a line
- * that is sitting right there, one letter wrong. And a field written twice used to keep the first
+ * that is sitting right there, one letter wrong. A field written twice used to keep the first
  * value and drop the second without a word, so a rule could carry two contradictory `Kind` lines
- * and validate.
+ * and validate. A field whose value began below a blank line was reported as missing while its
+ * content sat two lines under the complaint. And any other line — a paragraph, a `####` heading,
+ * a table — was walked past, so a block could hold a page of prose and parse as three fields.
+ *
+ * Bullets are the one exception, and a deliberate one: `**Grouping rationale:**` and
+ * `**Preconditions:**` are written as bulleted notes precisely because a case may carry only
+ * three field names. They are accepted and not parsed, which is limitation 4.
  */
 function readFields(block: Block, known: string[]): Fields {
   const values = new Map<string, string>();
   const problems: string[] = [];
+  const valueBelowBlankLine = new Set<string>();
+  const consumed = new Set<number>();
+  let insideBullet = false;
 
   for (let index = 0; index < block.lines.length; index += 1) {
-    const match = FIELD_LINE.exec(block.lines[index].trim());
-    if (!match) continue;
+    if (consumed.has(index)) continue;
 
-    const name = match[1].trim();
+    const raw = block.lines[index];
+    const line = raw.trim();
+    if (line === '') continue;
 
-    if (!known.includes(name)) {
-      problems.push(
-        `${block.id}: unrecognised field "**${name}:**" — the fields here are ${known.join(', ')}`
-      );
+    const match = FIELD_LINE.exec(line);
+    if (match) {
+      insideBullet = false;
+      const name = match[1].trim();
+      const read = continuedValue(block.lines, index, match[2]);
+      for (let taken = index + 1; taken <= read.end; taken += 1) consumed.add(taken);
+
+      if (!known.includes(name)) {
+        problems.push(
+          `${block.id}: unrecognised field "**${name}:**" — the fields here are ${known.join(', ')}`
+        );
+        continue;
+      }
+
+      if (values.has(name)) {
+        problems.push(
+          `${block.id}: the ${name} field appears twice; a field is written once, and a long value wraps onto further lines`
+        );
+        continue;
+      }
+
+      if (read.value === '' && contentBelowBlankLine(block.lines, index)) {
+        problems.push(
+          `${block.id}: the ${name} field takes no value on its own line, and what looks like its value stands below a blank line; a value starts beside the field name and wraps onto the lines directly under it`
+        );
+        valueBelowBlankLine.add(name);
+      }
+
+      values.set(name, read.value);
       continue;
     }
 
-    if (values.has(name)) {
-      problems.push(
-        `${block.id}: the ${name} field appears twice; a field is written once, and a long value wraps onto further lines`
-      );
+    if (BULLET.test(raw)) {
+      insideBullet = true;
       continue;
     }
 
-    values.set(name, continuedValue(block.lines, index, match[2]));
+    if (insideBullet && INDENTED.test(raw)) continue;
+
+    insideBullet = false;
+    problems.push(
+      `${block.id}: "${quoted(raw)}" is neither a field, a bullet nor the continuation of either, and nothing reads it — the fields here are ${known.join(', ')}`
+    );
   }
 
-  return { values, problems };
+  return { values, problems, valueBelowBlankLine };
 }
 
 /**
@@ -265,21 +370,61 @@ function headingProblem(line: string, prefix: string): string | null {
  * Split an artifact into blocks, collecting everything that makes it unreadable on the way.
  *
  * A `## ` heading ends the block above it — that is how the rule list stops at `## Assumed
- * rules`. Which headings may do that is now a closed set: anything else is reported, so an
- * unexpected subheading can no longer cut a block short without a word.
+ * rules`. Which headings may do that is a closed set: anything else is reported, so an unexpected
+ * subheading can no longer cut a block short without a word.
+ *
+ * Every other heading is now a closed set too. A `### C-009` in a rules file, a `### Notes`, a
+ * `###R-003` written without its space, and a `#### ` of any depth used to be swallowed into the
+ * block above them together with their contents; each is now named and closes the block, so the
+ * lines under it are attributed to nothing rather than to the wrong rule.
+ *
+ * Fenced code blocks are recognised for the same reason and refused: an example rule inside a
+ * fence used to be read as a rule of the contract.
  */
 function scan(markdown: string, heading: RegExp, prefix: string, knownSections: string[]): Scan {
+  const noun = prefix === 'R' ? 'rules' : 'cases';
+  const singular = prefix === 'R' ? 'rule' : 'case';
+
   const blocks: Block[] = [];
   const problems: string[] = [];
+  const sections: string[] = [];
+  const sectionLines = new Map<string, string[]>();
   let malformedHeadings = 0;
   let current: Block | null = null;
+  let section: string | null = null;
+  let fenceOpenedAt: number | null = null;
+  let lineNumber = 0;
+
+  const close = (): void => {
+    if (current) blocks.push(current);
+    current = null;
+  };
+
+  const where = (): string => (current ? current.id : `Line ${lineNumber}`);
 
   for (const raw of markdown.split(/\r?\n/)) {
+    lineNumber += 1;
     const line = raw.trim();
+
+    if (FENCE.test(line)) {
+      if (fenceOpenedAt === null) {
+        fenceOpenedAt = lineNumber;
+        problems.push(
+          `${where()}: a fenced code block — this format has none, and nothing inside one is read as a ${singular}`
+        );
+      } else {
+        fenceOpenedAt = null;
+      }
+      continue;
+    }
+
+    // Deliberately before every other test: a heading, a field and a section inside a fence are
+    // an illustration of the format, not the format.
+    if (fenceOpenedAt !== null) continue;
 
     const match = heading.exec(line);
     if (match) {
-      if (current) blocks.push(current);
+      close();
       current = { id: match[1], title: match[2].trim(), lines: [] };
       continue;
     }
@@ -287,8 +432,7 @@ function scan(markdown: string, heading: RegExp, prefix: string, knownSections: 
     if (line.startsWith('### ')) {
       const problem = headingProblem(line, prefix);
       if (problem) {
-        if (current) blocks.push(current);
-        current = null;
+        close();
         problems.push(problem);
         malformedHeadings += 1;
         continue;
@@ -301,16 +445,44 @@ function scan(markdown: string, heading: RegExp, prefix: string, knownSections: 
           `Unexpected section heading "${line}" — the known sections are ${knownSections.join(', ')}`
         );
       }
-      if (current) blocks.push(current);
-      current = null;
+      close();
+      section = line;
+      sections.push(line);
+      if (!sectionLines.has(line)) sectionLines.set(line, []);
       continue;
     }
 
-    current?.lines.push(raw);
+    // Every remaining heading: a `### ` the loose expression could make nothing of, a `###` with
+    // no space after it, a `####` or deeper, and a `# ` that turns up inside a block. A `# `
+    // outside one is the document title and is left alone.
+    const hashes = HASH_HEADING.exec(line);
+    if (hashes && !(hashes[1].length === 1 && current === null)) {
+      // A heading at the block's own level or above it ends the block; the lines under it belong
+      // to no rule. One nested deeper does not: it is written inside the block, so the fields
+      // below it stay attached to the block they were written in, and only the heading is refused.
+      if (hashes[1].length <= 3) close();
+      problems.push(
+        `Unexpected heading "${quoted(line)}" — a ${noun} file carries ${knownSections.join(', ')} sections and "### ${prefix}-001 ${EM_DASH} Title" blocks, and no other heading`
+      );
+      malformedHeadings += 1;
+      continue;
+    }
+
+    if (current) {
+      current.lines.push(raw);
+    } else if (section !== null) {
+      sectionLines.get(section)?.push(raw);
+    }
   }
 
-  if (current) blocks.push(current);
-  return { blocks, problems, malformedHeadings };
+  if (fenceOpenedAt !== null) {
+    problems.push(
+      `The fenced code block opened at line ${fenceOpenedAt} is never closed, so everything under it was read as code`
+    );
+  }
+
+  close();
+  return { blocks, problems, malformedHeadings, sections, sectionLines };
 }
 
 /** Read a rules artifact without deciding what to do about what was noticed. */
@@ -318,10 +490,12 @@ function readRules(markdown: string): Read<Rule> {
   const scanned = scan(markdown, RULE_HEADING, 'R', KNOWN_RULE_SECTIONS);
   const items: Rule[] = [];
   const problems = [...scanned.problems];
+  const valueBelowBlankLine = new Set<string>();
 
   for (const block of scanned.blocks) {
     const fields = readFields(block, RULE_FIELDS);
     problems.push(...fields.problems);
+    for (const name of fields.valueBelowBlankLine) valueBelowBlankLine.add(`${block.id}:${name}`);
     items.push({
       id: block.id,
       title: block.title,
@@ -331,7 +505,14 @@ function readRules(markdown: string): Read<Rule> {
     });
   }
 
-  return { items, problems, malformedHeadings: scanned.malformedHeadings };
+  return {
+    items,
+    problems,
+    malformedHeadings: scanned.malformedHeadings,
+    sections: scanned.sections,
+    sectionLines: scanned.sectionLines,
+    valueBelowBlankLine,
+  };
 }
 
 /** Read a cases artifact without deciding what to do about what was noticed. */
@@ -339,10 +520,12 @@ function readCases(markdown: string): Read<Case> {
   const scanned = scan(markdown, CASE_HEADING, 'C', KNOWN_CASE_SECTIONS);
   const items: Case[] = [];
   const problems = [...scanned.problems];
+  const valueBelowBlankLine = new Set<string>();
 
   for (const block of scanned.blocks) {
     const fields = readFields(block, CASE_FIELDS);
     problems.push(...fields.problems);
+    for (const name of fields.valueBelowBlankLine) valueBelowBlankLine.add(`${block.id}:${name}`);
 
     const covers = fields.values.get('Covers') ?? '';
     const rules: string[] = [];
@@ -354,7 +537,17 @@ function readCases(markdown: string): Read<Case> {
       for (const entry of covers.split(',')) {
         const token = entry.trim();
         if (RULE_REFERENCE.test(token)) {
-          rules.push(token);
+          if (rules.includes(token)) {
+            // Not a duplicate rule and not a duplicate case: one list naming one rule twice. It
+            // used to be counted as two references and reported as nothing, so a case could claim
+            // more coverage than the file states while `ruleCoverage` — which counts a Set — went
+            // on printing the same number.
+            problems.push(
+              `${block.id}: Covers names ${token} twice; each rule is referenced once in a list`
+            );
+          } else {
+            rules.push(token);
+          }
         } else if (token === '') {
           problems.push(`${block.id}: Covers has an empty entry — a stray or trailing comma`);
         } else {
@@ -374,7 +567,14 @@ function readCases(markdown: string): Read<Case> {
     });
   }
 
-  return { items, problems, malformedHeadings: scanned.malformedHeadings };
+  return {
+    items,
+    problems,
+    malformedHeadings: scanned.malformedHeadings,
+    sections: scanned.sections,
+    sectionLines: scanned.sectionLines,
+    valueBelowBlankLine,
+  };
 }
 
 /**
@@ -421,6 +621,75 @@ function sequence(ids: string[], noun: string, prefix: string): string[] {
   return [];
 }
 
+/** A list of identifiers in a message, cut off before it becomes a wall. */
+function named(ids: string[]): string {
+  const shown = ids.slice(0, NAMED_IN_A_LIST).join(', ');
+  const rest = ids.length - NAMED_IN_A_LIST;
+  return rest > 0 ? `${shown}, and ${rest} more` : shown;
+}
+
+/** The identifiers a `## Not covered` section parks, in the one shape that section is read in. */
+function parkedRules(lines: string[]): string[] {
+  const parked: string[] = [];
+  for (const line of lines) {
+    const match = PARKED_ENTRY.exec(line.trimEnd());
+    if (match) parked.push(match[1]);
+  }
+  return parked;
+}
+
+/**
+ * Every rule is decided about exactly once: covered by at least one case, or parked under
+ * `## Not covered`, and never both.
+ *
+ * This is the rules-to-cases half of the guarantee `tests/unit/artifacts.spec.ts` already holds
+ * the report to, and it exists because references only had to *resolve*. On 25 August the rules
+ * were regenerated from 138 to 201 and every identifier a case named still existed, so the cases
+ * validated clean and `ruleCoverage` printed 135/201 — an arithmetically valid number about two
+ * documents that were no longer describing the same work. Sixty-six rules had appeared that no
+ * case had ever seen, and nothing said so.
+ *
+ * A rule may be covered by several cases; that is grouping, not drift. What may not happen is a
+ * rule nobody decided anything about, and a rule two sections decide opposite things about.
+ */
+function ruleAccounting(ruleIds: string[], cases: Case[], parked: string[]): string[] {
+  const problems: string[] = [];
+  const known = new Set(ruleIds);
+  const covered = new Set(cases.flatMap((testCase) => testCase.rules));
+  const parkedOnce = new Set(parked);
+
+  for (const id of duplicates(parked)) {
+    problems.push(`${id} is listed twice under "${NOT_COVERED}"`);
+  }
+
+  const strangers = [...parkedOnce].filter((id) => !known.has(id));
+  if (strangers.length > 0) {
+    problems.push(
+      `"${NOT_COVERED}" parks ${named(strangers)}, which the rules file does not define`
+    );
+  }
+
+  const both = ruleIds.filter((id) => covered.has(id) && parkedOnce.has(id));
+  if (both.length > 0) {
+    problems.push(
+      `${named(both)} is both covered by a case and parked under "${NOT_COVERED}" — a rule is one or the other`
+    );
+  }
+
+  const unaccounted = ruleIds.filter((id) => !covered.has(id) && !parkedOnce.has(id));
+  if (unaccounted.length > 0) {
+    const subject =
+      unaccounted.length === 1
+        ? `${unaccounted[0]} is covered by no case and not parked under "${NOT_COVERED}"`
+        : `${unaccounted.length} of the ${ruleIds.length} rules are covered by no case and not parked under "${NOT_COVERED}": ${named(unaccounted)}`;
+    problems.push(
+      `${subject}. The cases do not account for the rules they were derived from and have to be regenerated against them.`
+    );
+  }
+
+  return problems;
+}
+
 export function validateRules(markdown: string): string[] {
   const read = readRules(markdown);
   const rules = read.items;
@@ -441,15 +710,24 @@ export function validateRules(markdown: string): string[] {
   );
 
   for (const rule of rules) {
-    if (!rule.source) problems.push(`${rule.id}: missing Source field`);
-    if (!rule.statement) problems.push(`${rule.id}: missing Statement field`);
-    if (rule.kind !== 'explicit' && rule.kind !== 'assumed') {
+    // A field whose value was left below a blank line has already been reported by name, with the
+    // sentence that says what to do about it. Saying `missing Source field` on top of that is the
+    // second complaint about one line the reader has to reconcile.
+    const stated = (field: string): boolean => !read.valueBelowBlankLine.has(`${rule.id}:${field}`);
+
+    if (!rule.source && stated('Source')) problems.push(`${rule.id}: missing Source field`);
+    if (!rule.statement && stated('Statement'))
+      problems.push(`${rule.id}: missing Statement field`);
+    if (rule.kind !== 'explicit' && rule.kind !== 'assumed' && stated('Kind')) {
       problems.push(`${rule.id}: Kind must be "explicit" or "assumed", not "${rule.kind}"`);
     }
   }
 
+  // Deliberately the headings the scan really found, not `markdown.includes(section)`: the literal
+  // text also occurs inside a code fence and mid-sentence, and a check satisfied by a sentence
+  // about a section is a check that passes on the file it exists to catch.
   for (const section of REQUIRED_RULE_SECTIONS) {
-    if (!markdown.includes(section)) problems.push(`Missing mandatory section: ${section}`);
+    if (!read.sections.includes(section)) problems.push(`Missing mandatory section: ${section}`);
   }
 
   return problems;
@@ -459,7 +737,9 @@ export function validateCases(rulesMd: string, casesMd: string): string[] {
   // Deliberately not `parseRules`: a broken rules file is `validateRules`'s news to break, and
   // throwing here would replace a list of problems in the cases file with an exception about a
   // different file.
-  const knownRules = new Set(readRules(rulesMd).items.map((rule) => rule.id));
+  const rules = readRules(rulesMd);
+  const ruleIds = [...new Set(rules.items.map((rule) => rule.id))];
+  const knownRules = new Set(ruleIds);
   const read = readCases(casesMd);
   const cases = read.items;
   const problems: string[] = [...read.problems];
@@ -487,8 +767,13 @@ export function validateCases(rulesMd: string, casesMd: string): string[] {
     if (testCase.rules.length === 0) {
       problems.push(`${testCase.id}: references no rule at all`);
     }
-    if (!testCase.steps) problems.push(`${testCase.id}: missing Steps field`);
-    if (!testCase.expected) problems.push(`${testCase.id}: missing Expected field`);
+    const stated = (field: string): boolean =>
+      !read.valueBelowBlankLine.has(`${testCase.id}:${field}`);
+
+    if (!testCase.steps && stated('Steps')) problems.push(`${testCase.id}: missing Steps field`);
+    if (!testCase.expected && stated('Expected')) {
+      problems.push(`${testCase.id}: missing Expected field`);
+    }
     for (const ruleId of testCase.rules) {
       if (!knownRules.has(ruleId)) {
         problems.push(`${testCase.id}: references rule ${ruleId}, which does not exist`);
@@ -496,8 +781,17 @@ export function validateCases(rulesMd: string, casesMd: string): string[] {
     }
   }
 
+  // Only once both files were read as written. Accounting computed over a misread artifact would
+  // report drift between the documents when the fault is a heading one character wrong, and the
+  // reader would go looking for the wrong thing. Fix the reading first; this runs on the next pass.
+  if (rules.problems.length === 0 && read.problems.length === 0) {
+    problems.push(
+      ...ruleAccounting(ruleIds, cases, parkedRules(read.sectionLines.get(NOT_COVERED) ?? []))
+    );
+  }
+
   for (const section of REQUIRED_CASE_SECTIONS) {
-    if (!casesMd.includes(section)) problems.push(`Missing mandatory section: ${section}`);
+    if (!read.sections.includes(section)) problems.push(`Missing mandatory section: ${section}`);
   }
 
   return problems;

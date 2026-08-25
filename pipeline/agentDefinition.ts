@@ -11,7 +11,11 @@
  */
 
 const FRONTMATTER_FENCE = '---';
-const REQUIRED_KEYS = ['name', 'description', 'model'];
+// `tools` is here for the same reason `model` is. All three definitions set it, and ta.md is the
+// one that matters: it is the only agent granted `Bash` and `Edit`. A dropped `tools:` line does
+// not fail — the agent silently receives the default tool set, writes what it can and reports the
+// rest as impossible, and the cause is then hunted for in the prompt.
+const REQUIRED_KEYS = ['name', 'description', 'model', 'tools'];
 const REQUIRED_SECTIONS = ['## Your task', '## Forbidden'];
 const MINIMUM_BODY_WORDS = 50;
 

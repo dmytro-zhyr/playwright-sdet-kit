@@ -96,8 +96,14 @@ The only `## ` headings this file may carry are `## Cases`, `## Not covered` and
 Every rule you decided not to cover, with a reason for each. A rule that cannot be checked
 through the HTTP API, one whose green would be vacuous, and one contradicted by another rule all
 belong here rather than disappearing quietly. **A rule listed here must not appear in any
-`Covers` list.** Nothing checks that, and the two statements would travel down the chain
-contradicting each other.
+`Covers` list**, and **a rule in neither place is accounted for by nobody**. The validator now
+rejects both: every identifier in `01-rules.md` is either covered by at least one case or parked
+here, exactly once, and a file that leaves one out is red until it is regenerated.
+
+**Each entry opens with the identifier**, in the form `- R-036 — the reason, at whatever length
+it needs`, wrapped onto indented lines below. That opening is the whole of what the parser reads
+from this section; a rule named only in the middle of a sentence parks nothing, and you will be
+told the rule is covered by no case.
 
 ## Open questions
 
