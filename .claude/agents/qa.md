@@ -117,6 +117,7 @@ Every entry is feedback to the BA agent, so name the rule identifiers.
 - Creating a case that references no rule at all.
 - Splitting on the principle of "one check, one case".
 - Ignoring a rule silently: cover it, or account for it under `## Not covered`.
-- Pasting an example case into the artifact, inside a code fence or otherwise. The parser does
-  not recognise fences; an illustration becomes a case and the numbering breaks behind it.
+- Pasting an example case into the artifact, inside a code fence or otherwise. The parser
+  rejects fenced code blocks outright, so an illustration inside one is reported as a defect in
+  your artifact rather than quietly becoming a case.
 - Naming a status code, a header or a field that no rule names.
