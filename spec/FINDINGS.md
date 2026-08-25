@@ -264,8 +264,8 @@ each mixed a conforming half with a violated one:
 
 | Defect | Conforming half, green in `contract` | Violated half, red in `defects` |
 |---|---|---|
-| D-6 | C-006's six read paths, answered 404 | the two delete paths, answered 204 |
-| D-9 | C-003's twelve endpoints sent a valid payload, answered 401 | the four sent `{}`, answered 422 |
+| D-6 | the six read paths of C-014 and C-015, answered 404 | the two delete paths, answered 204 |
+| D-9 | C-002's twelve endpoints sent a valid payload, answered 401 | the four sent `{}`, answered 422 |
 
 D-7 and D-8 are single-assertion tests and moved whole. Nothing was weakened to make the move:
 `ArticlesResponseSchema` is untouched, and both halves of each split assert exactly what the one
@@ -285,9 +285,24 @@ as though it had deleted something.
 the two delete paths differ, which looks like an idempotent-delete choice rather than an oversight.
 It is still a spec violation, and it is the kind that will not be fixed by asking.
 
-✅ That shape is also why C-006 was split rather than moved: the six read paths stayed in
+✅ That shape is also why the case was split rather than moved: the six read paths stayed in
 `tests/contract/not-found.spec.ts`, green, and only the two deletes went to
 `tests/defects/not-found.spec.ts`.
+
+📌 **Identifiers corrected on 25 August 2026.** The split was made against the previous generation
+of `pipeline/02-cases.md`, where all eight paths were one case, C-006. The regenerated cases divide
+them: the article-slug paths are C-015, the profile paths C-014, the comment identifier C-016. And
+`C-006` now names something else entirely — "Endpoints with optional authentication serve an
+anonymous request" — so writing it here pointed a reader at the wrong case. `spec/` is outside the
+reach of the `Case → File` check, which scans `tests/contract/` and `tests/defects/` only, so these
+references went stale in silence and were found by reading.
+
+⚠️ **The regeneration also undid half of this split.** C-015 sweeps all seven article-slug paths,
+`DELETE /articles/:slug` among them, so the delete this defect is about is back in
+`tests/contract/not-found.spec.ts` and that test is red again. `pipeline/03-report.md`'s
+`## Triage` states the next action for a person: `POST /articles/:slug/comments` answers 422 on an
+unheld slug because the payload validator runs before the lookup, which is a second defect with no
+`D-#` entry here yet. File it, then split C-015 the way C-006 was split.
 
 ### D-7 · Blank input crashes validation instead of failing it
 

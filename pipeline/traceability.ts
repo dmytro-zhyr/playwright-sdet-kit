@@ -9,6 +9,22 @@
  *
  * Nothing here touches the disk. The caller reads the tree and passes what it read, so the rules
  * below can be tested without fixtures on disk and produce the same answer wherever they run.
+ *
+ * ⚠️ **What this does not see.** Three limits, stated here because the paragraphs above invite a
+ * reader to assume more coverage than exists:
+ *
+ * - **`spec/` is out of reach, and is maintained by hand.** The caller passes `tests/contract/`
+ *   and `tests/defects/`. `spec/FINDINGS.md` is not a file the report's `## Automated` table
+ *   describes, so scanning it would change what this check means rather than widen it — and a
+ *   `C-###` written in `spec/` therefore still only has to *resolve*. Three of them went stale
+ *   there on 25 August and were found by reading, not by a check.
+ * - **A case that is re-meaned rather than renamed.** A case *renamed* in `02-cases.md` is caught
+ *   by the pre-existing accounting test in `tests/unit/artifacts.spec.ts`, which requires every
+ *   identifier to appear in the report exactly once. The same identifier surviving with a
+ *   different subject is caught by neither check, and that is precisely what happened to `C-006`.
+ * - **A test that implements a case without ever writing its identifier.** The accounting test
+ *   keys off identifiers in the report and this one off identifiers in test files, so a test that
+ *   names no case is invisible to both.
  */
 
 /** A test file, addressed the way the report addresses it: repository-relative, forward slashes. */
@@ -72,14 +88,19 @@ export function traceabilityProblems(reportMd: string, files: TestFile[]): strin
     }
     if (entry.file === '') {
       problems.push(`${entry.id} is reported in ${AUTOMATED_SECTION} with no file`);
-      continue;
     }
+    // Registered even with no file, so the two loops below know the row exists. Skipping it made
+    // the test that names the case read as an identifier the report never claims — two problems
+    // from one empty cell, and the second one sends the reader to the wrong file.
     reported.set(entry.id, entry.file);
   }
 
   const scanned = new Map(files.map((file) => [file.path, file.content]));
 
   for (const [id, file] of reported) {
+    // An empty cell names no file to disagree with, and is already reported above.
+    if (file === '') continue;
+
     const content = scanned.get(file);
     if (content === undefined) {
       problems.push(
@@ -97,6 +118,9 @@ export function traceabilityProblems(reportMd: string, files: TestFile[]): strin
         problems.push(
           `${file.path} names ${id}, which ${AUTOMATED_SECTION} does not report as automated`
         );
+      } else if (where === '') {
+        // The row is there and names no file. Reported once, above, where the cause is.
+        continue;
       } else if (where !== file.path) {
         problems.push(`${file.path} names ${id}, which ${AUTOMATED_SECTION} reports in ${where}`);
       }
