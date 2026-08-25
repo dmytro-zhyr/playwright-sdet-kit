@@ -255,6 +255,14 @@ not what that test is about. Renaming it means editing `tests/defects/`, which i
 batch's scope. It should be renamed the next time that file is touched, and it is a good argument
 for identifiers in `tests/defects/` pointing at a `D-#` rather than at a `C-###`.
 
+> **Corrected on 25 August 2026:** the rename has already happened. Task 3 of the `stage-2-critic`
+> branch renamed that test to `D-6`, and `tests/unit/artifacts.spec.ts` now refuses any `C-###` in
+> `tests/contract/` or `tests/defects/` that `## Automated` does not report in that same file — so
+> the argument this paragraph closes with is the one that was acted on. The work item it hands a
+> reader no longer exists. Found by the critic, as `O-019`'s neighbour `O-017` in
+> `pipeline/04-objections.md`, whose stated risk was exactly this: a report shipping a task nobody
+> needs to do. The paragraph above is the agent's own text and is annotated, not rewritten.
+
 **Observations about the target that decide whether unwritten cases can go green.** They belong in
 `spec/FINDINGS.md`, which this agent may not write:
 
