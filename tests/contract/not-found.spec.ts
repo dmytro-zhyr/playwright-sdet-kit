@@ -53,9 +53,11 @@ test('C-014 — a path naming an account nobody holds is answered 404', async ({
 // skips the lookup and runs its handler on a missing article. Two routes that used to sweep here
 // moved to tests/defects/not-found.spec.ts: `DELETE /articles/:unheld` answers 204 instead of 404
 // (D-6), and `POST /articles/:unheld/comments` answers 422 instead of 404 because its payload
-// validator runs before the article lookup (D-10). The five controls at the end use the same
-// verbs, the same path shapes and the same credential against a slug that does name an article, so
-// a red above cannot be the address, the auth or the payload.
+// validator runs before the article lookup (D-10). Seven controls follow, at the end, using the
+// same verbs, the same path shapes and the same credential against a slug that does name an
+// article: five mirror the five lookups above, and two — the comment create and the delete —
+// remain as controls for the two defects whose negative half moved out, so a red above still
+// cannot be the address, the auth or the payload.
 test('C-015 — a path naming a slug no article holds is answered 404', async ({
   api,
   factories,

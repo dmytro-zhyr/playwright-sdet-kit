@@ -11,7 +11,7 @@ separately and **the specification stays authoritative**.
 | `contract`, `unit` | **`conduit-gate`**, `https://realworld.habsida.net/api` | conforms; this is the gate |
 | `defects` | **`conduit-unsound`**, `https://api.realworld.show/api` | the deployment D-1 to D-5 are about |
 
-📌 **Those are project defaults, not what a defects test is about.** Since D-6 to D-9 there are
+📌 **Those are project defaults, not what a defects test is about.** Since D-6 to D-11 there are
 documented defects on both, so a defects test names its own deployment with the `deployment`
 fixture rather than inheriting the project's. The registry of names is `api/deployments.ts`; the
 third live deployment is named there too, as `conduit-overstrict`.
@@ -254,18 +254,20 @@ only configuration in which this defect exists at all.
 ## 🔴 Six defects of `realworld.habsida.net` — the gate target
 
 Found on 24 August 2026 by running the suite the chain had produced against the new target. Each
-one is a contract violation, each has a test that is **red in `tests/contract/` right now**, and
-none of them is our code being wrong.
+one is a contract violation, and each had a test that was **red in `tests/contract/` at the
+time** — none of them is our code being wrong.
 
-✅ **These four have been moved out of the gate.** Named deployments exist now — `api/deployments.ts`
-and the `deployment` fixture — so each of the four names `conduit-gate` explicitly and lives in
-`tests/defects/` with an `issue` annotation. Two of them were **split** rather than moved, because
+✅ **These six have been moved out of the gate.** Named deployments exist now — `api/deployments.ts`
+and the `deployment` fixture — so each of the six names `conduit-gate` explicitly and lives in
+`tests/defects/` with an `issue` annotation. Four of them were **split** rather than moved, because
 each mixed a conforming half with a violated one:
 
 | Defect | Conforming half, green in `contract` | Violated half, red in `defects` |
 |---|---|---|
-| D-6 | the six read paths of C-014 and C-015, answered 404 | the two delete paths, answered 204 |
+| D-6 | C-014's three paths and C-015's five, all answering 404 | the two deletes, answered 204 |
 | D-9 | C-002's twelve endpoints sent a valid payload, answered 401 | the four sent `{}`, answered 422 |
+| D-10 | C-015's five paths, all answering 404 | the comment-create path, answered 422 |
+| D-11 | the echoed username and email | `bio` answered `""` where `image` answers `null` |
 
 D-7 and D-8 are single-assertion tests and moved whole. Nothing was weakened to make the move:
 `ArticlesResponseSchema` is untouched, and both halves of each split assert exactly what the one
@@ -292,9 +294,9 @@ as though it had deleted something.
 the two delete paths differ, which looks like an idempotent-delete choice rather than an oversight.
 It is still a spec violation, and it is the kind that will not be fixed by asking.
 
-✅ That shape is also why the case was split rather than moved: the six read paths stayed in
-`tests/contract/not-found.spec.ts`, green, and only the two deletes went to
-`tests/defects/not-found.spec.ts`.
+✅ That shape is also why the case was split rather than moved: the read paths stayed in
+`tests/contract/not-found.spec.ts`, green, and the two deletes went to
+`tests/defects/not-found.spec.ts` — which also holds D-10 now, a different defect of the same case.
 
 📌 **Identifiers corrected on 25 August 2026.** The split was made against the previous generation
 of `pipeline/02-cases.md`, where all eight paths were one case, C-006. The regenerated cases divide
@@ -310,6 +312,12 @@ references went stale in silence and were found by reading.
 `## Triage` states the next action for a person: `POST /articles/:slug/comments` answers 422 on an
 unheld slug because the payload validator runs before the lookup, which is a second defect with no
 `D-#` entry here yet. File it, then split C-015 the way C-006 was split.
+
+✅ **Corrected on 26 August 2026.** Both of those next actions are done. The comment route is
+filed below as D-10, and C-015 has been split again the same way: the five paths that answer 404
+stay in `tests/contract/not-found.spec.ts`, green, and the delete and the comment route live in
+`tests/defects/not-found.spec.ts` as D-6 and D-10. The paragraph above is left as written — it is
+the record of the state between the regeneration and this fix, not a standing instruction.
 
 ### D-7 · Blank input crashes validation instead of failing it
 
@@ -386,8 +394,9 @@ specification here — it disagrees with itself.
 ✅ C-029 asserted both fields as `null` in one assertion, which conflated "does registration echo
 what it was given" with "does a fresh account represent absence the same way in both fields" — the
 first is true here, the second is not. The test has been split: `tests/contract/registration.spec.ts`
-keeps the echo assertion, green, and `tests/defects/registration.spec.ts` asserts the
-inconsistency directly, `image` is `null` and `bio` is not, inside the one response.
+keeps the echo assertion, green, and `tests/defects/registration.spec.ts` asserts that `bio` must
+be `null`, with `image` on the same response asserted `null` as the control that makes the
+contradiction visible.
 
 ## ⬜ The gate deployment rate-limits, and CI makes it likelier
 
