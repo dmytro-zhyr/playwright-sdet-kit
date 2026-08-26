@@ -66,7 +66,10 @@ test('C-001 — a token from a registration and a token from a login both authen
 // if it starts answering something other than 401 — a 403, a 404, or a 200 carrying somebody's
 // data — or if one of the twelve reaches its handler far enough to change the resource it names.
 // The authenticated read that opens the test is what proves the address and the credential, so a
-// 401 below it cannot be a misspelled route or an unattached token.
+// 401 below it cannot be a misspelled route or an unattached token. The follow and the favorite
+// set up before the sweep are what make the two DELETEs provable: without something already there
+// to remove, a bypassed delete and a working guard would leave the exact same `following` /
+// `favoritesCount` behind, and the read-back could not have told them apart.
 test('C-002 — every endpoint that requires authentication refuses a caller with no credential', async ({
   api,
   factories,
@@ -92,6 +95,24 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   expect(comment?.id, 'the case needs one comment that exists').toBeDefined();
 
   const username = registeredUser.user.username;
+
+  // Two of the twelve are deletions, and by default there is nothing for either to delete: nobody
+  // follows this account and nobody has favorited this article, so a guard that let the DELETE
+  // through would leave exactly the `following: false` / `favoritesCount: 0` a working guard also
+  // leaves. Establishing both first — the guarded DELETE below is still sent with no credential —
+  // is what gives the read-back something a bypassed delete would visibly remove.
+  const follow = await registeredUser.api.post(`/profiles/${username}/follow`, {});
+  expect(
+    follow.status,
+    'the case needs an existing follow for the guarded unfollow to have something to remove'
+  ).toBe(200);
+
+  const favorite = await registeredUser.api.post(`/articles/${article.slug}/favorite`, {});
+  expect(
+    favorite.status,
+    'the case needs an existing favorite for the guarded unfavorite to have something to remove'
+  ).toBe(200);
+
   const guardProbe = 'qa_guard_probe';
 
   // 🔑 The payloads are not decoration. Sent `{}`, several of these endpoints answer 422 rather
@@ -159,7 +180,10 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
     [kept.article.title, kept.article.description, kept.article.body],
     'an anonymous update must not have changed the article'
   ).toEqual([sent.title, sent.description, sent.body]);
-  expect(kept.article.favoritesCount, 'an anonymous favorite must not have been counted').toBe(0);
+  expect(
+    kept.article.favoritesCount,
+    'an anonymous favorite must not have added a second one, and an anonymous unfavorite must not have removed the one the precondition made'
+  ).toBe(1);
 
   const comments = await registeredUser.api.get(`/articles/${article.slug}/comments`);
   expect(comments.status, 'the comment list must still be readable').toBe(200);
@@ -179,8 +203,8 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const relationship = profile.body as { profile: { following: boolean } };
   expect(
     relationship.profile.following,
-    'an anonymous follow must not have made a relationship'
-  ).toBe(false);
+    'an anonymous follow must not have made a second relationship, and an anonymous unfollow must not have removed the one the precondition made'
+  ).toBe(true);
 
   const authored = await registeredUser.api.get(`/articles?author=${username}`);
   const own = authored.body as { articles: { slug: string }[] };
