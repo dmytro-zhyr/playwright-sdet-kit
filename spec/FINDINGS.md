@@ -202,12 +202,12 @@ uniqueness gap D-3 names below, confirmed on this deployment. That is what
 `tests/defects/registration.spec.ts` now asserts, sampling three independent colliding pairs (see
 `COLLISION_TRIALS`'s current comment — the sampling reason changed along with the evidence).
 
-⚠️ **A side note on `spec/FINDINGS.md:245`'s own claim**, met while building the control above:
-"run the same sequence one request at a time and every token resolves correctly" did not hold in
-ten trials run today, 26 August 2026, against two entirely unrelated, non-colliding, sequential
-registrations — 8 of 10 showed the same cross-account read. That is outside this item's scope to
-resolve (D-4's test and write-up are unchanged by this branch), and is recorded here only because
-it is what was actually measured while checking this section's own claim, not asserted as a fix.
+⚠️ **A side note on D-4's own claim**, met while building the control above: "run the same
+sequence one request at a time and every token resolves correctly" did not hold in ten trials run
+today, 26 August 2026, against two entirely unrelated, non-colliding, sequential registrations — 8
+of 10 showed the same cross-account read. That is outside this item's scope to resolve (D-4's test
+is unchanged by this branch); the annotation lives at D-4's own section below, where a reader of
+that section alone will see it, rather than only here.
 
 ### D-2 · Registration accepts a username that is already taken
 
@@ -275,6 +275,20 @@ presented=qa_leak_…_2  →  returned qa_leak_…_4, email qa_leak_…_4@exampl
 
 **Seven of the eight received another account's data, including that account's email.** Run the
 same sequence one request at a time and every token resolves correctly.
+
+📌 **That last sentence no longer holds as stated.** A control built for D-1 and D-2 on 26 August
+2026 ran two entirely unrelated, non-colliding, sequential registrations ten times — no
+concurrency, no shared field — and saw the same cross-account read on `GET /user` **8 times out of
+10**. Recorded in D-1's section above, where it was found. Not re-measured here as a dedicated
+study of this claim; written down because it directly contradicts a sentence in this section, and
+a reader who opens D-4 alone deserves to see that before trusting it.
+
+⬜ **Open question, not acted on.** If sequential registrations cross-talk nearly as often as
+concurrent ones, D-4 may not be about concurrency specifically — it may be shared session state
+that concurrency merely makes easier to hit, which is a different claim than "invisible to
+sequential testing" two paragraphs up. This section's test, eight parallel registrations, is built
+on the premise the note above just contradicted. Worth investigating on its own terms; not done as
+part of this branch.
 
 📌 **What the shape of the response says about the cause.** The `token` field in the reply equals
 the token that was presented, while the rest of the body belongs to somebody else. The response is
