@@ -22,6 +22,14 @@ test(
 
     // Promise.all, not a loop: run one at a time and every token resolves correctly, so the
     // sequential version of this test is green and proves nothing.
+    //
+    // 📌 That "resolves correctly" is now qualified in spec/FINDINGS.md's D-4 section: a control
+    // built while writing D-1/D-2 found the same cross-account read 8 times out of 10 running
+    // sequentially, with no concurrency and no field collision at all. This test still needs
+    // concurrency — CONCURRENT_REGISTRATIONS above is what reproduced D-4 reliably during the
+    // original reconnaissance — but whether D-4 is really about concurrency, or about shared
+    // session state that concurrency only makes easier to hit, is now an open question recorded
+    // in FINDINGS.md rather than something settled here.
     const registrations = await Promise.all(
       users.map(async (user) => {
         const response = await api.post('/users', { user });

@@ -84,7 +84,12 @@ export interface Rule {
   id: string;
   title: string;
   source: string;
-  /** 'explicit' when the rule is stated in the spec, 'assumed' when the agent inferred it. */
+  /**
+   * 'explicit' when the rule is stated in the spec, 'assumed' when the agent inferred it — in
+   * principle a two-value union, but left as `string` on purpose. See `validateRules`'s Kind
+   * check, below, for why turning this into a compile-time union is not the one-line change it
+   * looks like.
+   */
   kind: string;
   statement: string;
 }
@@ -866,6 +871,31 @@ export function validateRules(markdown: string): string[] {
     if (!rule.source && stated('Source')) problems.push(`${rule.id}: missing Source field`);
     if (!rule.statement && stated('Statement'))
       problems.push(`${rule.id}: missing Statement field`);
+
+    // Why `Rule.kind` stays `string` instead of becoming `'explicit' | 'assumed'` at compile time,
+    // even though this is the one place that would need to change to make the union honest:
+    //
+    // `parseRules` throws on read.problems — the "the text was not read as written" tier this
+    // file's own top-of-file doc comment describes — and returns without complaint on everything
+    // in the second tier, "the text was read exactly as written, and what it says is wrong". An
+    // invalid Kind is that doc comment's own worked example of the second tier, and
+    // `tests/unit/parse.spec.ts`'s "parseRules still returns for an artifact it read exactly as
+    // written" pins the general principle down with a test: parseRules must not "widen from 'I
+    // could not read this' to 'this is invalid'". Confirmed directly — a well-formed rules file
+    // with `**Kind:** maybe` parses clean through `parseRules` today; only this function reports
+    // it.
+    //
+    // A real compile-time union needs parseRules itself to guarantee it, which means promoting
+    // this one check into the first tier — the exact "I could not read this" vs. "this is invalid"
+    // line the module is built around, and the doc comment's own named example of what belongs on
+    // the far side of it. Doing that honestly is not a one-line change: it means either narrowing
+    // this specific field alone (an unexplained exception to a rule the file states in general
+    // terms, for a field nothing downstream currently reads through `parseRules` — only `.id` is
+    // consumed, by `ruleCoverage`) or moving Source and Statement the same way too, which changes
+    // parseRules's contract for everyone, silently turns a previously-tolerated rules file into a
+    // throwing one, and is a bigger change than this field warrants. Either path costs more than a
+    // string field with a comment. A cast (`kind as 'explicit' | 'assumed'`) was rejected outright:
+    // it would tell every downstream reader the value is validated when nothing has checked it.
     if (rule.kind !== 'explicit' && rule.kind !== 'assumed' && stated('Kind')) {
       problems.push(`${rule.id}: Kind must be "explicit" or "assumed", not "${rule.kind}"`);
     }

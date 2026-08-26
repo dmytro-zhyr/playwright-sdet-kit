@@ -176,6 +176,39 @@ the original one.
 
 ➡️ So this is not cosmetic — it is **loss of access to an account**.
 
+✅ **Covered by `tests/defects/registration.spec.ts` — refined on 26 August 2026 while writing the
+test.** Login turned out to be an unreliable witness: across ten independent trials through the
+actual test harness, `POST /users/login` with the duplicated email always correctly told the two
+accounts apart by password — it is not what breaks. What reproduces reliably (9 of 10 trials) is
+the *registration response* itself: the second registration is handed the **first account's own
+token**, so reading a profile back through that original token — no password needed — returns the
+duplicate's data instead of the original's. Same loss of access this section describes, a more
+reproducible route to observing it. The test samples six independent registration pairs — each an
+ordinary, sequential pair of requests — and fails if even one shows the hijack; see
+`COLLISION_TRIALS`'s own comment for the measured rate and why sampling several beats one attempt.
+
+📌 **Corrected again, same day, after a fix-round review.** The token-based evidence above turned
+out to have the same problem the login-based one did. A control settled it: registering two
+**entirely unrelated** accounts — no email collision at all — reproduced the same "read the
+original account back through its own token, get someone else's data" symptom **8 times out of
+10**. That is D-4's own invariant (`tests/defects/authentication.spec.ts:11`), not something this
+collision causes; a test asserting it would go green the day D-4 alone is fixed, with email
+uniqueness still unenforced. So the ➡️ line above — "loss of access to an account" — rests on an
+attribution neither the login evidence nor the token evidence supports once checked against a
+control; it is left standing as the record of what this section originally claimed, not as a
+verified consequence. What survives, verified directly and repeatedly, without relying on either
+withdrawn mechanism: `POST /users` with an already-taken email answers **201, not 422** — the
+uniqueness gap D-3 names below, confirmed on this deployment. That is what
+`tests/defects/registration.spec.ts` now asserts, sampling three independent colliding pairs (see
+`COLLISION_TRIALS`'s current comment — the sampling reason changed along with the evidence).
+
+⚠️ **A side note on D-4's own claim**, met while building the control above: "run the same
+sequence one request at a time and every token resolves correctly" did not hold in ten trials run
+today, 26 August 2026, against two entirely unrelated, non-colliding, sequential registrations — 8
+of 10 showed the same cross-account read. That is outside this item's scope to resolve (D-4's test
+is unchanged by this branch); the annotation lives at D-4's own section below, where a reader of
+that section alone will see it, rather than only here.
+
 ### D-2 · Registration accepts a username that is already taken
 
 ```
@@ -184,6 +217,21 @@ POST /users {"user":{"username":"qa_dup_probe","email":"<new>",...}}  →  201
 
 And it returns **the same token** the existing `qa_dup_probe` already had. The request did not
 create a new user; it returned the existing one with a replaced email.
+
+✅ **Covered by `tests/defects/registration.spec.ts` — refined on 26 August 2026, then again after
+a fix-round review.** First refinement: the second registration is handed the existing account's
+own token (8 of 10 trials), and reading the existing account back through that token afterwards
+shows the duplicate's email in place of the original's — matching "the same token... a replaced
+email" above. Second refinement, same day: a control showed this is *also* not specific to the
+username collision. Two entirely unrelated registrations, back to back, compared directly by the
+token each registration response carried — no collision, no later read involved — shared a token
+**9 times out of 10**. So "returns the same token... a replaced email" is very likely the same
+generic noise D-1's corrected note above describes, not something this collision specifically
+causes; the claim above is left standing as the record of the original observation, not as a
+verified consequence. What survives, by the same reasoning as D-1: `POST /users` with an
+already-taken username answers **201, not 422**. `tests/defects/registration.spec.ts` asserts
+exactly that, by the same `collide` helper D-1 uses above, sampling three independent colliding
+pairs.
 
 ### D-3 · The consequence of both — uniqueness is enforced nowhere
 
@@ -227,6 +275,20 @@ presented=qa_leak_…_2  →  returned qa_leak_…_4, email qa_leak_…_4@exampl
 
 **Seven of the eight received another account's data, including that account's email.** Run the
 same sequence one request at a time and every token resolves correctly.
+
+📌 **That last sentence no longer holds as stated.** A control built for D-1 and D-2 on 26 August
+2026 ran two entirely unrelated, non-colliding, sequential registrations ten times — no
+concurrency, no shared field — and saw the same cross-account read on `GET /user` **8 times out of
+10**. Recorded in D-1's section above, where it was found. Not re-measured here as a dedicated
+study of this claim; written down because it directly contradicts a sentence in this section, and
+a reader who opens D-4 alone deserves to see that before trusting it.
+
+⬜ **Open question, not acted on.** If sequential registrations cross-talk nearly as often as
+concurrent ones, D-4 may not be about concurrency specifically — it may be shared session state
+that concurrency merely makes easier to hit, which is a different claim than "invisible to
+sequential testing" two paragraphs up. This section's test, eight parallel registrations, is built
+on the premise the note above just contradicted. Worth investigating on its own terms; not done as
+part of this branch.
 
 📌 **What the shape of the response says about the cause.** The `token` field in the reply equals
 the token that was presented, while the rest of the body belongs to somebody else. The response is
