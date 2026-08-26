@@ -167,8 +167,15 @@ test('C-031 — registration refuses an email or a username another account hold
   // The second half of the expectation, for the duplicate-email refusal: it carried a fresh
   // username nobody else holds, so an account it created anyway would be the only account
   // answering to that username. R-088 makes that observable — an unknown username is 404 — so any
-  // other status here is that account existing.
-  const emailCollisionProfile = await api.get(`/profiles/${emailCollision.username}`);
+  // other status here is that account existing. Read authenticated, not anonymously: the profile
+  // 404/200 case in `tests/contract/not-found.spec.ts` proves a 200 for an existing account only
+  // through `registeredUser.api`, never through the anonymous client — the case that would prove
+  // the anonymous read is not automated in this suite — so anchoring this 404 to the same
+  // authenticated client is what keeps it from being a 404 for the wrong reason (a guard the route
+  // attaches only to unauthenticated callers).
+  const emailCollisionProfile = await registeredUser.api.get(
+    `/profiles/${emailCollision.username}`
+  );
   expect(
     emailCollisionProfile.status,
     'the refusal of a taken email must not have created an account under the fresh username it carried'
@@ -183,7 +190,7 @@ test('C-031 — registration refuses an email or a username another account hold
   });
   expect(
     LOGIN_SUCCESS,
-    'the refusal of a taken username must not have created an account under the fresh email it carried'
+    `the refusal of a taken username must not have created an account under the fresh email it carried — ${LOGIN_SUCCESS_MESSAGE}`
   ).not.toContain(usernameCollisionLogin.status);
 
   const fresh = await api.post('/users', { user: factories.user.build() });
