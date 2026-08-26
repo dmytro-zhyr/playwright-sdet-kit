@@ -118,19 +118,27 @@ test('C-030 — registration refuses a body missing a required field', async ({ 
 
 // Turns red if either uniqueness constraint stops being enforced, or stops being translated into
 // a 422 that carries a message — an account created on a taken email, a database violation
-// surfacing as a 500, an `errors` object that says nothing. The fresh registration at the end
-// proves the endpoint accepts what it should, so a red above is about the duplicate and not about
-// the request.
+// surfacing as a 500, an `errors` object that says nothing — or if a 422 is answered while the
+// account is created anyway. The fresh username the duplicate-email attempt carried, and the
+// fresh email the duplicate-username attempt carried, are what make that visible: a profile that
+// should not exist yet answers with something other than 404, or a login with credentials nobody
+// has registered succeeds. The fresh registration at the end proves the endpoint accepts what it
+// should, so a red above is about the duplicate and not about the request.
 test('C-031 — registration refuses an email or a username another account holds', async ({
   api,
   factories,
   registeredUser,
 }) => {
+  // Built up front, not inline, so the fresh half of each colliding payload — the username the
+  // email-collision kept, the email the username-collision kept — is still in hand afterwards.
+  const emailCollision = factories.user.build();
+  const usernameCollision = factories.user.build();
+
   const takenEmail = await api.post('/users', {
-    user: { ...factories.user.build(), email: registeredUser.user.email },
+    user: { ...emailCollision, email: registeredUser.user.email },
   });
   const takenUsername = await api.post('/users', {
-    user: { ...factories.user.build(), username: registeredUser.user.username },
+    user: { ...usernameCollision, username: registeredUser.user.username },
   });
 
   expect(
@@ -155,6 +163,28 @@ test('C-031 — registration refuses an email or a username another account hold
       `the refusal of a taken ${collided} must carry at least one message`
     ).toBeGreaterThan(0);
   }
+
+  // The second half of the expectation, for the duplicate-email refusal: it carried a fresh
+  // username nobody else holds, so an account it created anyway would be the only account
+  // answering to that username. R-088 makes that observable — an unknown username is 404 — so any
+  // other status here is that account existing.
+  const emailCollisionProfile = await api.get(`/profiles/${emailCollision.username}`);
+  expect(
+    emailCollisionProfile.status,
+    'the refusal of a taken email must not have created an account under the fresh username it carried'
+  ).toBe(404);
+
+  // The second half, for the duplicate-username refusal: it carried a fresh email nobody else
+  // holds, and there is no profile lookup keyed by email to read that back directly. But a leftover
+  // account would have been created with usernameCollision's own password, so it would log in on
+  // that email and that password; if it does not exist, that login has nothing to succeed against.
+  const usernameCollisionLogin = await api.post('/users/login', {
+    user: { email: usernameCollision.email, password: usernameCollision.password },
+  });
+  expect(
+    LOGIN_SUCCESS,
+    'the refusal of a taken username must not have created an account under the fresh email it carried'
+  ).not.toContain(usernameCollisionLogin.status);
 
   const fresh = await api.post('/users', { user: factories.user.build() });
   expect(
