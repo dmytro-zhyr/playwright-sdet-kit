@@ -176,6 +176,17 @@ the original one.
 
 ➡️ So this is not cosmetic — it is **loss of access to an account**.
 
+✅ **Covered by `tests/defects/registration.spec.ts` — refined on 26 August 2026 while writing the
+test.** Login turned out to be an unreliable witness: across ten independent trials through the
+actual test harness, `POST /users/login` with the duplicated email always correctly told the two
+accounts apart by password — it is not what breaks. What reproduces reliably (9 of 10 trials) is
+the *registration response* itself: the second registration is handed the **first account's own
+token**, so reading a profile back through that original token — no password needed — returns the
+duplicate's data instead of the original's. Same loss of access this section describes, a more
+reproducible route to observing it. The test samples six independent registration pairs — each an
+ordinary, sequential pair of requests — and fails if even one shows the hijack; see
+`COLLISION_TRIALS`'s own comment for the measured rate and why sampling several beats one attempt.
+
 ### D-2 · Registration accepts a username that is already taken
 
 ```
@@ -184,6 +195,12 @@ POST /users {"user":{"username":"qa_dup_probe","email":"<new>",...}}  →  201
 
 And it returns **the same token** the existing `qa_dup_probe` already had. The request did not
 create a new user; it returned the existing one with a replaced email.
+
+✅ **Covered by `tests/defects/registration.spec.ts`**, by the same `collide` helper D-1 uses
+above, triggered by a duplicated username instead of a duplicated email: the second registration
+is handed the existing account's own token (8 of 10 trials), and reading the existing account back
+through that token afterwards shows the duplicate's email in place of the original's — exactly the
+"replaced email" this section describes.
 
 ### D-3 · The consequence of both — uniqueness is enforced nowhere
 
