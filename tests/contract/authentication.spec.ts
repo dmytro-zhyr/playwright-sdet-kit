@@ -66,10 +66,14 @@ test('C-001 — a token from a registration and a token from a login both authen
 // if it starts answering something other than 401 — a 403, a 404, or a 200 carrying somebody's
 // data — or if one of the twelve reaches its handler far enough to change the resource it names.
 // The authenticated read that opens the test is what proves the address and the credential, so a
-// 401 below it cannot be a misspelled route or an unattached token. The follow and the favorite
-// set up before the sweep are what make the two DELETEs provable: without something already there
-// to remove, a bypassed delete and a working guard would leave the exact same `following` /
-// `favoritesCount` behind, and the read-back could not have told them apart.
+// 401 below it cannot be a misspelled route or an unattached token. The follow endpoint and the
+// favorite endpoint each get two targets, not one: POST and DELETE share a path, and a single
+// `following` or `favoritesCount` saturated by a precondition can prove one verb only by making the
+// other unprovable — following false catches a bypassed POST but not a bypassed DELETE, following
+// true is the other way round. So the DELETE aims at a relationship and a favorite a precondition
+// already made, on a *second* account and a *second* article rather than a self-follow — a
+// self-follow's `following: true` could be an implementation special case rather than a stored row
+// — while the POST keeps aiming at the original, untouched profile and article, exactly as before.
 test('C-002 — every endpoint that requires authentication refuses a caller with no credential', async ({
   api,
   factories,
@@ -96,21 +100,36 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
 
   const username = registeredUser.user.username;
 
-  // Two of the twelve are deletions, and by default there is nothing for either to delete: nobody
-  // follows this account and nobody has favorited this article, so a guard that let the DELETE
-  // through would leave exactly the `following: false` / `favoritesCount: 0` a working guard also
-  // leaves. Establishing both first — the guarded DELETE below is still sent with no credential —
-  // is what gives the read-back something a bypassed delete would visibly remove.
-  const follow = await registeredUser.api.post(`/profiles/${username}/follow`, {});
+  // A second account, followed by registeredUser now, so the guarded DELETE below has an existing
+  // relationship to remove — on somebody other than the caller, not a self-follow.
+  const second = factories.user.build();
+  const secondRegistration = await api.post('/users', { user: second });
   expect(
-    follow.status,
-    'the case needs an existing follow for the guarded unfollow to have something to remove'
+    USER_ENDPOINT_SUCCESS,
+    `the case needs a second account to follow — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+  ).toContain(secondRegistration.status);
+
+  const secondFollow = await registeredUser.api.post(`/profiles/${second.username}/follow`, {});
+  expect(
+    secondFollow.status,
+    'the case needs an existing follow, of an account other than the caller, for the guarded unfollow to have something to remove'
   ).toBe(200);
 
-  const favorite = await registeredUser.api.post(`/articles/${article.slug}/favorite`, {});
+  // A second article, favorited by registeredUser now, so the guarded DELETE below has an existing
+  // favorite to remove that is not the same article the guarded POST targets.
+  const otherArticleCreated = await registeredUser.api.post('/articles', {
+    article: factories.article.build(),
+  });
+  const { article: otherArticle } = otherArticleCreated.body as { article: { slug: string } };
+  expect(otherArticle?.slug, 'the case needs a second article to favorite').toBeTruthy();
+
+  const secondFavorite = await registeredUser.api.post(
+    `/articles/${otherArticle.slug}/favorite`,
+    {}
+  );
   expect(
-    favorite.status,
-    'the case needs an existing favorite for the guarded unfavorite to have something to remove'
+    secondFavorite.status,
+    'the case needs an existing favorite, on an article other than the one the guarded POST targets, for the guarded unfavorite to have something to remove'
   ).toBe(200);
 
   const guardProbe = 'qa_guard_probe';
@@ -124,7 +143,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
     { method: 'get', path: '/user' },
     { method: 'put', path: '/user', data: { user: { bio: guardProbe } } },
     { method: 'post', path: `/profiles/${username}/follow` },
-    { method: 'del', path: `/profiles/${username}/follow` },
+    { method: 'del', path: `/profiles/${second.username}/follow` },
     { method: 'get', path: '/articles/feed' },
     {
       method: 'post',
@@ -144,7 +163,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
     },
     { method: 'del', path: `/articles/${article.slug}/comments/${comment.id}` },
     { method: 'post', path: `/articles/${article.slug}/favorite` },
-    { method: 'del', path: `/articles/${article.slug}/favorite` },
+    { method: 'del', path: `/articles/${otherArticle.slug}/favorite` },
   ];
 
   const observed: string[] = [];
@@ -168,9 +187,11 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
 
   // The second half of the expectation: a refusal that already wrote is still a refusal by
   // status, and only a later read can tell the two apart. Each read below covers the mutating
-  // endpoints that address it — the article for the update, the delete and the two favorites, the
-  // comment list for the comment create and delete, the account for the profile update, the
-  // profile for the follow and the unfollow, and the author's own listing for the create.
+  // endpoints that address it — the original article for the update, the delete and the guarded
+  // POST favorite, the second article for the guarded DELETE favorite, the comment list for the
+  // comment create and delete, the account for the profile update, the original profile for the
+  // guarded POST follow, the second profile for the guarded DELETE follow, and the author's own
+  // listing for the create.
   const survivor = await registeredUser.api.get(`/articles/${article.slug}`);
   expect(survivor.status, 'an anonymous delete must not have removed the article').toBe(200);
   const kept = survivor.body as {
@@ -182,7 +203,18 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   ).toEqual([sent.title, sent.description, sent.body]);
   expect(
     kept.article.favoritesCount,
-    'an anonymous favorite must not have added a second one, and an anonymous unfavorite must not have removed the one the precondition made'
+    'an anonymous favorite must not have been counted on the article the guarded POST targets'
+  ).toBe(0);
+
+  const otherArticleSurvivor = await registeredUser.api.get(`/articles/${otherArticle.slug}`);
+  expect(
+    otherArticleSurvivor.status,
+    'an anonymous delete must not have removed the second article'
+  ).toBe(200);
+  const otherArticleKept = otherArticleSurvivor.body as { article: { favoritesCount: number } };
+  expect(
+    otherArticleKept.article.favoritesCount,
+    'an anonymous unfavorite must not have removed the favorite the precondition made on the article the guarded DELETE targets'
   ).toBe(1);
 
   const comments = await registeredUser.api.get(`/articles/${article.slug}/comments`);
@@ -203,15 +235,24 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const relationship = profile.body as { profile: { following: boolean } };
   expect(
     relationship.profile.following,
-    'an anonymous follow must not have made a second relationship, and an anonymous unfollow must not have removed the one the precondition made'
+    'an anonymous follow must not have made a relationship on the profile the guarded POST targets'
+  ).toBe(false);
+
+  const secondProfile = await registeredUser.api.get(`/profiles/${second.username}`);
+  const secondRelationship = secondProfile.body as { profile: { following: boolean } };
+  expect(
+    secondRelationship.profile.following,
+    'an anonymous unfollow must not have removed the relationship the precondition made on the profile the guarded DELETE targets'
   ).toBe(true);
 
+  // Two articles now, not one: the original plus the second one the favorite precondition made.
+  // R-106/R-120 order the list by `createdAt` descending, so the second — created later — leads.
   const authored = await registeredUser.api.get(`/articles?author=${username}`);
   const own = authored.body as { articles: { slug: string }[] };
   expect(
     own.articles.map(({ slug }) => slug),
-    'an anonymous create must not have added an article to the caller'
-  ).toEqual([article.slug]);
+    'an anonymous create must not have added a third article to the caller'
+  ).toEqual([otherArticle.slug, article.slug]);
 });
 
 // Turns red if the token-to-subject lookup stops distinguishing its callers — resolving every
