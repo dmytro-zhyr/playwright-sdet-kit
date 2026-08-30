@@ -8,6 +8,10 @@
 //
 // It runs the same way locally and on CI, which is the point. A report that only assembles
 // correctly inside a workflow cannot be checked while writing the test that would appear in it.
+//
+// ⛔ `npm run allure:clean` deletes allure-report/ and therefore the history too. That is what it
+// is for — starting a trend over — and it is the one place where the sibling repository's simpler
+// setup differs: websocket-test carries nothing forward, so its clean can lose nothing.
 
 import { cpSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -44,6 +48,6 @@ generation.on('exit', (code) => {
     process.exit(code ?? 1);
   }
 
-  console.log(`\nReport written to ${REPORT}/. Open it with: npm run report:open`);
+  console.log(`\nReport written to ${REPORT}/. Open it with: npm run allure:open`);
   console.log('Opening the files directly will not work — the report needs to be served.');
 });

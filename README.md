@@ -32,9 +32,14 @@ npm run typecheck
 ## Reports
 
 ```bash
-npm run report        # build the Allure report, carrying the previous run's history forward
-npm run report:open   # serve it
+npm run allure:generate   # build the report, carrying the previous run's history forward
+npm run allure:open       # serve it
+npm run allure:clean      # throw away both directories and start over
 ```
+
+📌 The three names match [`websocket-test`](https://github.com/dmytro-zhyr/websocket-test), which
+does the same job under Jest. The same task should not be called two things across two repositories
+that get opened in the same week.
 
 Results accumulate in `allure-results/` across suites, so running `test:unit`, `test:contract`,
 `test:ui` and `test:defects` and then building once gives **one** report covering all four.
@@ -60,9 +65,18 @@ Allure's generator adds `Product defects` and `Test defects` behind these, and a
 **first** category that matches. So a failure with no explanation still surfaces — it just surfaces
 as unexplained, which is the point.
 
-⚠️ `npm run report` exists rather than a bare `allure generate` because `--clean` wipes the output
-directory, and the trend data lives inside it. Generating without carrying history forward leaves a
-report that looks complete and has forgotten every run before the last.
+⚠️ `allure:generate` is a script rather than a bare `allure generate` because `--clean` wipes the
+output directory, and the trend data lives inside it. Generating without carrying history forward
+leaves a report that looks complete and has forgotten every run before the last.
+
+⛔ **`allure:clean` deletes the history along with everything else** — `allure-report/history/` is
+where it lives. That is what the command is for, and it is the one difference from the same script
+in `websocket-test`, where nothing is carried forward and so nothing can be lost. Run it to start a
+trend over, not to tidy up.
+
+📌 An empty **Categories** tab means the run was green. Categories collect failures and nothing
+else, so there is nothing to fix when it is blank — and nothing to tag either: a category is a rule
+that matches a failure, not a label anyone puts on a test.
 
 `.env` is optional — without it the defaults from the config apply, and the whole repository runs
 without one.
