@@ -6,6 +6,7 @@
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
     "test:contract": "playwright test --project=contract --workers=1",
+    "test:ui": "playwright test --project=ui",
     "test:defects": "playwright test --project=defects",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",

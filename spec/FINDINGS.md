@@ -608,6 +608,94 @@ suite.
 📌 `conduit-unsound`'s UI is registered all the same — not to measure against, but because
 reproducing a known defect **through a browser** is exactly what `tests/defects/` is for.
 
+## 🔴 The first UI finding was about the test, not the page
+
+The reconnaissance script reported that the sign-up form locks up: after submitting, all three
+fields went `[disabled]`, the button stayed `[disabled]`, no error appeared, and the page never
+left `/register`. That reads exactly like a defect.
+
+It is not one. A second probe watching the network showed `POST /api/users` answering **201**,
+followed by a clean redirect to `/`. The first script had taken its snapshot after
+`waitForLoadState('networkidle')`, which in a single-page app settles while the form is still in
+its submitting state, before the router moves.
+
+🔑 **The oracle was wrong, and it was wrong in the direction that invents defects.** The usual
+version of this repository's theme is a green test that proves nothing; this is its mirror — a red
+observation that reports nothing. Both come from the same cause: an assertion evaluated at a moment
+nobody chose deliberately.
+
+➡️ So `po/registerPage.ts` waits for the **response**, not for the network to go quiet. A response
+happens once, carries a status, and cannot be satisfied early by a lull. `networkidle` answers a
+question about the wire and is used as if it answered a question about the application.
+
+## What the UI gate actually renders
+
+Observed on conduit-overstrict, 30 August 2026. Recorded because page objects were written against
+this rather than against the canonical RealWorld template, which several deployments have drifted
+from.
+
+| Surface | What is there |
+|---|---|
+| Header, signed out | links `conduit`, `Home`, `Sign in`, `Sign up` |
+| Header, signed in | `Home`, ` New Article`, ` Settings`, and a link **named for the username** to `/profile/<username>` |
+| `/register` | heading `Sign up`; textboxes `Username`, `Email`, `Password`; button `Sign up` |
+| `/login` | heading `Sign in`; textboxes `Email`, `Password`; button `Sign in` |
+| `/editor` | `Article Title`, `What's this article about?`, `Write your article (in markdown)`, `Enter tags`, button `Publish Article` |
+| `/settings` | `URL of profile picture`, `Username`, `Short bio about you`, `Email`, `New Password`, button `Update Settings` |
+| Errors | `ul.error-messages` with one `<li>` per message, e.g. `email has already been taken` |
+
+⚠️ **`New Article` and `Settings` carry a leading space** in their accessible names — an icon
+element sits inside the link before the text. `exact: true` on those two would never match.
+
+⚠️ **`/editor` and `/settings` redirect to `/` for an anonymous visitor.** There is an auth guard,
+so a test that forgets to sign in fails on a missing form rather than on a redirect it can name.
+
+⚠️ **The feed tabs are plain list items, not links or tabs.** `Your Feed` and `Global Feed` carry
+no interactive role, so `getByRole('tab')` finds nothing and a role-first locator strategy has to
+make an exception here.
+
+### 🔑 The submit button is gated on presence, not on validity
+
+Both forms disable their submit button until every field has something in it. Filling the email
+with `not-an-email` leaves the button **enabled**.
+
+That is worth a test of its own, and the test is not a bug report: it records what the application
+does, so that a later test does not assert client-side email validation that was never implemented.
+An expectation invented from what a form ought to do is the same failure as a locator invented from
+what markup ought to be.
+
+## ⚠️ What `npx playwright init-agents` brought in, and what was done with it
+
+Playwright's own agent tooling was installed on 30 August 2026: `init-skills` added three skills
+under `.claude/skills/`, and `init-agents` added a planner, a generator and a healer under
+`.claude/agents/`, alongside the four written for this repository. Three things came with it that
+could not be kept as delivered.
+
+**1. It wrote a seed test into the gate suite.** `tests/contract/seed.spec.ts` was a `test('seed')`
+with an empty body and the comment `// generate code here.` — a test that cannot fail, inside the
+suite whose pass rate is the gate. It was deleted. `tests/ui/registration.spec.ts` is the seed now:
+a generator learns the fixtures and conventions better from a real test than from an empty one.
+
+**2. It created `specs/`, one letter away from this repository's `spec/`.** Two directories whose
+names differ by a trailing `s`, holding different things, is a trap that costs a reader every time.
+The new one was renamed `plans/`, which is what it holds, and the three vendored agent definitions
+were edited to match — the one place a vendored file was modified, and this is the record of it.
+
+**3. It wrote `.mcp.json`.** The agents it installed address the browser through MCP tools, while
+`applications/ai-tooling.md` in the job-search repository argues for the CLI over MCP on token
+efficiency. Both are kept, because they are not in competition: the skills under `.claude/skills/`
+drive the CLI, and the agents need the MCP server. The position that survives is narrower than "CLI
+over MCP" — **MCP for an agent that must look at a page, the CLI for work that must not spend the
+context window on tool schemas.**
+
+⬜ **Open, and worth fixing:** `tests/unit/artifacts.spec.ts` validates agent definitions by name —
+`ba.md`, `qa.md`, `ta.md`, `critic.md` — so the three that arrived today are unchecked, and so
+would be a fifth written here tomorrow. The check is anchored to a list of answers instead of to
+the directory that produces them, which is the same failure this repository has now found twice.
+Enumerating `.claude/agents/*.md` needs a stated rule for vendored definitions first: they do not
+carry the `## Your task` / `## Forbidden` sections this project requires, and reshaping somebody
+else's agent to pass our validator would be the wrong fix.
+
 ---
 
 # Salesforce reconnaissance — 25 August 2026

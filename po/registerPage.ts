@@ -1,0 +1,89 @@
+import type { Locator, Page } from '@playwright/test';
+import { Nav } from '@/po/nav';
+import type { NewUser } from '@/data/userFactory';
+
+/**
+ * `/register` — the sign-up form.
+ *
+ * The page object exposes locators and business-level actions; every expectation stays in the
+ * test. `signUp` is a business-level method in the sense the framework notes use the term: it
+ * names what a person is doing, not which three fields get typed into in which order.
+ */
+export class RegisterPage {
+  readonly nav: Nav;
+
+  constructor(private readonly page: Page) {
+    this.nav = new Nav(page);
+  }
+
+  get heading(): Locator {
+    return this.page.getByRole('heading', { name: 'Sign up' });
+  }
+
+  get username(): Locator {
+    return this.page.getByPlaceholder('Username');
+  }
+
+  get email(): Locator {
+    return this.page.getByPlaceholder('Email');
+  }
+
+  get password(): Locator {
+    return this.page.getByPlaceholder('Password');
+  }
+
+  get submit(): Locator {
+    return this.page.getByRole('button', { name: 'Sign up' });
+  }
+
+  /**
+   * The list the server's rejections are rendered into — `email has already been taken` and the
+   * like, one `<li>` each. Observed on 30 August 2026 against conduit-overstrict.
+   *
+   * A locator, not a getter that reads the text: the difference decides whether an empty list can
+   * be asserted on. `expect(page.errors).toHaveCount(0)` waits and retries; a string read once
+   * cannot, and would pass simply by looking too early.
+   */
+  get errors(): Locator {
+    return this.page.locator('.error-messages li');
+  }
+
+  async open(): Promise<void> {
+    await this.page.goto('/register');
+    await this.heading.waitFor();
+  }
+
+  /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
+  async fill(user: NewUser): Promise<void> {
+    await this.username.fill(user.username);
+    await this.email.fill(user.email);
+    await this.password.fill(user.password);
+  }
+
+  /**
+   * Fills the form and submits it, returning when the server has answered.
+   *
+   * ⛔ It waits for the **response**, not for `networkidle`. That is not a style preference: the
+   * first reconnaissance script for this stage used `waitForLoadState('networkidle')` and reported
+   * that the form locks up and never recovers. It does not. The snapshot was taken while the
+   * fields were disabled mid-submit, before the app routed away, and a second probe watching the
+   * network showed a clean 201 followed by the redirect. The oracle was wrong, not the target —
+   * see spec/FINDINGS.md, "The first UI finding was about the test, not the page".
+   *
+   * Waiting on the response is answerable: it happens once, it carries a status, and it cannot be
+   * satisfied early by a quiet moment on the wire.
+   */
+  async signUp(user: NewUser): Promise<number> {
+    await this.fill(user);
+
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (candidate) =>
+          candidate.url().endsWith('/api/users') && candidate.request().method() === 'POST'
+      ),
+      this.submit.click(),
+    ]);
+
+    return response.status();
+  }
+}

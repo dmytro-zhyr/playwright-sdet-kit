@@ -20,12 +20,14 @@ npm install
 cp .env.example .env      # optional — only to point at a different target
 npm run test:contract     # contract tests against the gate target
 npm run test:unit         # tests for the chain artifact parser
+npm run test:ui           # browser tests against the UI gate
 npm run test:defects      # known defects, each naming its deployment — red on purpose
 npm run lint
 npm run typecheck
 ```
 
-No browser is needed: the tests go through `APIRequestContext` only.
+`contract`, `unit` and `defects` need no browser: they go through `APIRequestContext` only.
+`test:ui` is the one project that starts one — `npx playwright install chromium` first.
 
 `.env` is optional — without it the defaults from the config apply, and the whole repository runs
 without one.
@@ -51,6 +53,26 @@ and for `playwright.config.ts` alike. Every name has a working default, so the r
 with no `.env`; repointing one is one line. A name the registry does not know **throws and lists
 the ones that would have worked** — it never falls back to a default, because a suite that ran
 green against a deployment nobody chose is the failure this repository exists to refuse.
+
+A deployment has an API and, separately, may or may not have a **browser UI**. `conduit-gate` has
+none — `realworld.habsida.net/` answers 404 — so the deployment the contract suite is measured
+against cannot host a single UI test, and the registry records that absence as a stated fact:
+
+```ts
+const ui = resolveUiDeployment('conduit-gate');
+// throws: has no browser UI, so it cannot host a UI test.
+// Deployments with a UI: conduit-unsound, conduit-overstrict
+```
+
+⛔ It does not fall back to the API URL. A browser opening JSON fails on every locator at once, and
+the report would read as a hundred broken page objects rather than one wrong target.
+
+The UI gate is therefore **`conduit-overstrict`**, reached by elimination: `conduit-unsound` has a
+UI, and D-5 hides a write from everyone but its author, which would turn "publish an article, then
+find it in the feed" red for a reason that has nothing to do with the page. Its own deviation — a
+username over 20 characters is rejected — is what disqualified it as the *API* gate and is out of
+reach of a browser test. **The same property decides the two gates in opposite directions**, which
+is only sayable because deployments are named.
 
 Defects are documented on **two** of the three, so `tests/defects/` is not one pinned target any
 more: each test there names its own, and

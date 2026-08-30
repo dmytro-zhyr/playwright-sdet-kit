@@ -1,6 +1,6 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
-import { resolveDeployment } from './api/deployments';
+import { resolveDeployment, resolveUiDeployment } from './api/deployments';
 
 dotenv.config({ quiet: true });
 
@@ -16,6 +16,18 @@ const GATE_URL = resolveDeployment('conduit-gate');
 // that reproduce a defect on a *different* deployment do not rely on this: they name theirs with
 // the `deployment` fixture. See spec/FINDINGS.md, "Switching targets".
 const DEFECTS_URL = resolveDeployment('conduit-unsound');
+
+// The UI gate is a different deployment from the API gate, and deliberately so. conduit-gate has
+// no browser UI at all — realworld.habsida.net answers 404 — and conduit-unsound would colour
+// browser tests with its own backend defects, D-5 above all: a write invisible to everyone but
+// its author turns "publish an article, then find it in the feed" red for a reason that has
+// nothing to do with the page. conduit-overstrict is what is left, and its one deviation (a
+// username over 20 characters is rejected) is out of reach of a browser test.
+//
+// resolveUiDeployment, not resolveDeployment: asking a deployment with no UI for one throws here,
+// at config load, rather than starting a browser against a JSON endpoint.
+// See spec/FINDINGS.md, "UI reconnaissance".
+const UI_URL = resolveUiDeployment('conduit-overstrict');
 
 export default defineConfig({
   testDir: './tests',
@@ -34,6 +46,20 @@ export default defineConfig({
   projects: [
     { name: 'unit', testDir: './tests/unit' },
     { name: 'contract', testDir: './tests/contract' },
+    {
+      name: 'ui',
+      testDir: './tests/ui',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: UI_URL,
+        // The API base URL above sets this header for every request, which is right for a client
+        // and wrong for a browser: it would be sent on document navigations too. The UI project
+        // states its own `use` block rather than inheriting one written for APIRequestContext.
+        extraHTTPHeaders: {},
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+      },
+    },
     {
       name: 'defects',
       testDir: './tests/defects',
