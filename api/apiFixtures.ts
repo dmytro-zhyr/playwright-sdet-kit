@@ -1,6 +1,7 @@
 import { test as base } from '@playwright/test';
 import { ConduitClient } from '@/api/conduitClient';
-import { userFactory, type NewUser } from '@/data/userFactory';
+import { registerUser } from '@/api/registerUser';
+import type { NewUser } from '@/data/userFactory';
 
 export type RegisteredUser = {
   user: NewUser;
@@ -21,25 +22,11 @@ export const test = base.extend<ApiFixtures>({
   },
 
   // This fixture performs network I/O, which is why it lives here and not in data/ next to the
-  // pure factories. It imports the factory as an ordinary import rather than depending on the
-  // data fixture module, so the two fixture modules stay independent of each other.
+  // pure factories. The registration itself moved to `api/registerUser.ts` when the UI layer
+  // arrived in stage 3: `signedIn` in po/poFixtures.ts needs the same account without driving the
+  // sign-up form, and the two fixture modules must not import each other.
   registeredUser: async ({ api }, use) => {
-    const user = userFactory.build();
-    const response = await api.post('/users', { user });
-
-    if (response.status !== 200 && response.status !== 201) {
-      throw new Error(
-        `Could not register the test user: HTTP ${response.status}, body ${JSON.stringify(response.body)}`
-      );
-    }
-
-    const body = response.body as { user?: { token?: string } };
-    const token = body.user?.token;
-    if (!token) {
-      throw new Error(
-        `The registration response carried no user.token: ${JSON.stringify(response.body)}`
-      );
-    }
+    const { user, token } = await registerUser(api);
 
     await use({ user, token, api: api.withToken(token) });
 

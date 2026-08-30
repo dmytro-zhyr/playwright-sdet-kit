@@ -654,6 +654,65 @@ so a test that forgets to sign in fails on a missing form rather than on a redir
 no interactive role, so `getByRole('tab')` finds nothing and a role-first locator strategy has to
 make an exception here.
 
+### The session is one `localStorage` key, and it can be seeded
+
+`localStorage.jwtToken` holds the whole session. No cookie is set, `sessionStorage` stays empty,
+and a token written **before the application boots** is accepted exactly as one the sign-in form
+produced: the header names the account, and `/editor` opens past its guard.
+
+That is what makes "set up through the API, drive the subject through the UI" possible here rather
+than aspirational. `po/poFixtures.ts` registers over the API and seeds the token with
+`addInitScript`, so an editor test is not also a sign-up test.
+
+⚠️ **Before the app boots is load-bearing.** Writing the key after `goto` leaves the first render
+anonymous and puts the test in a race with the application's own bootstrap.
+
+### 🔴 Two `<nav>` elements on the home page
+
+The header, and the feed pagination. `getByRole('navigation')` matches both.
+
+This was found by a probe, **not by a test** — the three registration tests were green throughout,
+because none of their locators happened to match anything inside the pagination nav. A page object
+narrowed by luck is the kind that breaks on the first test that is not lucky, and it breaks with a
+strict-mode violation that reads as a Playwright problem rather than a markup one.
+
+➡️ `po/nav.ts` filters the role by the brand link it contains, which is role-based and says
+something true: the header is the navigation carrying `conduit`, and the pagination is not.
+
+### Publishing: three things that cannot be guessed
+
+| | |
+|---|---|
+| The request | `POST /api/articles/` — **with a trailing slash**. A predicate written `endsWith('/api/articles')` matches nothing and times out thirty seconds later saying nothing useful. It cost one re-run with every request logged. |
+| Tags | typed `qa`, stored and returned as **`QA`**. The server upper-cases them; the POST response already carries `tagList: ["QA"]`. |
+| The slug | the slugified title with **the author's id appended** — `qa-article-1788116760436-66920`. Derived, so it is not free-form; still not a format to assert, per the specification. |
+
+📌 The tag behaviour has a test, and the test is **not a bug report**. It records what the
+application does, so that a later test does not assert the tag it typed and pass by accident on a
+lower-case input.
+
+### ⛔ `registeredUser` is the wrong fixture in a UI test
+
+It is built on Playwright's `request` fixture, which carries **the project's `baseURL`** — and in
+the `ui` project that is the browser UI, not the API. A UI test asking for `registeredUser` posts
+`/users` at `conduit.bondaracademy.com` and fails on an answer that is a web page.
+
+`po/poFixtures.ts` therefore has `uiAccount`, which opens its own context against the API of the
+deployment the UI project is pointed at. **That coupling is the price of two gates**: a UI test's
+setup must reach the backend its own browser is talking to, or the account it creates does not
+exist as far as the page is concerned.
+
+### 🔑 A page that can redirect must not be waited on by its content
+
+Three article tests asked for `editorPage` and forgot to ask for `signedIn`. The guard redirected
+each to `/`, and each failed after thirty seconds with `waiting for
+getByPlaceholder('Article Title')` — a message naming a field rather than the missing session.
+
+`EditorPage.open` now checks the path after navigating and throws immediately, naming the fixture
+to add. The general form is worth keeping: **the absence of an element is a consequence**, and a
+report built out of consequences is what makes a suite expensive to read. This one was written
+after making the mistake it catches.
+
 ### 🔑 The submit button is gated on presence, not on validity
 
 Both forms disable their submit button until every field has something in it. Filling the email

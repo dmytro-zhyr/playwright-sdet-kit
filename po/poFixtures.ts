@@ -1,29 +1,52 @@
-import { test as base } from '@playwright/test';
+import { test as base, request as apiRequest } from '@playwright/test';
 import { Nav } from '@/po/nav';
 import { RegisterPage } from '@/po/registerPage';
 import { LoginPage } from '@/po/loginPage';
-import { resolveUiDeployment, type DeploymentName } from '@/api/deployments';
+import { EditorPage } from '@/po/editorPage';
+import { ArticlePage } from '@/po/articlePage';
+import { HomePage } from '@/po/homePage';
+import { ConduitClient } from '@/api/conduitClient';
+import { registerUser } from '@/api/registerUser';
+import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@/api/deployments';
+import type { NewUser } from '@/data/userFactory';
+
+/** An account that exists on the UI project's backend. Says nothing about the browser. */
+export type UiAccount = {
+  user: NewUser;
+  token: string;
+};
 
 export type PageObjectFixtures = {
   nav: Nav;
   registerPage: RegisterPage;
   loginPage: LoginPage;
+  editorPage: EditorPage;
+  articlePage: ArticlePage;
+  homePage: HomePage;
+  uiAccount: UiAccount;
+  signedIn: UiAccount;
 };
 
+/** The deployment whose API backs the UI project. One place, so a move cannot half-happen. */
+const UI_BACKEND: DeploymentName = 'conduit-overstrict';
+
+/** How the application stores its session. Observed 30 August 2026 — no cookie, no sessionStorage. */
+const TOKEN_KEY = 'jwtToken';
+
 /**
- * Page objects, one fixture each.
+ * Page objects, one fixture each, plus the session they are usually driven with.
  *
  * They are fixtures rather than `new RegisterPage(page)` in each test for the reason every other
  * fixture in this repository exists: the test states what it needs and receives it constructed,
- * and the day a page object needs setup — a base URL, a dismissed banner, a seeded account — the
- * change lands here instead of in every test that happened to instantiate it.
+ * and the day a page object needs setup the change lands here instead of in every test that
+ * happened to instantiate it.
  *
  * Constructing them is free: a page object holds a `Page` and builds locators lazily, so a test
- * that names `loginPage` and never touches `registerPage` starts no extra work.
+ * that names `loginPage` and never touches `editorPage` starts no extra work.
  *
  * 📌 Merged into `fixtures.ts` as one more argument to `mergeTests`, exactly as `api/` and `data/`
- * are. This module depends on no other fixture module, which is what keeps that merge trivial
- * rather than order-dependent.
+ * are. This module imports classes and functions from `api/`, never that module's fixtures, which
+ * is what keeps the merge trivial rather than order-dependent.
  */
 export const test = base.extend<PageObjectFixtures>({
   nav: async ({ page }, use) => {
@@ -36,6 +59,75 @@ export const test = base.extend<PageObjectFixtures>({
 
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page));
+  },
+
+  editorPage: async ({ page }, use) => {
+    await use(new EditorPage(page));
+  },
+
+  articlePage: async ({ page }, use) => {
+    await use(new ArticlePage(page));
+  },
+
+  homePage: async ({ page }, use) => {
+    await use(new HomePage(page));
+  },
+
+  /**
+   * An account created through the **API**, and nothing else. The browser stays anonymous.
+   *
+   * ⛔ It does not use `registeredUser` from `api/apiFixtures.ts`, and the reason is a trap worth
+   * naming: that fixture is built on the standard `request` fixture, which carries **the project's
+   * `baseURL`** — and in the `ui` project that is the browser UI, not the API. A UI test asking
+   * for `registeredUser` would POST `/users` at `conduit.bondaracademy.com` and fail on an answer
+   * that is a web page. So this fixture opens its own context against the API of the deployment
+   * the UI project is pointed at, named once in `UI_BACKEND` above.
+   *
+   * 🔑 That coupling is the price of two gates. The UI project runs against `conduit-overstrict`
+   * and the contract project against `conduit-gate`; a UI test's setup must reach the backend
+   * **its own** browser is talking to, or the account it creates will not exist as far as the page
+   * is concerned.
+   */
+  uiAccount: async ({}, use) => {
+    const context = await apiRequest.newContext({
+      baseURL: resolveDeployment(UI_BACKEND),
+      extraHTTPHeaders: { 'Content-Type': 'application/json' },
+    });
+
+    try {
+      await use(await registerUser(new ConduitClient(context)));
+    } finally {
+      await context.dispose();
+    }
+  },
+
+  /**
+   * The same account, with its token seeded into the browser before the application boots.
+   *
+   * 🔑 This is the point of having both layers in one repository. Registering through the sign-up
+   * form to reach the editor would make every editor test also a registration test: three fields,
+   * a submit, a redirect and a guard, all of which can fail for reasons that have nothing to do
+   * with publishing an article. Setup goes through the fastest honest route; only the behaviour
+   * under test is driven through the interface.
+   *
+   * ⛔ The exception is `tests/ui/registration.spec.ts`, which drives the form on purpose — a test
+   * **about** sign-up may not shortcut sign-up. The rule is not "the API is faster", it is "setup
+   * through the API, the subject through the UI".
+   *
+   * `addInitScript` runs before any page script on every navigation in this context, which is what
+   * makes the app find a session already there rather than being told about one afterwards.
+   * Writing to `localStorage` after `goto` would leave the first render anonymous, and the test
+   * would then be racing the app's own bootstrap.
+   */
+  signedIn: async ({ page, uiAccount }, use) => {
+    await page.addInitScript(
+      ([key, value]) => {
+        window.localStorage.setItem(key, value);
+      },
+      [TOKEN_KEY, uiAccount.token] as const
+    );
+
+    await use(uiAccount);
   },
 });
 

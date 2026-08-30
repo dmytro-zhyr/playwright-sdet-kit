@@ -16,7 +16,17 @@ export class Nav {
   private readonly root: Locator;
 
   constructor(private readonly page: Page) {
-    this.root = page.getByRole('navigation');
+    // 🔴 Not `getByRole('navigation')` on its own. The home page renders **two** `<nav>` elements:
+    // this header, and the feed pagination. That was found by a reconnaissance probe on 30 August
+    // 2026, not by a test — the three registration tests were green throughout, because none of
+    // their locators happened to match anything inside the pagination nav. A page object narrowed
+    // by luck is the kind that breaks on the first test that is not lucky.
+    //
+    // The filter is role-based rather than a `.navbar` class, and it says something true about the
+    // page: the header is the navigation that carries the brand link, and the pagination is not.
+    this.root = page
+      .getByRole('navigation')
+      .filter({ has: page.getByRole('link', { name: 'conduit', exact: true }) });
   }
 
   /** Present for everyone, signed in or not. */

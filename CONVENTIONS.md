@@ -366,6 +366,46 @@ exactly what they asserted before.
   guarantees only a string.
 - Do not assert a format for `slug`. The specification guarantees only that it is a unique string.
 
+## Writing a UI test
+
+Everything above applies; these are the rules that only exist because a browser is involved.
+
+🔑 **Set up through the API, drive the subject through the UI.** Ask for `signedIn` and the account
+is created over the API with its token seeded into the browser before the app boots — so an editor
+test is not also a sign-up test, failing on three fields, a submit, a redirect and a guard that
+have nothing to do with publishing an article.
+
+⛔ **The exception proves the rule:** a test **about** sign-up may not shortcut sign-up.
+`tests/ui/registration.spec.ts` drives the form on purpose. The rule is not "the API is faster",
+it is "setup through the API, the subject through the UI".
+
+⛔ **Never `registeredUser` in `tests/ui/`.** It carries the project's `baseURL`, which in the `ui`
+project is the browser UI, not the API — the request goes to a web page. Use `uiAccount`, which
+opens its own context against the API of the deployment the UI project is pointed at.
+
+⛔ **Never assert an API-level fact from a UI test.** The UI gate is `conduit-overstrict` and the
+API gate is `conduit-gate`; they are different deployments, so a disagreement between the layers
+may be a disagreement between two servers. That test belongs in `tests/contract/`.
+
+📌 **Locators go through a page object.** A raw locator in a spec is a locator nobody else can
+reuse and nobody will update.
+
+📌 **A page object exposes locators and actions, and asserts nothing.** An expectation written
+inside one cannot be read at the call site: the test would say `await nav.checkSignedIn()` and the
+report would name the component, not the behaviour under test.
+
+📌 **Prefer a role, and say so when you cannot.** The feed tabs carry no interactive role at all,
+so `po/homePage.ts` uses a class and a comment explaining that the markup, not the locator, is the
+reason.
+
+⚠️ **Wait for a response, never for `networkidle`.** In a single-page app the network settles while
+a form is still mid-submit, and an assertion taken there reports a defect that does not exist —
+which is how the first reconnaissance of this stage accused the sign-up form of locking up.
+
+⚠️ **A page that can redirect must not be waited on by its content.** Check the path and fail with
+the cause. The absence of an element is a consequence, and a report made of consequences is
+expensive to read.
+
 ## Playwright agent tooling — the CLI first, MCP only where it cannot reach
 
 Two ways of driving a browser from an agent are installed here, and they are **not equals**.
