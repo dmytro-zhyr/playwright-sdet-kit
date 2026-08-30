@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@/po/nav';
-import type { NewUser } from '@/data/userFactory';
+import { Nav } from '@po/nav';
+import type { NewUser } from '@data/userFactory';
 
 /**
  * `/register` — the sign-up form.

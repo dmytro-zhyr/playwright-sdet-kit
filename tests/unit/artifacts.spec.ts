@@ -7,9 +7,9 @@ import {
   validateObjections,
   ruleCoverage,
   parseCases,
-} from '@/pipeline/parse';
-import { AGENT_ORIGINS, agentDirectoryProblems, type AgentFile } from '@/pipeline/agentDefinition';
-import { traceabilityProblems, type TestFile } from '@/pipeline/traceability';
+} from '@pipeline/parse';
+import { AGENT_ORIGINS, agentDirectoryProblems, type AgentFile } from '@pipeline/agentDefinition';
+import { traceabilityProblems, type TestFile } from '@pipeline/traceability';
 
 // The repository root, reached from tests/unit/, so the paths below do not depend on the
 // directory the runner happened to be started from.

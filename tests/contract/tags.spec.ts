@@ -1,5 +1,5 @@
-import { test, expect } from '@/fixtures';
-import { TagsResponseSchema } from '@/schemas/conduit.schema';
+import { test, expect } from '@fixtures';
+import { TagsResponseSchema } from '@schemas/conduit.schema';
 
 // The specification states no success status for creating an article — anywhere, and for any
 // endpoint. It says only that the call "will return an Article". All three live deployments answer

@@ -1,6 +1,6 @@
 import { Status } from 'allure-js-commons';
 import type { Category, EnvironmentInfo } from 'allure-js-commons/sdk';
-import { DEPLOYMENTS, resolveDeployment, resolveUiDeployment } from '@/api/deployments';
+import { DEPLOYMENTS, resolveDeployment, resolveUiDeployment } from '@api/deployments';
 
 /**
  * What Allure is here for, and what it is not.

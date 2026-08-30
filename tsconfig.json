@@ -7,7 +7,13 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./*"]
+      "@api/*": ["./api/*"],
+      "@data/*": ["./data/*"],
+      "@po/*": ["./po/*"],
+      "@schemas/*": ["./schemas/*"],
+      "@pipeline/*": ["./pipeline/*"],
+      "@report/*": ["./report/*"],
+      "@fixtures": ["./fixtures.ts"]
     }
   },
   "include": ["**/*.ts"],

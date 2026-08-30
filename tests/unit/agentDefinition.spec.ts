@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { validateAgentDefinition } from '@/pipeline/agentDefinition';
+import { validateAgentDefinition } from '@pipeline/agentDefinition';
 
 const BODY = `## Your task
 

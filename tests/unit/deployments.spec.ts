@@ -5,7 +5,7 @@ import {
   resolveDeployment,
   resolveUiDeployment,
   uiDeploymentNames,
-} from '@/api/deployments';
+} from '@api/deployments';
 
 // An environment with nothing in it, so a default is exercised as a default rather than as
 // whatever the machine running the suite happens to export.

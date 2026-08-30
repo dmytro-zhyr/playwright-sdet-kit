@@ -1,7 +1,7 @@
-import { test, expect } from '@/fixtures';
-import type { ConduitClient } from '@/api/conduitClient';
-import type { NewUser } from '@/data/userFactory';
-import type { DataFixtures } from '@/data/dataFixtures';
+import { test, expect } from '@fixtures';
+import type { ConduitClient } from '@api/conduitClient';
+import type { NewUser } from '@data/userFactory';
+import type { DataFixtures } from '@data/dataFixtures';
 
 // Turns green the day a freshly registered account represents an unset `bio` and an unset `image`
 // the same way. The conforming half — that registration echoes back the username and the email it

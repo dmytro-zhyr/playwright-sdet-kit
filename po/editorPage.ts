@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@/po/nav';
-import type { NewArticle } from '@/data/articleFactory';
+import { Nav } from '@po/nav';
+import type { NewArticle } from '@data/articleFactory';
 
 /**
  * `/editor` — where an article is written and published.

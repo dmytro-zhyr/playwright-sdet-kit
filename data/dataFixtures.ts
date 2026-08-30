@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
-import { userFactory } from '@/data/userFactory';
-import { articleFactory } from '@/data/articleFactory';
-import { commentFactory } from '@/data/commentFactory';
+import { userFactory } from '@data/userFactory';
+import { articleFactory } from '@data/articleFactory';
+import { commentFactory } from '@data/commentFactory';
 
 export type DataFixtures = {
   factories: {

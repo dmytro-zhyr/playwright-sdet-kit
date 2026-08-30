@@ -1,14 +1,14 @@
 import { test as base, request as apiRequest } from '@playwright/test';
-import { Nav } from '@/po/nav';
-import { RegisterPage } from '@/po/registerPage';
-import { LoginPage } from '@/po/loginPage';
-import { EditorPage } from '@/po/editorPage';
-import { ArticlePage } from '@/po/articlePage';
-import { HomePage } from '@/po/homePage';
-import { ConduitClient } from '@/api/conduitClient';
-import { registerUser } from '@/api/registerUser';
-import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@/api/deployments';
-import type { NewUser } from '@/data/userFactory';
+import { Nav } from '@po/nav';
+import { RegisterPage } from '@po/registerPage';
+import { LoginPage } from '@po/loginPage';
+import { EditorPage } from '@po/editorPage';
+import { ArticlePage } from '@po/articlePage';
+import { HomePage } from '@po/homePage';
+import { ConduitClient } from '@api/conduitClient';
+import { registerUser } from '@api/registerUser';
+import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@api/deployments';
+import type { NewUser } from '@data/userFactory';
 
 /** An account that exists on the UI project's backend. Says nothing about the browser. */
 export type UiAccount = {

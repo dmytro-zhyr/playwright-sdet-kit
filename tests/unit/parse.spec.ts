@@ -8,7 +8,7 @@ import {
   validateCases,
   validateObjections,
   ruleCoverage,
-} from '@/pipeline/parse';
+} from '@pipeline/parse';
 
 const RULES = `# Rules
 

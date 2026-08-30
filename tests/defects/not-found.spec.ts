@@ -1,4 +1,4 @@
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 
 const UNKNOWN_SLUG = 'there-is-no-such-slug-000';
 const UNKNOWN_COMMENT_ID = 999999999;

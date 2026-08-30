@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@/po/nav';
+import { Nav } from '@po/nav';
 
 /**
  * `/` — the banner, the feed tabs and the article cards.

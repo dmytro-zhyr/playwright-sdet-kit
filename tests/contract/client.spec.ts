@@ -1,4 +1,4 @@
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 
 // Turns red if the target stops serving tags or changes the shape of the response.
 test('GET /tags returns 200 and a list of tags', async ({ api }) => {

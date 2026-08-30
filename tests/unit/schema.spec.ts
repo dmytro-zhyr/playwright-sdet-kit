@@ -1,6 +1,6 @@
 import { test, expect as playwrightExpect } from '@playwright/test';
 import { z } from 'zod';
-import { expect } from '@/schemas/toMatchSchema';
+import { expect } from '@schemas/toMatchSchema';
 
 const Sample = z.strictObject({ id: z.string(), count: z.number() });
 

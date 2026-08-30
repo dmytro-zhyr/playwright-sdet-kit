@@ -1,7 +1,7 @@
 import { test as base, request as apiRequest } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
-import { ConduitClient } from '@/api/conduitClient';
-import { describeDeployment, resolveDeployment, type DeploymentName } from '@/api/deployments';
+import { ConduitClient } from '@api/conduitClient';
+import { describeDeployment, resolveDeployment, type DeploymentName } from '@api/deployments';
 
 /** Opens a client on a named deployment. Awaited, because a request context is created for it. */
 export type OpenDeployment = (name: DeploymentName) => Promise<ConduitClient>;

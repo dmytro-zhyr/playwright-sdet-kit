@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@/po/nav';
+import { Nav } from '@po/nav';
 
 /** `/login` — the sign-in form. Two fields where `/register` has three, and the same error list. */
 export class LoginPage {

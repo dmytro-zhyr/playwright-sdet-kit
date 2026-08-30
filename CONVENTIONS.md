@@ -8,31 +8,51 @@ match it.
 ## Imports
 
 Contract tests — everything under `tests/contract/` — take `test` and `expect` **only** from
-`@/fixtures`:
+`@fixtures`:
 
 ```ts
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 ```
 
-Schemas come from `@/schemas/conduit.schema`, and that is the only other import a contract test
+Schemas come from `@schemas/conduit.schema`, and that is the only other import a contract test
 normally needs:
 
 ```ts
-import { ArticleResponseSchema, ErrorsSchema } from '@/schemas/conduit.schema';
+import { ArticleResponseSchema, ErrorsSchema } from '@schemas/conduit.schema';
 ```
 
 ⚠️ In `tests/contract/`, **do not import `test` from `@playwright/test`** — that one carries none
 of our fixtures, and its `expect` has no `toMatchSchema`.
 
-📌 `tests/defects/` imports exactly the same way, from `@/fixtures`.
+📌 `tests/defects/` imports exactly the same way, from `@fixtures`.
 
 📌 Exception: `tests/unit/` tests the framework's own code, needs no fixtures, and imports `test`
-straight from `@playwright/test`. It imports `expect` from `@/schemas/toMatchSchema` when it needs
+straight from `@playwright/test`. It imports `expect` from `@schemas/toMatchSchema` when it needs
 the schema matcher.
 
-`@/` is an alias for the repository root, declared in `tsconfig.json` as `"@/*": ["./*"]`. Use it
-for every import inside `tests/`; there is not a single relative `../..` import there, and adding
-one would be the first.
+**One alias per directory**, declared in `tsconfig.json`:
+
+| Alias | Directory |
+|---|---|
+| `@api/*` | the Conduit client, the deployment registry, the fixtures built on them |
+| `@data/*` | factories |
+| `@po/*` | page objects |
+| `@schemas/*` | `zod` schemas and the `toMatchSchema` matcher |
+| `@pipeline/*` | the agent-chain artifact parsers and validators |
+| `@report/*` | Allure categories and environment |
+| `@fixtures` | the merged `test` and `expect` — a file, so no trailing `/*` |
+
+📌 It used to be a single `@/*` pointing at the repository root, which made every import read
+`@/api/...` and told the reader nothing the path did not already say. Per-directory aliases match
+[`websocket-test`](https://github.com/dmytro-zhyr/websocket-test), and an import now names a
+**layer** rather than a folder from the root.
+
+⚠️ **Do not add `baseUrl`.** `websocket-test` has one and this repository must not: TypeScript 6
+deprecates it and `tsc` refuses to compile without an `ignoreDeprecations` escape. Paths are
+resolved relative to `tsconfig.json` on their own, which is why every value here starts `./`.
+
+Use an alias for every import inside `tests/`; there is not a single relative `../..` import there,
+and adding one would be the first.
 
 ## Available fixtures
 
@@ -125,7 +145,7 @@ expect(Array.isArray(body.articles)).toBe(true);
 The shape of a response is checked with a **schema**, not a list of `toHaveProperty` calls:
 
 ```ts
-import { ArticleResponseSchema } from '@/schemas/conduit.schema';
+import { ArticleResponseSchema } from '@schemas/conduit.schema';
 
 expect(response.body).toMatchSchema(ArticleResponseSchema);
 ```

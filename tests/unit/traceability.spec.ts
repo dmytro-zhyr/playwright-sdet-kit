@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { parseAutomatedTable, traceabilityProblems } from '@/pipeline/traceability';
+import { parseAutomatedTable, traceabilityProblems } from '@pipeline/traceability';
 
 const REPORT = `# Report
 

@@ -1,5 +1,5 @@
-import { test, expect } from '@/fixtures';
-import { UserResponseSchema } from '@/schemas/conduit.schema';
+import { test, expect } from '@fixtures';
+import { UserResponseSchema } from '@schemas/conduit.schema';
 
 // Turns red if the update never reaches the store — a handler that renders the merged document
 // and answers with it without committing is green on everything that reads only its own response,

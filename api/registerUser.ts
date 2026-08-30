@@ -1,5 +1,5 @@
-import type { ConduitClient } from '@/api/conduitClient';
-import { userFactory, type NewUser } from '@/data/userFactory';
+import type { ConduitClient } from '@api/conduitClient';
+import { userFactory, type NewUser } from '@data/userFactory';
 
 export type RegisteredAccount = {
   user: NewUser;

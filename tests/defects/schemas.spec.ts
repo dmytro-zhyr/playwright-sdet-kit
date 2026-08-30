@@ -1,5 +1,5 @@
-import { test, expect } from '@/fixtures';
-import { ArticlesResponseSchema, ErrorsSchema } from '@/schemas/conduit.schema';
+import { test, expect } from '@fixtures';
+import { ArticlesResponseSchema, ErrorsSchema } from '@schemas/conduit.schema';
 
 // Turns green the day the gate deployment answers blank input with a validation failure instead
 // of a server fault. The specification is explicit — "if a request fails any validations, expect a

@@ -1,4 +1,4 @@
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 
 // Eight is the number that reproduced D-4 reliably during reconnaissance. Fewer parallel
 // registrations sometimes let every token resolve correctly and the defect stays hidden.

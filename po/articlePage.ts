@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@/po/nav';
+import { Nav } from '@po/nav';
 
 /** `/article/:slug` — one published article, its author, its tags and its comments. */
 export class ArticlePage {

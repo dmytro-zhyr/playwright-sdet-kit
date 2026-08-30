@@ -1,5 +1,5 @@
-import { test, expect } from '@/fixtures';
-import { UserResponseSchema } from '@/schemas/conduit.schema';
+import { test, expect } from '@fixtures';
+import { UserResponseSchema } from '@schemas/conduit.schema';
 
 // The specification states no success status for registration or for login — it says only that
 // each "returns a User", and conforming deployments disagree: 201 on api.realworld.show, 200 on

@@ -1,4 +1,4 @@
-import { withTrailingSlash } from '@/api/url';
+import { withTrailingSlash } from '@api/url';
 
 /**
  * Named deployments.

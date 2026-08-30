@@ -53,7 +53,7 @@ than from a case.
 2. **A one-line comment directly above the test saying what would make it red.** Not what it
    checks — what would have to change for it to fail.
 3. **A schema, when the case is about the shape of a response.** `expect(body).toMatchSchema(
-   ArticleResponseSchema)` from `@/schemas/conduit.schema`, never a list of `toHaveProperty`
+   ArticleResponseSchema)` from `@schemas/conduit.schema`, never a list of `toHaveProperty`
    calls. The schemas are strict, so "the keys are exactly these" is already asserted by matching.
 4. **A positive assertion beside every negative one.** A 401, a 403, a 404 and a 422 all prove
    only that something did not happen; a broken path or an unattached token produces the same

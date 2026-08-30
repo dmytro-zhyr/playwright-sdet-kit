@@ -1,5 +1,5 @@
-import { test, expect } from '@/fixtures';
-import { ProfileResponseSchema } from '@/schemas/conduit.schema';
+import { test, expect } from '@fixtures';
+import { ProfileResponseSchema } from '@schemas/conduit.schema';
 
 const UNHELD_USERNAME = 'qa_nobody_000';
 const UNHELD_SLUG = 'there-is-no-such-slug-000';

@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
-import { ConduitClient } from '@/api/conduitClient';
-import { registerUser } from '@/api/registerUser';
-import type { NewUser } from '@/data/userFactory';
+import { ConduitClient } from '@api/conduitClient';
+import { registerUser } from '@api/registerUser';
+import type { NewUser } from '@data/userFactory';
 
 export type RegisteredUser = {
   user: NewUser;

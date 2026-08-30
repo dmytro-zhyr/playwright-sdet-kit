@@ -1,5 +1,5 @@
-import { test, expect } from '@/fixtures';
-import { ErrorsSchema, UserResponseSchema } from '@/schemas/conduit.schema';
+import { test, expect } from '@fixtures';
+import { ErrorsSchema, UserResponseSchema } from '@schemas/conduit.schema';
 
 // The specification states no success status for registration — anywhere, and for any endpoint.
 // It says only that the call "returns a User". Conforming deployments disagree: 201 on

@@ -1,11 +1,11 @@
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 import {
   ArticleResponseSchema,
   CommentsResponseSchema,
   ProfileResponseSchema,
   TagsResponseSchema,
   UserResponseSchema,
-} from '@/schemas/conduit.schema';
+} from '@schemas/conduit.schema';
 
 // The specification states no success status for registration — anywhere, and for any endpoint.
 // It says only that the call "returns a User". Conforming deployments disagree: 201 on

@@ -1,4 +1,4 @@
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 
 /**
  * Signing in through the form.

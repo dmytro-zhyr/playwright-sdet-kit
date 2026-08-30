@@ -1,4 +1,4 @@
-import { test, expect } from '@/fixtures';
+import { test, expect } from '@fixtures';
 
 /**
  * Registration through the browser — the first tests of the UI layer, and the seed file the
