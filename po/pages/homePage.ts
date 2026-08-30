@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@po/nav';
+import { Navigation } from '@po/components/navigation';
 
 /**
  * `/` — the banner, the feed tabs and the article cards.
@@ -11,10 +11,10 @@ import { Nav } from '@po/nav';
  * will otherwise conclude the locator is wrong rather than the markup.
  */
 export class HomePage {
-  readonly nav: Nav;
+  readonly nav: Navigation;
 
   constructor(private readonly page: Page) {
-    this.nav = new Nav(page);
+    this.nav = new Navigation(page);
   }
 
   get feedToggle(): Locator {

@@ -1,10 +1,9 @@
 import { test as base, request as apiRequest } from '@playwright/test';
-import { Nav } from '@po/nav';
-import { RegisterPage } from '@po/registerPage';
-import { LoginPage } from '@po/loginPage';
-import { EditorPage } from '@po/editorPage';
-import { ArticlePage } from '@po/articlePage';
-import { HomePage } from '@po/homePage';
+import { RegisterPage } from '@po/pages/registerPage';
+import { LoginPage } from '@po/pages/loginPage';
+import { EditorPage } from '@po/pages/editorPage';
+import { ArticlePage } from '@po/pages/articlePage';
+import { HomePage } from '@po/pages/homePage';
 import { ConduitClient } from '@api/conduitClient';
 import { registerUser } from '@api/registerUser';
 import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@deployments/registry';
@@ -17,7 +16,6 @@ export type UiAccount = {
 };
 
 export type PageObjectFixtures = {
-  nav: Nav;
   registerPage: RegisterPage;
   loginPage: LoginPage;
   editorPage: EditorPage;
@@ -49,10 +47,6 @@ const TOKEN_KEY = 'jwtToken';
  * is what keeps the merge trivial rather than order-dependent.
  */
 export const test = base.extend<PageObjectFixtures>({
-  nav: async ({ page }, use) => {
-    await use(new Nav(page));
-  },
-
   registerPage: async ({ page }, use) => {
     await use(new RegisterPage(page));
   },

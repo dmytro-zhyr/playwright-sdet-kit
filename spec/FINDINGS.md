@@ -624,7 +624,7 @@ version of this repository's theme is a green test that proves nothing; this is 
 observation that reports nothing. Both come from the same cause: an assertion evaluated at a moment
 nobody chose deliberately.
 
-➡️ So `po/registerPage.ts` waits for the **response**, not for the network to go quiet. A response
+➡️ So `po/pages/registerPage.ts` waits for the **response**, not for the network to go quiet. A response
 happens once, carries a status, and cannot be satisfied early by a lull. `networkidle` answers a
 question about the wire and is used as if it answered a question about the application.
 
@@ -676,7 +676,7 @@ because none of their locators happened to match anything inside the pagination 
 narrowed by luck is the kind that breaks on the first test that is not lucky, and it breaks with a
 strict-mode violation that reads as a Playwright problem rather than a markup one.
 
-➡️ `po/nav.ts` filters the role by the brand link it contains, which is role-based and says
+➡️ `po/components/navigation.ts` filters the role by the brand link it contains, which is role-based and says
 something true: the header is the navigation carrying `conduit`, and the pagination is not.
 
 ### Publishing: three things that cannot be guessed

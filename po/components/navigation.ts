@@ -3,16 +3,25 @@ import type { Locator, Page } from '@playwright/test';
 /**
  * The header, which every page carries and no page owns.
  *
- * A **component object**, injected into the page objects rather than inherited by them. The
- * distinction is worth keeping: inheritance would say every page *is* a navigation bar, and the
- * first page that renders two of something — a list of article cards, say — would have nowhere to
- * put the second. Composition says a page *has* one, and a page may have several.
+ * Injected into the page objects rather than inherited by them. The distinction is worth keeping:
+ * inheritance would say every page *is* a navigation bar, and the first page that renders two of
+ * something — a list of article cards, say — would have nowhere to put the second. Composition
+ * says a page *has* one, and may have several.
+ *
+ * 📌 **Why it lives in `po/components/` and is not called `NavigationComponent`.** Fowler declines
+ * to give this a pattern of its own, and argues the opposite way round: that "page object" was
+ * always the misleading name, since it suggests one object per page, and that objects should be
+ * built for the significant elements of a page rather than for pages. So this is a page object of
+ * a panel, not a different species — the thing worth stating is that it is **composed in**, and
+ * the directory states it once instead of every import restating it in a suffix. `Navigation` and
+ * not `Nav` for the reason `deployments/registry.ts` gives about deployment names: a name is not
+ * an abbreviation.
  *
  * It exposes locators and one question, and asserts nothing. An expectation written inside a
  * component cannot be read at the call site: the test would say `await nav.checkSignedIn()` and
  * the report would name the component, not the behaviour under test.
  */
-export class Nav {
+export class Navigation {
   private readonly root: Locator;
 
   constructor(private readonly page: Page) {

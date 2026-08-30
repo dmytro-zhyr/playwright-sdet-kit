@@ -1,13 +1,13 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@po/nav';
+import { Navigation } from '@po/components/navigation';
 
 /** `/login` — the sign-in form. Two fields where `/register` has three, and the same error list. */
 export class LoginPage {
-  readonly nav: Nav;
+  readonly nav: Navigation;
 
   constructor(private readonly page: Page) {
-    this.nav = new Nav(page);
+    this.nav = new Navigation(page);
   }
 
   get heading(): Locator {

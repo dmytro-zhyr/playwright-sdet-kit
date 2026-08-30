@@ -1,12 +1,12 @@
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@po/nav';
+import { Navigation } from '@po/components/navigation';
 
 /** `/article/:slug` — one published article, its author, its tags and its comments. */
 export class ArticlePage {
-  readonly nav: Nav;
+  readonly nav: Navigation;
 
   constructor(private readonly page: Page) {
-    this.nav = new Nav(page);
+    this.nav = new Navigation(page);
   }
 
   get title(): Locator {

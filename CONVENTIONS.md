@@ -37,7 +37,7 @@ the schema matcher.
 | `@api/*` | the Conduit client and the fixtures built on it |
 | `@deployments/*` | which deployments exist, where they are, and how a URL to one is formed |
 | `@data/*` | factories |
-| `@po/*` | page objects |
+| `@po/*` | page objects in `pages/`, the pieces composed into them in `components/` |
 | `@schemas/*` | `zod` schemas and the `toMatchSchema` matcher |
 | `@pipeline/*` | the agent-chain artifact parsers and validators |
 | `@report/*` | Allure categories and environment |
@@ -422,6 +422,21 @@ opens its own context against the API of the deployment the UI project is pointe
 API gate is `conduit-gate`; they are different deployments, so a disagreement between the layers
 may be a disagreement between two servers. That test belongs in `tests/contract/`.
 
+🔑 **`po/pages/` for whole screens, `po/components/` for what is composed into them.** The header
+is not a peer of `/login`; it is injected into it. Splitting the directory says so once, at the
+place a reader looks first.
+
+📌 **A component is not suffixed `Component`.** Fowler declines to make this a pattern of its own
+and argues the reverse — that "page object" was always the misleading name, because it suggests one
+object per page, and that objects should be built for the significant elements of a page. So a
+component here is a page object of a panel, not a different species. The directory carries that
+fact; a suffix would restate it at every import.
+
+📌 **A component is constructed by the page that uses it, not requested as a fixture.** There was a
+standalone `nav` fixture and no test ever used one: every access went through `loginPage.nav` or
+`registerPage.nav`, which is the shape composition is for. A fixture per component would offer a
+second route to the same object, unattached to the page it belongs to.
+
 📌 **Locators go through a page object.** A raw locator in a spec is a locator nobody else can
 reuse and nobody will update.
 
@@ -430,7 +445,7 @@ inside one cannot be read at the call site: the test would say `await nav.checkS
 report would name the component, not the behaviour under test.
 
 📌 **Prefer a role, and say so when you cannot.** The feed tabs carry no interactive role at all,
-so `po/homePage.ts` uses a class and a comment explaining that the markup, not the locator, is the
+so `po/pages/homePage.ts` uses a class and a comment explaining that the markup, not the locator, is the
 reason.
 
 ⚠️ **Wait for a response, never for `networkidle`.** In a single-page app the network settles while

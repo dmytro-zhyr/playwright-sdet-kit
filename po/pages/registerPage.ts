@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { Nav } from '@po/nav';
+import { Navigation } from '@po/components/navigation';
 import type { NewUser } from '@data/userFactory';
 
 /**
@@ -11,10 +11,10 @@ import type { NewUser } from '@data/userFactory';
  * names what a person is doing, not which three fields get typed into in which order.
  */
 export class RegisterPage {
-  readonly nav: Nav;
+  readonly nav: Navigation;
 
   constructor(private readonly page: Page) {
-    this.nav = new Nav(page);
+    this.nav = new Navigation(page);
   }
 
   get heading(): Locator {
