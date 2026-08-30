@@ -5,3 +5,4 @@ playwright-report/
 .env
 allure-results/
 allure-report/
+.allure-history-carry/

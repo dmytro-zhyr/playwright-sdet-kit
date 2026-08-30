@@ -32,10 +32,16 @@ npm run typecheck
 ## Reports
 
 ```bash
-npm run allure:generate   # build the report, carrying the previous run's history forward
-npm run allure:open       # serve it
-npm run allure:clean      # throw away both directories and start over
+npm run allure:generate     # build the report, carrying the previous run's history forward
+npm run allure:open         # serve it
+npm run allure:clean        # start a fresh set of results, keep the trend
+npm run allure:hard-clean   # forget everything, trend included
 ```
+
+**Two intentions hide under the word "clean", and they are not the same.** The history lives inside
+the generated report — `allure-report/history/` — so any command that removes the report removes
+the trend with it. `allure:clean` moves the history to safety first and `allure:hard-clean` does
+not, which is the whole difference between them.
 
 📌 The three names match [`websocket-test`](https://github.com/dmytro-zhyr/websocket-test), which
 does the same job under Jest. The same task should not be called two things across two repositories
@@ -69,10 +75,14 @@ as unexplained, which is the point.
 output directory, and the trend data lives inside it. Generating without carrying history forward
 leaves a report that looks complete and has forgotten every run before the last.
 
-⛔ **`allure:clean` deletes the history along with everything else** — `allure-report/history/` is
-where it lives. That is what the command is for, and it is the one difference from the same script
-in `websocket-test`, where nothing is carried forward and so nothing can be lost. Run it to start a
-trend over, not to tidy up.
+📌 **What `allure:clean` leaves behind is `allure-results/history/` and nothing else** — the report
+directory goes entirely. Pruning it in place would leave a directory called `allure-report` that no
+longer holds a report, and that is the kind of stale artifact that gets opened and believed. It is a
+build output; `allure:generate` rebuilds it whole.
+
+⛔ **`allure:hard-clean` is the one that drops the trend.** It is `websocket-test`'s `allure:clean`
+under a name that says what it costs here — that repository carries no history forward, so its
+version can lose nothing.
 
 📌 An empty **Categories** tab means the run was green. Categories collect failures and nothing
 else, so there is nothing to fix when it is blank — and nothing to tag either: a category is a rule

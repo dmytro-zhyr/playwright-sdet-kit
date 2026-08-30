@@ -30,12 +30,19 @@ if (!existsSync(RESULTS)) {
 const previousHistory = join(REPORT, 'history');
 const carriedHistory = join(RESULTS, 'history');
 
+// Three cases, and they must not be reported as two. An earlier version printed "no previous
+// report, so this run starts the history" whenever allure-report/ was absent — which is exactly
+// what `allure:clean` leaves behind, history and all. The trend grew anyway and the message said
+// it had not: a report that misdescribes its own inputs is the smallest possible version of the
+// thing this repository exists to refuse.
 if (existsSync(previousHistory)) {
   rmSync(carriedHistory, { recursive: true, force: true });
   cpSync(previousHistory, carriedHistory, { recursive: true });
   console.log(`Carried history forward from ${previousHistory}`);
+} else if (existsSync(carriedHistory)) {
+  console.log(`Using the history ${carriedHistory}, left in place by npm run allure:clean.`);
 } else {
-  console.log('No previous report, so this run starts the history.');
+  console.log('No history anywhere, so this run starts the trend.');
 }
 
 // `--clean` is deliberate and safe *because of the copy above*: without it a stale result from a
