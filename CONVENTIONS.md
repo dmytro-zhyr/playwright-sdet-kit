@@ -406,6 +406,25 @@ which is how the first reconnaissance of this stage accused the sign-up form of 
 the cause. The absence of an element is a consequence, and a report made of consequences is
 expensive to read.
 
+## Steps, and what the report reads like
+
+📌 **Wrap a composite page-object action in `test.step`, and nothing else.** A step is a line in
+the report, so the useful granularity is the one a person would use to describe what happened —
+`sign up as qa_x9k`, not six `locator.fill` calls. Wrapping a getter buries the story under noise;
+wrapping nothing leaves a failed UI test reading as a stack trace with no narrative.
+
+📌 **`test.step`, never an Allure step.** The same structure then appears in the terminal, in
+Playwright's HTML report and in Allure, and the page objects stay free of any reporter's API. A
+page object that imports a reporter is a page object that cannot be reused under a different one.
+
+📌 **A new Allure category goes in `report/allure.ts`, narrow, and ordered before the ones it must
+not be swallowed by.** A result lands in the *first* category that matches, so a loose category
+does not mislabel one failure — it steals every failure the categories below it were written for.
+
+⚠️ **Do not add a catch-all category.** Allure supplies `Product defects` and `Test defects`
+already, and a failure that reaches them is a failure nobody has explained yet. That is a signal,
+not a gap to be filled.
+
 ## Playwright agent tooling — the CLI first, MCP only where it cannot reach
 
 Two ways of driving a browser from an agent are installed here, and they are **not equals**.

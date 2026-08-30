@@ -29,6 +29,41 @@ npm run typecheck
 `contract`, `unit` and `defects` need no browser: they go through `APIRequestContext` only.
 `test:ui` is the one project that starts one — `npx playwright install chromium` first.
 
+## Reports
+
+```bash
+npm run report        # build the Allure report, carrying the previous run's history forward
+npm run report:open   # serve it
+```
+
+Results accumulate in `allure-results/` across suites, so running `test:unit`, `test:contract`,
+`test:ui` and `test:defects` and then building once gives **one** report covering all four.
+Re-running a suite replaces its own results rather than adding to them — a test keeps its identity
+between runs, which is also what makes the history meaningful.
+
+🔑 **Allure is not a prettier version of Playwright's HTML report.** The built-in one answers *what
+happened in this run*, and does it better — the trace viewer is not replaceable. Allure answers
+*what keeps happening*, and one question the other cannot reach at all: **which of these failures
+were ever about our code**.
+
+That question is not rhetorical here. `tests/defects/` is red on purpose, so a bare "9 failed" says
+nothing until the reader knows which nine. [`report/allure.ts`](report/allure.ts) declares three
+categories that answer it:
+
+| Category | What it collects |
+|---|---|
+| **Known defect of the target** | anything under `tests/defects/` — red is the expected state, green would be the news |
+| **Target unavailable** | connection errors and timeouts; somebody else's uptime, not a defect anywhere |
+| **Setup failed before the subject** | an account that could not be created, a session never seeded — the test never reached what it was about |
+
+Allure's generator adds `Product defects` and `Test defects` behind these, and a result lands in the
+**first** category that matches. So a failure with no explanation still surfaces — it just surfaces
+as unexplained, which is the point.
+
+⚠️ `npm run report` exists rather than a bare `allure generate` because `--clean` wipes the output
+directory, and the trend data lives inside it. Generating without carrying history forward leaves a
+report that looks complete and has forgotten every run before the last.
+
 `.env` is optional — without it the defaults from the config apply, and the whole repository runs
 without one.
 

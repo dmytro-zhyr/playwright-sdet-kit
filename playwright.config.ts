@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import { resolveDeployment, resolveUiDeployment } from './api/deployments';
+import { ALLURE_CATEGORIES, allureEnvironment } from './report/allure';
 
 dotenv.config({ quiet: true });
 
@@ -34,7 +35,34 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // Three reporters, three readers, and none of them is decoration.
+  //
+  //   list      the person watching the run right now
+  //   html      the person debugging one failure — the trace viewer is not replaceable
+  //   allure    the person asking what keeps happening, across runs and across suites
+  //
+  // Allure is not a prettier html report. It is here for the one question the other two cannot
+  // answer: **which of these failures were ever about our code**. This repository runs a suite
+  // that is red on purpose, so "7 failed" is meaningless until the reader knows which seven, and
+  // report/allure.ts answers that with categories instead of leaving it to whoever remembers.
+  //
+  // It runs locally too, not only on CI. History is what makes it worth having, and history that
+  // only exists on CI cannot be looked at while writing the test that would have shown up in it.
+  reporter: [
+    ['list'],
+    ...(process.env.CI ? [['html', { open: 'never' }] as const] : []),
+    [
+      'allure-playwright',
+      {
+        resultsDir: 'allure-results',
+        // Playwright's own steps become Allure steps, so a page-object action wrapped in
+        // `test.step` reads as one line in the report instead of six locator calls.
+        detail: true,
+        environmentInfo: allureEnvironment(),
+        categories: ALLURE_CATEGORIES,
+      },
+    ],
+  ],
   use: {
     baseURL: GATE_URL,
     extraHTTPHeaders: { 'Content-Type': 'application/json' },

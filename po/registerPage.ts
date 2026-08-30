@@ -1,3 +1,4 @@
+import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { Nav } from '@/po/nav';
 import type { NewUser } from '@/data/userFactory';
@@ -55,9 +56,11 @@ export class RegisterPage {
 
   /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
   async fill(user: NewUser): Promise<void> {
-    await this.username.fill(user.username);
-    await this.email.fill(user.email);
-    await this.password.fill(user.password);
+    await test.step(`fill the sign-up form as ${user.username}`, async () => {
+      await this.username.fill(user.username);
+      await this.email.fill(user.email);
+      await this.password.fill(user.password);
+    });
   }
 
   /**
@@ -74,16 +77,18 @@ export class RegisterPage {
    * satisfied early by a quiet moment on the wire.
    */
   async signUp(user: NewUser): Promise<number> {
-    await this.fill(user);
+    return test.step(`sign up as ${user.username}`, async () => {
+      await this.fill(user);
 
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (candidate) =>
-          candidate.url().endsWith('/api/users') && candidate.request().method() === 'POST'
-      ),
-      this.submit.click(),
-    ]);
+      const [response] = await Promise.all([
+        this.page.waitForResponse(
+          (candidate) =>
+            candidate.url().endsWith('/api/users') && candidate.request().method() === 'POST'
+        ),
+        this.submit.click(),
+      ]);
 
-    return response.status();
+      return response.status();
+    });
   }
 }

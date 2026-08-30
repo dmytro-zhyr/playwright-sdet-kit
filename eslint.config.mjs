@@ -23,5 +23,22 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^signedIn$' }],
     },
   },
-  { ignores: ['node_modules/', 'test-results/', 'playwright-report/'] }
+  {
+    // Plain-JavaScript files run by node directly — report/generate.mjs, and this config. They get
+    // no type information, so `no-undef` is live for them where it is off for TypeScript, and
+    // node's own globals have to be declared or every `process` and `console` reads as a typo.
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly' },
+    },
+  },
+  {
+    ignores: [
+      'node_modules/',
+      'test-results/',
+      'playwright-report/',
+      'allure-results/',
+      'allure-report/',
+    ],
+  }
 );

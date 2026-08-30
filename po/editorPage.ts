@@ -1,3 +1,4 @@
+import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { Nav } from '@/po/nav';
 import type { NewArticle } from '@/data/articleFactory';
@@ -67,14 +68,16 @@ export class EditorPage {
    * text into a chip — typing alone leaves it in the input and it is dropped on submit.
    */
   async fill(article: NewArticle): Promise<void> {
-    await this.title.fill(article.title);
-    await this.description.fill(article.description);
-    await this.body.fill(article.body);
+    await test.step(`fill the editor with "${article.title}"`, async () => {
+      await this.title.fill(article.title);
+      await this.description.fill(article.description);
+      await this.body.fill(article.body);
 
-    for (const tag of article.tagList) {
-      await this.tags.fill(tag);
-      await this.tags.press('Enter');
-    }
+      for (const tag of article.tagList) {
+        await this.tags.fill(tag);
+        await this.tags.press('Enter');
+      }
+    });
   }
 
   /**
@@ -91,24 +94,26 @@ export class EditorPage {
    * check the two agree needs them from two sources.
    */
   async publishArticle(article: NewArticle): Promise<{ status: number; slug: string }> {
-    await this.fill(article);
+    return test.step(`publish "${article.title}"`, async () => {
+      await this.fill(article);
 
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (candidate) =>
-          /\/api\/articles\/?$/.test(new URL(candidate.url()).pathname) &&
-          candidate.request().method() === 'POST'
-      ),
-      this.publish.click(),
-    ]);
+      const [response] = await Promise.all([
+        this.page.waitForResponse(
+          (candidate) =>
+            /\/api\/articles\/?$/.test(new URL(candidate.url()).pathname) &&
+            candidate.request().method() === 'POST'
+        ),
+        this.publish.click(),
+      ]);
 
-    const status = response.status();
-    if (status !== 200 && status !== 201) {
-      return { status, slug: '' };
-    }
+      const status = response.status();
+      if (status !== 200 && status !== 201) {
+        return { status, slug: '' };
+      }
 
-    const body = (await response.json()) as { article?: { slug?: string } };
+      const body = (await response.json()) as { article?: { slug?: string } };
 
-    return { status, slug: body.article?.slug ?? '' };
+      return { status, slug: body.article?.slug ?? '' };
+    });
   }
 }

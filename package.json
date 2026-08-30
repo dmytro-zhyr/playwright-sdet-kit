@@ -8,6 +8,8 @@
     "test:contract": "playwright test --project=contract --workers=1",
     "test:ui": "playwright test --project=ui",
     "test:defects": "playwright test --project=defects",
+    "report": "node report/generate.mjs",
+    "report:open": "allure open allure-report",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
@@ -21,6 +23,8 @@
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "@types/rosie": "^0.0.45",
+    "allure-commandline": "^2.43.0",
+    "allure-playwright": "^3.11.0",
     "eslint": "^10.9.0",
     "eslint-config-prettier": "^10.1.8",
     "jsforce": "^3.10.22",

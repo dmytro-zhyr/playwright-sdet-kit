@@ -1,3 +1,4 @@
+import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { Nav } from '@/po/nav';
 
@@ -41,16 +42,18 @@ export class LoginPage {
 
   /** Fills both fields and submits, returning the status the server answered with. */
   async signIn(email: string, password: string): Promise<number> {
-    await this.fill(email, password);
+    return test.step(`sign in as ${email}`, async () => {
+      await this.fill(email, password);
 
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (candidate) =>
-          candidate.url().endsWith('/api/users/login') && candidate.request().method() === 'POST'
-      ),
-      this.submit.click(),
-    ]);
+      const [response] = await Promise.all([
+        this.page.waitForResponse(
+          (candidate) =>
+            candidate.url().endsWith('/api/users/login') && candidate.request().method() === 'POST'
+        ),
+        this.submit.click(),
+      ]);
 
-    return response.status();
+      return response.status();
+    });
   }
 }
