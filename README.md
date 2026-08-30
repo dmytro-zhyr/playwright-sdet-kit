@@ -145,13 +145,35 @@ green in that suite is supposed to mean the defect was fixed.
 
 | Project | The question it answers | When it runs |
 |---|---|---|
-| `contract` | is this code, and are these schemas, still in agreement with the target | every push and PR — this is the gate |
-| `unit` | does the chain artifact parser work | same |
+| `unit` | does this repository's own code work | every push and PR — the gate |
+| `contract` | is this code, and are these schemas, still in agreement with the target | same |
+| `ui` | do the page objects still match the pages, in a real browser | same |
 | `defects` | **is the deployment each test names still broken** | nightly, on a schedule |
 
 The badge above is filtered to pushes on `main` — the gate. The nightly `defects` run stays
 visible on the Actions tab, where a red run means the target is still broken, and does not stand
 in for the state of this code.
+
+⚠️ **`ui` is the arguable one.** Like `contract` it depends on somebody else's host being up, so a
+third party can turn the gate red. That trade was already accepted for `contract` and for the same
+reason: both ask whether *our* code is still right, and an answer that arrives a day later on a
+schedule is not a gate. `defects` is the only suite whose redness says nothing about this
+repository, and it is the only one kept out of the gate. Its other cost is worth naming: every
+`ui` run registers a dozen `qa_` accounts on a third-party deployment that has no delete endpoint.
+
+A fifth job builds **one Allure report** over whichever suites ran, and uploads it as a workflow
+artifact. Download it, unzip it and serve it — `npx allure open allure-report`; opening
+`index.html` from the filesystem shows an empty page.
+
+⛔ **It is not published to GitHub Pages.** This repository is private, and Pages would either be
+unavailable or would put the report — deployment URLs, test names, failure messages — on a public
+address. An artifact is reachable by whoever can already read the repository, which is the same set
+of people.
+
+📌 The trend survives between runs through `actions/cache`, because a runner keeps nothing and the
+history lives inside the generated report. Without it every CI report would show a trend of one
+point and look complete. The report is built by the same `npm run allure:generate` used locally, so
+the two cannot drift apart.
 
 Reconnaissance found real defects — details in [`spec/FINDINGS.md`](spec/FINDINGS.md). They
 belong to particular deployments, not to RealWorld backends in general, which is why the gate
