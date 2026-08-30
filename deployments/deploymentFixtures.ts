@@ -1,7 +1,7 @@
 import { test as base, request as apiRequest } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import { ConduitClient } from '@api/conduitClient';
-import { describeDeployment, resolveDeployment, type DeploymentName } from '@api/deployments';
+import { describeDeployment, resolveDeployment, type DeploymentName } from '@deployments/registry';
 
 /** Opens a client on a named deployment. Awaited, because a request context is created for it. */
 export type OpenDeployment = (name: DeploymentName) => Promise<ConduitClient>;
@@ -34,7 +34,7 @@ export const test = base.extend<DeploymentFixtures>({
     const opened: APIRequestContext[] = [];
 
     const open = async (name: DeploymentName): Promise<ConduitClient> => {
-      // Throws on an unknown name, before a single request is sent. See api/deployments.ts.
+      // Throws on an unknown name, before a single request is sent. See deployments/registry.ts.
       const baseURL = resolveDeployment(name);
 
       // The report should say which deployment a red test was talking to. Without this the

@@ -1,5 +1,5 @@
 import type { APIRequestContext, APIResponse } from '@playwright/test';
-import { stripLeadingSlash } from '@api/url';
+import { stripLeadingSlash } from '@deployments/url';
 
 export type ApiResponse = { status: number; body: unknown };
 

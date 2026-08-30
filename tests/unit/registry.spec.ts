@@ -5,7 +5,7 @@ import {
   resolveDeployment,
   resolveUiDeployment,
   uiDeploymentNames,
-} from '@api/deployments';
+} from '@deployments/registry';
 
 // An environment with nothing in it, so a default is exercised as a default rather than as
 // whatever the machine running the suite happens to export.
@@ -28,7 +28,7 @@ test.describe('resolveDeployment — a known name', () => {
 
   // Turns red if withTrailingSlash stops being applied on the way out of resolution. Without it
   // `new URL('tags', base)` drops the /api segment and every request quietly leaves for the wrong
-  // path — the failure api/url.ts exists to prevent.
+  // path — the failure deployments/url.ts exists to prevent.
   test('the resolved URL always ends with a slash', () => {
     const missingSlash = deploymentNames()
       .map((name) => resolveDeployment(name, NO_ENV))

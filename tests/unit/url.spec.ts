@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stripLeadingSlash, withTrailingSlash } from '@api/url';
+import { stripLeadingSlash, withTrailingSlash } from '@deployments/url';
 
 // Turns red if the base URL stops being slash-terminated, which silently drops the /api segment
 // from every request and makes the whole suite talk to the wrong host path.

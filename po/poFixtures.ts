@@ -7,7 +7,7 @@ import { ArticlePage } from '@po/articlePage';
 import { HomePage } from '@po/homePage';
 import { ConduitClient } from '@api/conduitClient';
 import { registerUser } from '@api/registerUser';
-import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@api/deployments';
+import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@deployments/registry';
 import type { NewUser } from '@data/userFactory';
 
 /** An account that exists on the UI project's backend. Says nothing about the browser. */
@@ -136,7 +136,7 @@ export const test = base.extend<PageObjectFixtures>({
  *
  * Re-exported here so a UI test never reaches for `resolveUiDeployment` and a raw string: it asks
  * for a deployment by name, and a deployment with no browser UI — `conduit-gate` — throws by name
- * instead of quietly handing back its API URL. See `api/deployments.ts`.
+ * instead of quietly handing back its API URL. See `deployments/registry.ts`.
  */
 export function uiBaseUrl(name: DeploymentName): string {
   return resolveUiDeployment(name);

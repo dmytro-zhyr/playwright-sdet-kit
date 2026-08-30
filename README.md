@@ -107,7 +107,7 @@ const gate = await deployment('conduit-gate');
 | `conduit-unsound` | `https://api.realworld.show/api` — uniqueness, identity and visibility all fail | `CONDUIT_DEFECTS_API_URL` |
 | `conduit-overstrict` | `https://conduit-api.bondaracademy.com/api` — validates beyond the contract | `CONDUIT_OVERSTRICT_API_URL` |
 
-[`api/deployments.ts`](api/deployments.ts) is the one place a name becomes a URL, for the fixture
+[`deployments/registry.ts`](deployments/registry.ts) is the one place a name becomes a URL, for the fixture
 and for `playwright.config.ts` alike. Every name has a working default, so the repository runs
 with no `.env`; repointing one is one line. A name the registry does not know **throws and lists
 the ones that would have worked** — it never falls back to a default, because a suite that ran

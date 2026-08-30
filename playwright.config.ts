@@ -1,16 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
-import { resolveDeployment, resolveUiDeployment } from './api/deployments';
+import { resolveDeployment, resolveUiDeployment } from './deployments/registry';
 import { ALLURE_CATEGORIES, allureEnvironment } from './report/allure';
 
 dotenv.config({ quiet: true });
 
-// The two project targets are named, not spelled out: `api/deployments.ts` is the one place a
+// The two project targets are named, not spelled out: `deployments/registry.ts` is the one place a
 // name becomes a URL, and it is what the `deployment` fixture reads too. So a project and a test
 // can never disagree about where `conduit-gate` is, and repointing one repoints both.
 //
 // `resolveDeployment` applies the trailing slash. It is not cosmetic: without it the /api segment
-// is dropped from every request. See api/url.ts for the four spellings and why only one works.
+// is dropped from every request. See deployments/url.ts for the four spellings and why only one works.
 const GATE_URL = resolveDeployment('conduit-gate');
 
 // The defects project keeps its own default target — the deployment D-1 to D-5 are about. Tests

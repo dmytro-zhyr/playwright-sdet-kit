@@ -13,7 +13,7 @@ separately and **the specification stays authoritative**.
 
 📌 **Those are project defaults, not what a defects test is about.** Since D-6 to D-11 there are
 documented defects on both, so a defects test names its own deployment with the `deployment`
-fixture rather than inheriting the project's. The registry of names is `api/deployments.ts`; the
+fixture rather than inheriting the project's. The registry of names is `deployments/registry.ts`; the
 third live deployment is named there too, as `conduit-overstrict`.
 
 Six hosted deployments were probed on 24 August 2026. Three answered, and they do not behave the
@@ -319,7 +319,7 @@ Found on 24 August 2026 by running the suite the chain had produced against the 
 one is a contract violation, and each had a test that was **red in `tests/contract/` at the
 time** — none of them is our code being wrong.
 
-✅ **These six have been moved out of the gate.** Named deployments exist now — `api/deployments.ts`
+✅ **These six have been moved out of the gate.** Named deployments exist now — `deployments/registry.ts`
 and the `deployment` fixture — so each of the six names `conduit-gate` explicitly and lives in
 `tests/defects/` with an `issue` annotation. Four of them were **split** rather than moved, because
 each mixed a conforming half with a violated one:
@@ -578,7 +578,7 @@ implementation, appending a path or stripping `/api`, would have returned someth
 opening JSON fails on every locator at once, and the report reads as a hundred broken page objects
 instead of one wrong target.
 
-➡️ So `api/deployments.ts` now models a deployment as **up to two surfaces**, API and UI, with
+➡️ So `deployments/registry.ts` now models a deployment as **up to two surfaces**, API and UI, with
 `ui: null` a stated fact rather than a gap. `resolveUiDeployment('conduit-gate')` throws and names
 the deployments that do have a UI. Same rule as an unknown name: never guess, never fall back.
 

@@ -81,7 +81,7 @@ jobs:
       # design — an empty base URL would send every request to nowhere. Worse, playwright.config
       # resolves `conduit-gate` and `conduit-unsound` when it loads, so an empty variable would
       # break even a job that touches no network. So a name is overridden only when a variable
-      # actually carries a value; otherwise the default in api/deployments.ts stands and the
+      # actually carries a value; otherwise the default in deployments/registry.ts stands and the
       # repository runs with no variables set at all.
       - name: Point deployments at repository variables, if any are configured
         env:
@@ -91,7 +91,7 @@ jobs:
             echo "CONDUIT_API_URL=$GATE_URL" >> "$GITHUB_ENV"
             echo "conduit-gate: overridden by the CONDUIT_API_URL repository variable"
           else
-            echo "conduit-gate: no repository variable set, keeping the default in api/deployments.ts"
+            echo "conduit-gate: no repository variable set, keeping the default in deployments/registry.ts"
           fi
 
       # One worker, pinned by the `test:contract` script itself — see D-4 in spec/FINDINGS.md.
@@ -145,13 +145,13 @@ jobs:
             echo "CONDUIT_API_URL=$GATE_URL" >> "$GITHUB_ENV"
             echo "conduit-gate: overridden by the CONDUIT_API_URL repository variable"
           else
-            echo "conduit-gate: no repository variable set, keeping the default in api/deployments.ts"
+            echo "conduit-gate: no repository variable set, keeping the default in deployments/registry.ts"
           fi
           if [ -n "$DEFECTS_URL" ]; then
             echo "CONDUIT_DEFECTS_API_URL=$DEFECTS_URL" >> "$GITHUB_ENV"
             echo "conduit-unsound: overridden by the CONDUIT_DEFECTS_API_URL repository variable"
           else
-            echo "conduit-unsound: no repository variable set, keeping the default in api/deployments.ts"
+            echo "conduit-unsound: no repository variable set, keeping the default in deployments/registry.ts"
           fi
 
       # Expected to fail. A green run here is the news: it means a defect was fixed.

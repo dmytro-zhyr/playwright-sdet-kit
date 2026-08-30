@@ -34,7 +34,8 @@ the schema matcher.
 
 | Alias | Directory |
 |---|---|
-| `@api/*` | the Conduit client, the deployment registry, the fixtures built on them |
+| `@api/*` | the Conduit client and the fixtures built on it |
+| `@deployments/*` | which deployments exist, where they are, and how a URL to one is formed |
 | `@data/*` | factories |
 | `@po/*` | page objects |
 | `@schemas/*` | `zod` schemas and the `toMatchSchema` matcher |
@@ -46,6 +47,20 @@ the schema matcher.
 `@/api/...` and told the reader nothing the path did not already say. Per-directory aliases match
 [`websocket-test`](https://github.com/dmytro-zhyr/websocket-test), and an import now names a
 **layer** rather than a folder from the root.
+
+🔑 **One directory, one fixtures file** — `api/apiFixtures.ts`, `deployments/deploymentFixtures.ts`,
+`data/dataFixtures.ts`, `po/poFixtures.ts`. That rule is what moved the deployment registry out of
+`api/` on 31 August 2026: two fixture files in one directory was the only place it was broken, and
+the break was a symptom. `deployments/registry.ts` had grown UI addresses and a
+`resolveUiDeployment`, so a file under `api/` was answering "where is the front end" — and three of
+its four importers were not `api/` at all, including `po/`, which reached across a layer only to
+find out where its own UI lived.
+
+📌 **`api/conduitClient.ts` importing `@deployments/url` is deliberate, not a leak.**
+`withTrailingSlash` and `stripLeadingSlash` are two halves of one contract — the base keeps its
+last segment, the path gives up its first slash — and only the registry ever builds a base. Split
+across two directories they could drift apart, and the drift would be silent, which is the exact
+failure that file exists to prevent.
 
 ⚠️ **Do not add `baseUrl`.** `websocket-test` has one and this repository must not: TypeScript 6
 deprecates it and `tsc` refuses to compile without an `ignoreDeprecations` escape. Paths are
@@ -64,7 +79,7 @@ and adding one would be the first.
 | `deployment` | `(name) => Promise<ConduitClient>` | an anonymous client on the **named** deployment, over its own request context |
 
 `api` and `registeredUser` are defined in `api/apiFixtures.ts`; `deployment` in
-`api/deploymentFixtures.ts`; `factories` in `data/dataFixtures.ts`. `fixtures.ts` merges them with
+`deployments/deploymentFixtures.ts`; `factories` in `data/dataFixtures.ts`. `fixtures.ts` merges them with
 `mergeTests`, and merges the schema matcher in with `mergeExpects`. Those four names are the whole
 fixture surface — there is no `request`, no `page`, no `context` to ask for.
 
@@ -80,7 +95,7 @@ const gate = await deployment('conduit-gate');
 | `conduit-unsound` | `https://api.realworld.show/api` | uniqueness, identity and visibility all fail here; D-1 to D-5 are its |
 | `conduit-overstrict` | `https://conduit-api.bondaracademy.com/api` | conforms, but rejects a username over 20 characters, a limit the specification never states |
 
-The registry is `api/deployments.ts`: one entry per deployment, each with the variable that
+The registry is `deployments/registry.ts`: one entry per deployment, each with the variable that
 repoints it and a default that makes a `.env` optional. Adding a deployment — or a second product
 — is appending an entry, not editing resolution logic.
 
@@ -125,7 +140,7 @@ const response = await api.get('/tags');
 - **`withToken` returns a new client** and leaves the original anonymous. `api` stays anonymous
   for the whole test.
 - **Paths are spec-shaped** — `/tags`, `/users`, `/articles/:slug`, `/articles?limit=5`. The
-  client strips the leading slash so the `/api` segment of the base URL survives; see `api/url.ts`
+  client strips the leading slash so the `/api` segment of the base URL survives; see `deployments/url.ts`
   for why that is not optional.
 - **`body` is typed `unknown`.** Narrow it explicitly:
 
@@ -283,7 +298,7 @@ test.skip(articles.length === 0, 'the target has no articles to read');
 | `defects` | `conduit-unsound` | `CONDUIT_DEFECTS_API_URL` |
 
 Both have working defaults, so the repository runs with no `.env`. `playwright.config.ts` resolves
-both through `api/deployments.ts` rather than spelling a URL, so a project and a test can never
+both through `deployments/registry.ts` rather than spelling a URL, so a project and a test can never
 disagree about where a name points. The `defects` project carries its own `use.baseURL`, so moving
 the gate never moves it.
 

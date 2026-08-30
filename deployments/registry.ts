@@ -1,4 +1,4 @@
-import { withTrailingSlash } from '@api/url';
+import { withTrailingSlash } from '@deployments/url';
 
 /**
  * Named deployments.
@@ -116,7 +116,7 @@ function findDeployment(name: string): (typeof DEPLOYMENTS)[number] {
     throw new Error(
       `Unknown deployment "${name}". Known deployments: ${deploymentNames().join(', ')}. ` +
         `A name is never guessed and never falls back to a default — fix the name, or add the ` +
-        `deployment to api/deployments.ts.`
+        `deployment to deployments/registry.ts.`
     );
   }
 
@@ -128,7 +128,7 @@ function findDeployment(name: string): (typeof DEPLOYMENTS)[number] {
  *
  * The trailing slash is applied here and nowhere else. Without it `new URL('tags', base)` drops
  * the `/api` segment and every request goes to the wrong path — quietly, with plausible-looking
- * 404s. See `api/url.ts` for the four spellings and why only one of them works. A UI base has no
+ * 404s. See `deployments/url.ts` for the four spellings and why only one of them works. A UI base has no
  * path segment today and would survive without it; it is normalised all the same, because "this
  * base happens to have no path" is a property of today's hosts, not a rule.
  *
