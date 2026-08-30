@@ -9,9 +9,9 @@
 // It runs the same way locally and on CI, which is the point. A report that only assembles
 // correctly inside a workflow cannot be checked while writing the test that would appear in it.
 //
-// ⛔ `npm run allure:clean` deletes allure-report/ and therefore the history too. That is what it
-// is for — starting a trend over — and it is the one place where the sibling repository's simpler
-// setup differs: websocket-test carries nothing forward, so its clean can lose nothing.
+// 📌 The two clean commands sit either side of this script, and the difference is the history:
+// `allure:clean` moves it to `allure-results/history/` and deletes everything else, so the trend
+// survives; `allure:hard-clean` removes both directories outright and the trend goes with them.
 
 import { cpSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
