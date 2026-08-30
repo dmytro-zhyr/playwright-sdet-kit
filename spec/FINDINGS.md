@@ -550,6 +550,66 @@ test is what will tell us that day has come.
 
 ---
 
+# UI reconnaissance — 30 August 2026
+
+Stage 3 adds a browser layer, and it opens with the same step that opened stage 1: look at the
+targets before writing a line. Each of the three registered deployments was probed for a
+front end, and each front end was read to find which API it actually calls.
+
+| Front end | Status | Calls | Registry name |
+|---|---|---|---|
+| `https://demo.realworld.show` | 200, Angular | `https://api.realworld.show/api` | `conduit-unsound` |
+| `https://conduit.bondaracademy.com` | 200, Angular | `https://conduit-api.bondaracademy.com/api` | `conduit-overstrict` |
+| `https://realworld.habsida.net/` | **404** | — | `conduit-gate` |
+
+The pairing was not assumed from the host names. Each page's bundle was fetched and the base URL
+read out of it, because "the UI at `x.show` obviously talks to the API at `api.x.show`" is a guess,
+and a UI suite silently measuring a different backend than the contract suite is the kind of thing
+that would be discovered months later.
+
+## 🔴 The gate has no UI
+
+`realworld.habsida.net` publishes an API and nothing else. The deployment the entire contract suite
+is measured against **cannot host a single browser test**.
+
+This is the finding that shaped the code rather than just the notes. Until now a deployment was one
+address, so "the UI of `conduit-gate`" would have been a URL nobody checked — and the natural
+implementation, appending a path or stripping `/api`, would have returned something. A browser
+opening JSON fails on every locator at once, and the report reads as a hundred broken page objects
+instead of one wrong target.
+
+➡️ So `api/deployments.ts` now models a deployment as **up to two surfaces**, API and UI, with
+`ui: null` a stated fact rather than a gap. `resolveUiDeployment('conduit-gate')` throws and names
+the deployments that do have a UI. Same rule as an unknown name: never guess, never fall back.
+
+## Which deployment becomes the UI gate, and why it was not a preference
+
+Two candidates remained, and one disqualifies itself:
+
+- **`conduit-unsound`** carries D-1 to D-5. D-5 alone is fatal for a browser suite — a write is
+  invisible to everyone but its author, so *publish an article, then find it in the global feed*
+  fails here for a reason that has nothing to do with the page. D-4 adds a token that stops
+  identifying its own user under concurrency. Both would be read as flaky UI tests.
+- **`conduit-overstrict`** has one known deviation: a username longer than 20 characters is
+  rejected. That is what disqualified it as the **API** gate, because a conformance suite must be
+  free to send what the specification allows. A browser test never sends it: `data/userFactory.ts`
+  emits `qa_` plus 10 characters, 13 in all.
+
+🔑 **The same property decides the two gates in opposite directions.** Over-strict validation is
+disqualifying for a suite that asserts the contract and harmless for one that drives a form, so
+`conduit-gate` and the UI gate are deliberately **different deployments**. That is only sayable
+because deployments are named; with one `baseURL` it would have been a contradiction.
+
+⚠️ **The cost, stated up front:** UI and contract now run against different servers, so a UI test
+can never be evidence about the gate's behaviour, and a difference between the two layers may be a
+difference between two backends. Any UI test tempted to assert an API-level fact is in the wrong
+suite.
+
+📌 `conduit-unsound`'s UI is registered all the same — not to measure against, but because
+reproducing a known defect **through a browser** is exactly what `tests/defects/` is for.
+
+---
+
 # Salesforce reconnaissance — 25 August 2026
 
 A Developer Edition org, probed before a single test was written, the same way Conduit was.
