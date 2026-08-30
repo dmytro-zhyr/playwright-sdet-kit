@@ -683,10 +683,17 @@ were edited to match — the one place a vendored file was modified, and this is
 
 **3. It wrote `.mcp.json`.** The agents it installed address the browser through MCP tools, while
 `applications/ai-tooling.md` in the job-search repository argues for the CLI over MCP on token
-efficiency. Both are kept, because they are not in competition: the skills under `.claude/skills/`
-drive the CLI, and the agents need the MCP server. The position that survives is narrower than "CLI
-over MCP" — **MCP for an agent that must look at a page, the CLI for work that must not spend the
-context window on tool schemas.**
+efficiency. Both are kept — but not as equals.
+
+🔑 **The CLI is the default and MCP is the fallback:** if the CLI can do it, the CLI does it, and
+MCP is for what the CLI cannot reach, whatever the cause. The vendored agents name MCP tools in
+their frontmatter, which is a reason to keep the server available and not a reason to reach for it
+first. The rule is in `CONVENTIONS.md`.
+
+⚠️ **The first version of this paragraph said something else** — "MCP for an agent that must look
+at a page, the CLI for work that must not spend the context window on tool schemas". That is a
+symmetric split of two tools across two jobs, and it makes the choice a fresh judgement every time
+it comes up. One default with one exception is decidable; two specialisms are an argument.
 
 ⬜ **Open, and worth fixing:** `tests/unit/artifacts.spec.ts` validates agent definitions by name —
 `ba.md`, `qa.md`, `ta.md`, `critic.md` — so the three that arrived today are unchecked, and so

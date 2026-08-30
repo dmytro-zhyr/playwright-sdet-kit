@@ -347,8 +347,14 @@ exactly what they asserted before.
 
 ## What not to do
 
-- Do not use `page`, `context` or any browser fixture — this project runs without a browser, and
-  requesting one would start it.
+- Do not use `page`, `context` or any browser fixture **outside `tests/ui/`**. The `contract`,
+  `unit` and `defects` projects run without a browser, and requesting one would start it. The
+  `ui` project is the one place a browser belongs, and it has its own page objects in `po/` — a
+  UI test drives those rather than reaching for raw locators.
+- Do not assert an API-level fact from a UI test. The UI gate is `conduit-overstrict` and the API
+  gate is `conduit-gate`: they are **different deployments**, so a difference the two layers
+  disagree about may be a difference between two servers. A UI test tempted to check a response
+  body belongs in `tests/contract/`.
 - Do not build your own HTTP client, and do not call `request` directly: everything goes through
   `api` or `registeredUser.api`.
 - Do not add `waitForTimeout` or any sleep. If a test needs to wait for something, it is asserting
@@ -359,3 +365,26 @@ exactly what they asserted before.
   returns an opaque `token_<hex>` and `realworld.habsida.net` returns a JWT. The specification
   guarantees only a string.
 - Do not assert a format for `slug`. The specification guarantees only that it is a unique string.
+
+## Playwright agent tooling — the CLI first, MCP only where it cannot reach
+
+Two ways of driving a browser from an agent are installed here, and they are **not equals**.
+
+🔑 **The default is the CLI** — `npx playwright cli`, and the skills under `.claude/skills/` that
+wrap it. Use it wherever it reaches. It keeps snapshots on disk instead of in the conversation, so
+the context window stays available for the code being written rather than for tool schemas and an
+accessibility tree.
+
+**MCP is the fallback, not the other option.** `.mcp.json` and the three vendored agents under
+`.claude/agents/playwright-test-*` address the browser through it, because that is how Microsoft
+shipped them and the tools are named in their frontmatter. That is a reason to keep MCP available,
+not a reason to reach for it first.
+
+➡️ **The rule: if the CLI can do it, the CLI does it. MCP is for what the CLI cannot reach** —
+whatever the cause, capability or vendored tooling. Reaching for MCP because it is more
+comfortable is the case this rule exists to refuse.
+
+⚠️ **This corrects a symmetric framing written into `spec/FINDINGS.md` on 30 August 2026** — "MCP
+for an agent that must look at a page, the CLI for work that must not spend the context window".
+That reads as two equal tools for two jobs, and splits the decision every time it comes up. The
+position is one default and one exception, which is decidable without rethinking it.

@@ -8,7 +8,7 @@ import {
   ruleCoverage,
   parseCases,
 } from '@/pipeline/parse';
-import { validateAgentDefinition } from '@/pipeline/agentDefinition';
+import { AGENT_ORIGINS, agentDirectoryProblems, type AgentFile } from '@/pipeline/agentDefinition';
 import { traceabilityProblems, type TestFile } from '@/pipeline/traceability';
 
 // The repository root, reached from tests/unit/, so the paths below do not depend on the
@@ -46,17 +46,6 @@ test('pipeline/01-rules.md passes validation', () => {
   expect(validateRules(markdown), 'problems found in the rules file').toEqual([]);
 });
 
-// Turns red if the BA agent's own definition drifts out of shape — frontmatter that does not
-// open or close, a missing name or description, a name that no longer matches the file, a lost
-// `## Your task` or `## Forbidden` section, or a carriage return sneaking back in. Without this
-// the agent would simply start behaving differently and the cause would be hunted for in its
-// output rather than in its frontmatter.
-test('.claude/agents/ba.md passes validation', () => {
-  const markdown = read('.claude', 'agents', 'ba.md');
-
-  expect(validateAgentDefinition(markdown, 'ba.md'), 'problems found in the BA agent').toEqual([]);
-});
-
 // Turns red if the cases the QA agent produced stop being readable as written or stop agreeing
 // with the rules — a heading whose separator is not an em dash, a `**Grouping rationale:**`
 // written as a field instead of a bullet, a Covers entry that is not an identifier, a case with
@@ -68,16 +57,6 @@ test('pipeline/02-cases.md passes validation against the rules', () => {
   const cases = read('pipeline', '02-cases.md');
 
   expect(validateCases(rules, cases), 'problems found in the cases file').toEqual([]);
-});
-
-// Turns red if the QA agent's own definition drifts out of shape — the same failures ba.md is
-// guarded against: frontmatter that does not open or close, a missing name or description, a
-// name that no longer matches the file, a lost `## Your task` or `## Forbidden` section, or a
-// carriage return sneaking back in on a Windows checkout.
-test('.claude/agents/qa.md passes validation', () => {
-  const markdown = read('.claude', 'agents', 'qa.md');
-
-  expect(validateAgentDefinition(markdown, 'qa.md'), 'problems found in the QA agent').toEqual([]);
 });
 
 // Turns red if either artifact stops parsing at all — `ruleCoverage` calls `parseRules` and
@@ -120,25 +99,62 @@ function accountingSections(report: string): string {
   return collected.join('\n');
 }
 
-// Turns red if the TA agent's own definition drifts out of shape — the same failures ba.md and
-// qa.md are guarded against: frontmatter that does not open or close, a missing name or
-// description, a name that no longer matches the file, a lost `## Your task` or `## Forbidden`
-// section, or a carriage return sneaking back in on a Windows checkout.
-test('.claude/agents/ta.md passes validation', () => {
-  const markdown = read('.claude', 'agents', 'ta.md');
+const LF = String.fromCharCode(10);
 
-  expect(validateAgentDefinition(markdown, 'ta.md'), 'problems found in the TA agent').toEqual([]);
+/** The smallest thing that is recognisably a definition — enough to be found undeclared. */
+const NEWCOMER = ['---', 'name: newcomer', '---', ''].join(LF);
+
+/** Every agent definition in the repository, addressed by base name. */
+function agentFiles(): AgentFile[] {
+  const directory = join(ROOT, '.claude', 'agents');
+
+  return readdirSync(directory)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => ({ name, markdown: read('.claude', 'agents', name) }));
+}
+
+// Turns red if any agent definition drifts out of shape — frontmatter that does not open or
+// close, a missing name or description, a name that no longer matches its file, a lost
+// `## Your task` or `## Forbidden` section in one this project wrote, or a carriage return
+// sneaking back in. Without it an agent simply starts behaving differently and the cause is
+// hunted for in its output rather than in its frontmatter.
+//
+// 🔑 It reads the **directory**, and that is the fix. Until 30 August 2026 this was four tests
+// naming four files, so the three definitions `npx playwright init-agents` installed that day
+// were never checked, and neither would a fifth written here tomorrow. A check anchored to a
+// list of answers cannot notice an answer nobody added to the list — the same failure this
+// project has now found in a README rule and in its own reminders file.
+test('.claude/agents holds nothing undeclared and nothing out of shape', () => {
+  const files = agentFiles();
+
+  expect(files.length, 'the agents directory must not be empty').toBeGreaterThan(0);
+  expect(agentDirectoryProblems(files), 'problems found in the agent definitions').toEqual([]);
 });
 
-// Turns red if the critic's own definition drifts out of shape — and one drift matters more than
-// the rest: `tools` is what makes the critic read-only. Restore Write or Edit to that line and
-// the one agent whose value is its independence from what it judges can edit what it judges.
-test('.claude/agents/critic.md passes validation', () => {
-  const markdown = read('.claude', 'agents', 'critic.md');
+// Turns red if a definition is added and left undeclared — the case the directory check exists
+// for, exercised here rather than waited for. The message must name the file and offer both
+// standards, because an error that only says "undeclared" leaves the reader to guess which of
+// the two a new agent is.
+test('an undeclared definition fails rather than being skipped', () => {
+  const undeclared = [{ name: 'newcomer.md', markdown: NEWCOMER }];
 
-  expect(validateAgentDefinition(markdown, 'critic.md'), 'problems found in the critic').toEqual(
-    []
-  );
+  const problems = agentDirectoryProblems(undeclared).join(LF);
+
+  expect(problems).toContain('newcomer.md');
+  expect(problems).toContain('not declared in AGENT_ORIGINS');
+});
+
+// Turns red if a declared definition goes missing without its declaration going with it. An
+// agent deleted while something still expects it is the mirror of the case above, and the one
+// the directory listing alone cannot see.
+test('a declared definition that is gone is reported', () => {
+  const problems = agentDirectoryProblems([]).join(LF);
+
+  expect(problems).toContain('declared in AGENT_ORIGINS but not present');
+  expect(
+    Object.keys(AGENT_ORIGINS).filter((name) => !problems.includes(name)),
+    'every declared name must be reported as missing when the directory is empty'
+  ).toEqual([]);
 });
 
 // Turns red if the critic is granted a tool that writes. The definition above only has to carry a
