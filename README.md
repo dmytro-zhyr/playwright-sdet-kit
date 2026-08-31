@@ -147,12 +147,19 @@ green in that suite is supposed to mean the defect was fixed.
 |---|---|---|
 | `unit` | does this repository's own code work | every push and PR — the gate |
 | `contract` | is this code, and are these schemas, still in agreement with the target | same |
-| `ui` | do the page objects still match the pages, in a real browser | same |
+| `ui` | do sign-up, sign-in and publishing still work for a user in a real browser | same |
 | `defects` | **is the deployment each test names still broken** | nightly, on a schedule |
 
 The badge above is filtered to pushes on `main` — the gate. The nightly `defects` run stays
 visible on the Actions tab, where a red run means the target is still broken, and does not stand
 in for the state of this code.
+
+⚠️ **`ui` used to be described here as "do the page objects still match the pages".** That was
+written from the layer the tests are built on rather than from what they assert, and it undersold
+them: `tests/ui/` holds eleven tests about what a user can do — register, sign in, be refused a
+wrong password, publish an article, find it in the global feed, be turned away from the editor
+while anonymous. Page objects are what those tests are *written with*. Corrected 31 August 2026,
+along with the job names on CI, which repeated the same sentence.
 
 ⚠️ **`ui` is the arguable one.** Like `contract` it depends on somebody else's host being up, so a
 third party can turn the gate red. That trade was already accepted for `contract` and for the same

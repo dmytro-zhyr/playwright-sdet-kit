@@ -4,9 +4,23 @@ name: checks
 #
 #   static    does this code lint, typecheck and pass its own unit tests
 #   contract  are this code and these schemas still in agreement with the gate deployment
-#   ui        do the page objects still match the pages, in a real browser
+#   ui        do sign-up, sign-in and publishing still work for a user in a real browser
 #   defects   is the deployment each test names still broken
 #   report    one Allure report over whichever of the four ran
+#
+# 🔑 The job names are written on one axis on purpose — `id — what is measured, against what` —
+# because a checks list is scanned, not read. They were five different axes until 31 August 2026:
+# the tools for one job, the kind of test for another, an artifact for the fifth, and the word
+# "gate" carrying two meanings at once — the set of blocking checks, and the deployment under test.
+# `against the gate deployment` and `against the UI gate` named two different hosts and looked like
+# one thing. The registry exists so that a name is an address, so the names are used.
+#
+# ⚠️ `ui` said "do the page objects still match the pages" until the same day, and that undersold
+# the suite to the point of being wrong. tests/ui/ holds eleven tests about what a user can do —
+# register, sign in, be refused a wrong password, publish an article, find it in the global feed, be
+# turned away from the editor while anonymous. Page objects are what those tests are *written with*,
+# not what they are *about*, and a description that names the tooling instead of the subject invites
+# the reader to skip the row.
 #
 # The first three are the gate and run on every push and pull request. `defects` is monitoring: it
 # is red by design, so it runs only on a schedule or by hand and never stands in the gate.
@@ -39,7 +53,7 @@ on:
 
 jobs:
   static:
-    name: Lint, types, unit tests
+    name: static — lint, types, unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -79,7 +93,7 @@ jobs:
           retention-days: 7
 
   contract:
-    name: Contract tests against the gate deployment
+    name: contract — schemas vs conduit-gate
     # After `static`, because the contract tests hit a live third-party API. If that deployment
     # is down, only this job goes red and lint, types and unit tests stay a trustworthy signal
     # about the code.
@@ -141,7 +155,7 @@ jobs:
           retention-days: 7
 
   ui:
-    name: Browser tests against the UI gate
+    name: ui — user flows in a browser, against conduit-overstrict
     # `needs: static` for the same reason `contract` has it: if the code does not lint or its own
     # unit tests fail, a browser run adds noise rather than information.
     needs: static
@@ -204,7 +218,7 @@ jobs:
           retention-days: 7
 
   defects:
-    name: Known defects of the target
+    name: defects — conduit-unsound, red by design, not a gate
     # Schedule or by hand only. These tests assert the specification against deployments that
     # violate it, so they are red until somebody else fixes their API. In the gate they would
     # block every commit over a bug this repository does not control.
@@ -270,7 +284,7 @@ jobs:
           retention-days: 7
 
   report:
-    name: Allure report
+    name: report — Allure over every suite that ran
     # Every job above, so a scheduled run reports on all four and a push reports on the three that
     # ran. `!cancelled()` rather than `always()` or `success()`: a red suite is exactly when the
     # report is worth reading, and a run somebody stopped by hand is exactly when it is not.
