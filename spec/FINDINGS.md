@@ -11,7 +11,7 @@ separately and **the specification stays authoritative**.
 | `contract`, `unit` | **`conduit-gate`**, `https://realworld.habsida.net/api` | conforms; this is the gate |
 | `defects` | **`conduit-unsound`**, `https://api.realworld.show/api` | the deployment D-1 to D-5 are about |
 
-📌 **Those are project defaults, not what a defects test is about.** Since D-6 to D-11 there are
+📌 **Those are project defaults, not what a defects test is about.** Since D-6 to D-12 there are
 documented defects on both, so a defects test names its own deployment with the `deployment`
 fixture rather than inheriting the project's. The registry of names is `deployments/registry.ts`; the
 third live deployment is named there too, as `conduit-overstrict`.
@@ -460,6 +460,56 @@ keeps the echo assertion, green, and `tests/defects/registration.spec.ts` assert
 be `null`, with `image` on the same response asserted `null` as the control that makes the
 contradiction visible.
 
+### D-12 · A comment's author arrives without `following`
+
+```
+GET  /profiles/:username      →  author: username, bio, image, following
+GET  /articles?limit=1        →  author: username, bio, image, following
+POST /articles/:slug/comments →  author: username, bio, image
+GET  /articles/:slug/comments →  author: username, bio, image
+```
+
+The specification defines one Profile, and `following` is part of it. This deployment agrees —
+everywhere except where a comment carries an author. Measured 31 August 2026 on `conduit-gate`:
+twenty articles read, five carried comments, and **all five** comment authors were missing the
+field. Not a sampling artifact and not a permissions effect: a freshly seeded comment is missing it
+too, on the write response as well as the read, signed in and anonymous alike.
+
+📌 **It is the comment serializer, not the endpoint.** The write and the read agree with each
+other and disagree with every other author in the API, which locates the fault precisely — one
+serializer, not a query, an authorization filter or a route.
+
+✅ `tests/defects/schemas.spec.ts` holds it, naming `conduit-gate`. Proved capable of passing by
+running the same test against `conduit-overstrict`, which returns the field: green there, red here,
+so the assertion isolates the defect rather than the deployment being generally broken.
+
+⛔ `ProfileSchema` is not to be relaxed. One schema serves the profile endpoint, the article author
+and the comment author on purpose — that shared use is the only reason a disagreement between them
+is visible at all. Making `following` optional would turn this green and take the other two
+observations down with it.
+
+### ⚠️ How D-12 was missed, which matters more than D-12
+
+The contract suite had a test named `GET /articles/:slug/comments matches the comments schema`. It
+read `/articles?limit=1` and validated whatever comments the newest article carried.
+
+**The newest article almost never has comments.** `{"comments": []}` satisfies the schema, so the
+test passed — repeatedly, on every push, while the defect sat one field away. It went red on 31
+August 2026 only because the newest article happened to carry a comment that day, and it went red
+during a run whose only change was **renaming CI jobs**.
+
+🔑 So D-12 cannot be dated. It may have been there since the first probe on 23 August; the check
+that should have said so was looking at an empty array. This is the repository's own rule in a
+form it had not yet met — not "a check that cannot go red", but **a check that usually is not
+looking**. An empty collection passing a schema is the quietest version of it, because the report
+says `✓` and the count goes up.
+
+➡️ **The rule that follows, and it is now in `CONVENTIONS.md`:** a test that reads data somebody
+else created is not a test of that data's shape. Seed the thing being asserted, and assert that
+the collection is not empty *before* validating its contents. The replacement registers an account,
+writes an article, posts its own comment, and requires exactly one comment back — so an empty list
+is a failure rather than a pass.
+
 ## ⬜ The gate deployment rate-limits, and CI makes it likelier
 
 Seen on 25 August in the first CI dispatch: `GET /articles` in `tests/defects/schemas.spec.ts`
@@ -477,6 +527,14 @@ apart is the thing to fix — not the test.
 ⬜ **Not acted on yet.** The options are to serialise the two jobs, to drop `retries` for
 `defects`, or to make the assertion name the status it got. Decide with data from a few nightly
 runs rather than now.
+
+📌 **Second data point, 31 August 2026.** Run 33379242291, a plain push: `DELETE /articles/:slug`
+in `C-015` answered **429**, and the retry passed. So it is not confined to the `defects` job or to
+concurrent jobs — a single `contract` run at one worker can hit it on its own. Both sightings were
+on a delete or a list against `conduit-gate`, and both cleared on retry or on the next dispatch.
+The decision above stays open, but the option "make the assertion name the status it got" now looks
+the strongest of the three: it is the only one that keeps the failure legible instead of hiding it
+behind a retry.
 
 ## Two observations on the gate target that no test catches
 

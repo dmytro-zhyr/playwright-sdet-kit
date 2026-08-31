@@ -57,8 +57,8 @@ happened in this run*, and does it better — the trace viewer is not replaceabl
 *what keeps happening*, and one question the other cannot reach at all: **which of these failures
 were ever about our code**.
 
-That question is not rhetorical here. `tests/defects/` is red on purpose, so a bare "9 failed" says
-nothing until the reader knows which nine. [`report/allure.ts`](report/allure.ts) declares three
+That question is not rhetorical here. `tests/defects/` is red on purpose, so a bare "10 failed"
+says nothing until the reader knows which ten. [`report/allure.ts`](report/allure.ts) declares three
 categories that answer it:
 
 | Category | What it collects |

@@ -91,7 +91,7 @@ const gate = await deployment('conduit-gate');
 
 | Name | Default | What it is |
 |---|---|---|
-| `conduit-gate` | `https://realworld.habsida.net/api` | the deployment the `contract` gate is measured against; D-6 to D-11 are its |
+| `conduit-gate` | `https://realworld.habsida.net/api` | the deployment the `contract` gate is measured against; the defects filed against it in `spec/FINDINGS.md` are its |
 | `conduit-unsound` | `https://api.realworld.show/api` | uniqueness, identity and visibility all fail here; D-1 to D-5 are its |
 | `conduit-overstrict` | `https://conduit-api.bondaracademy.com/api` | conforms, but rejects a username over 20 characters, a limit the specification never states |
 
@@ -273,13 +273,41 @@ in the error body: the specification's own example keys a validation error under
 demanding `errors.email` is asserting more than the contract. Before writing an exact value, check
 that `spec/conduit-api.md` states it.
 
-When a test depends on data the target may not have, skip on the condition instead of guessing:
+### Never assert the shape of data you did not create
+
+**Seed what you are about to assert.** A test that reads whatever the target happens to hold cannot
+promise it looked at anything, and an empty collection satisfies a schema silently:
 
 ```ts
+// ⛔ Passes whenever the newest article has no comments, which is almost always.
 const list = await api.get('/articles?limit=1');
 const { articles } = list.body as { articles: { slug: string }[] };
-test.skip(articles.length === 0, 'the target has no articles to read');
+const response = await api.get(`/articles/${articles[0].slug}/comments`);
+expect(response.body).toMatchSchema(CommentsResponseSchema);
 ```
+
+```ts
+// ✅ One comment exists because this test wrote it, and an empty list is a failure.
+const posted = await author.post(`/articles/${slug}/comments`, { comment: { body: '…' } });
+const listed = await author.get(`/articles/${slug}/comments`);
+const { comments } = listed.body as { comments?: unknown[] };
+expect(comments?.length, 'the comment posted above must come back').toBe(1);
+expect(listed.body).toMatchSchema(CommentsResponseSchema);
+```
+
+⚠️ **This section used to say the opposite, and the wrong version had a working example.** It read
+*"when a test depends on data the target may not have, skip on the condition instead of guessing"*,
+and showed the four lines in the ⛔ block above. A test written from that advice validated
+`{"comments": []}` on every run for a week and hid D-12 — an author field missing from every
+comment on the gate deployment — until the newest article happened to carry a comment. Corrected 31
+August 2026; the story is in `spec/FINDINGS.md` under "How D-12 was missed".
+
+📌 **`test.skip` on a condition is still right** — for a case that genuinely cannot be seeded, such
+as a read-only deployment. It is not a substitute for creating the thing under test, and a skip
+that fires on every run is a test nobody is running.
+
+🔑 **The floor to write either way:** assert the collection is **not empty** before validating what
+is in it. That one line converts "passed about nothing" into a failure.
 
 ## How the suites run
 
