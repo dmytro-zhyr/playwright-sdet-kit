@@ -536,6 +536,19 @@ The decision above stays open, but the option "make the assertion name the statu
 the strongest of the three: it is the only one that keeps the failure legible instead of hiding it
 behind a retry.
 
+🔑 **And it is a reporting defect, not a gate defect — which is what makes it worth fixing.** A 429
+currently lands in the Allure category `Known defect of the target`, because that category matches
+on the file path. So the report says ten known defects when one of them is "the host was down".
+`Target unavailable` exists as a category and never fires. The permanently red `defects` run is
+deliberate and stays (see README, "Why the nightly run stays red"); a run that **miscategorises**
+why it is red is a different thing, and it damages exactly what the red is kept for.
+
+⛔ **Inverting the suite was considered and rejected on 31 August 2026** — asserting the observed
+deviation so green means "unchanged". It would have fixed the 429 classification as a side effect,
+and it would have emptied the Categories tab, which is the demonstration. The proposal imported a
+working-project concern (a red job teaching a team to ignore red) into a repository with no team.
+Fix the classification, keep the red.
+
 ## Two observations on the gate target that no test catches
 
 Neither fails anything today. Both are worth knowing before anyone trusts this deployment further.

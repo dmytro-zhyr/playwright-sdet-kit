@@ -168,6 +168,36 @@ schedule is not a gate. `defects` is the only suite whose redness says nothing a
 repository, and it is the only one kept out of the gate. Its other cost is worth naming: every
 `ui` run registers a dozen `qa_` accounts on a third-party deployment that has no delete endpoint.
 
+### Why the nightly run stays red, and why that is not a defect of the setup
+
+`tests/defects/` names deployments this project does not own and cannot fix. On a working project
+a defect test is **temporary by construction**: it gets a ticket, it is quarantined, the fix lands
+and the test returns to the gate. Here the fix never lands, so the suite is permanent — and a
+permanently red job is a real problem *on a team*, where it teaches people that red means nothing.
+
+That concern does not transfer here, and the reason is worth being explicit about, because it is
+the kind of rule that gets imported from the wrong context:
+
+- **There is no team to desensitise.** The failure mode of a permanently red job is social, and
+  this repository has no on-call, no alert fatigue and no shared build to unblock.
+- **The badge already separates the two.** It is filtered to pushes on `main`, which is the gate
+  and is green. The nightly run lives on the Actions tab and is read deliberately.
+- **The report is the deliverable, and a report needs failures.** `report/allure.ts` exists to
+  answer *which of these failures were ever about our code*, and it answers it with categories that
+  are populated by failing tests. A suite with nothing red would empty the Categories tab and
+  delete the demonstration along with the redness.
+
+🔑 **So the red is load-bearing.** Reading a real failure — its message, its category, whether the
+error says what actually broke — is the thing this repository has to show about reporting, and it
+cannot be shown with everything green.
+
+⛔ **`test.fail()` is the obvious mechanism and it is deliberately not used.** Measured on 31
+August 2026 with three tests: one failing for its documented reason, one failing because the target
+answered 429, one passing. Playwright counted **both** failures as expected and reported the pass
+as the only failure. It checks *that* a test failed, never *why* — so a target outage would read as
+"the defect is still there", which is precisely the confusion the Allure categories exist to
+prevent. Recorded here because it is the first thing anyone will propose.
+
 A fifth job builds **one Allure report** over whichever suites ran, and uploads it as a workflow
 artifact. Download it, unzip it and serve it — `npx allure open allure-report`; opening
 `index.html` from the filesystem shows an empty page.
