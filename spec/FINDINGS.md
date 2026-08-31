@@ -524,9 +524,24 @@ fails. Locally the suites are run one after another.
 what the nightly schedule exists to collect. A 429 is not D-8, and a report that cannot tell them
 apart is the thing to fix — not the test.
 
-⬜ **Not acted on yet.** The options are to serialise the two jobs, to drop `retries` for
-`defects`, or to make the assertion name the status it got. Decide with data from a few nightly
-runs rather than now.
+✅ **Acted on 31 August 2026, and none of the three options was the one taken.** All three treated
+the 429 as something the *test* should handle — serialise the jobs, drop the retry, reword an
+assertion. The fault was one level down: `ConduitClient` returned a 429 as if it were an answer, so
+every test carried on with it and failed later on something else.
+
+The client now refuses 429, 502, 503 and 504 with a fixed message, and `Target unavailable` matches
+that message and is ordered ahead of `Known defect of the target` — which claims on file path
+alone, and so was swallowing them. 500 is deliberately not in the set: it is a fault of the
+application and D-7 asserts one.
+
+📌 **Why a constant in the client and not a phrase in each test.** `report/allure.ts` rejected
+message matching on the grounds that it needs every test to phrase its failure a particular way,
+"and conventions are not enforced". That objection was answered rather than ignored: every request
+in the repository goes through one `wrap`, so the wording cannot drift and cannot be forgotten.
+`tests/unit/allureCategories.spec.ts` fails if the message and the regex part company.
+
+🔑 **The retry keeps its value and stops hiding anything.** A rate limit that clears on the second
+attempt still produces a green run; one that does not now says why, in its own category.
 
 📌 **Second data point, 31 August 2026.** Run 33379242291, a plain push: `DELETE /articles/:slug`
 in `C-015` answered **429**, and the retry passed. So it is not confined to the `defects` job or to

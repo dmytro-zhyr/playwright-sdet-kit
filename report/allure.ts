@@ -1,5 +1,6 @@
 import { Status } from 'allure-js-commons';
 import type { Category, EnvironmentInfo } from 'allure-js-commons/sdk';
+import { TARGET_UNAVAILABLE } from '@api/conduitClient';
 import { DEPLOYMENTS, resolveDeployment, resolveUiDeployment } from '@deployments/registry';
 
 /**
@@ -28,6 +29,12 @@ import { DEPLOYMENTS, resolveDeployment, resolveUiDeployment } from '@deployment
  * `Known defect of the target: 9`, `Product defects: 5`, `Test defects: 4`, with nothing counted
  * twice.
  *
+ * ✅ **Verified end to end on 31 August 2026**, against a local server answering 503 to
+ * everything. The same test in tests/defects/ was run twice and its result generated into a report
+ * each time: pointed at the dead server it landed in `Target unavailable` and nowhere else;
+ * pointed at the real deployment it landed in `Known defect of the target` and nowhere else. Both
+ * directions, because a category that fixes one and breaks the other is not a fix.
+ *
  * ⚠️ **This corrects the comment that first stood here**, which claimed there was "deliberately no
  * catch-all" and that a category defined too loosely would dilute every other one. Neither holds:
  * a catch-all is supplied whether or not it is wanted, and first-match means a loose category
@@ -38,30 +45,47 @@ import { DEPLOYMENTS, resolveDeployment, resolveUiDeployment } from '@deployment
  */
 export const ALLURE_CATEGORIES: Category[] = [
   {
+    name: 'Target unavailable',
+    // Somebody else's uptime. The contract suite talks to a live third-party deployment, and the
+    // README's whole argument for splitting the suites is that our gate must not go red because
+    // their server went down. This category is that argument, made visible in the report.
+    //
+    // 🔑 It is FIRST, and the order is the fix. `Known defect of the target` below matches on the
+    // file path, so it claims every failure under tests/defects/ — including one that never reached
+    // the application. On 31 August 2026 a 429 on a delete was counted as a known defect, so the
+    // report said ten known defects when one of them was an outage. First-match-wins is measured
+    // behaviour, noted above, which makes a narrower category placed earlier the mechanism rather
+    // than a preference.
+    //
+    // The first alternatives are network errors, where the request never completed. The last is an
+    // HTTP answer refusing to serve one — thrown by ConduitClient.wrap, which is why the wording is
+    // a constant imported from there and not a phrase each test is trusted to repeat. That answers
+    // the objection recorded below rather than ignoring it: this message is not a convention.
+    messageRegex: `(?s).*(ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|net::ERR_|apiRequestContext: Timeout|Target page, context or browser has been closed|${TARGET_UNAVAILABLE}: HTTP).*`,
+    matchedStatuses: [Status.FAILED, Status.BROKEN],
+    description:
+      'The target could not be reached, or refused to serve the request — a network error, or a ' +
+      '429, 502, 503 or 504. Not a defect in this repository and not a defect in the target ' +
+      'either: the run says nothing about the behaviour under test. Re-run before reading ' +
+      'anything into it.',
+  },
+  {
     name: 'Known defect of the target',
     // Matched on the stack trace rather than on a message: every test under tests/defects/ asserts
     // the specification against a deployment documented as violating it, so the *location* is what
     // makes it expected, not anything it says. Message matching would need each test to phrase its
     // failure a particular way, which is a convention, and conventions are not enforced.
+    //
+    // ⚠️ Right about this category, and wrong about what it implied. Because the location is all it
+    // looks at, this one claims a failure that never reached the application as readily as a real
+    // one — which is why `Target unavailable` now sits above it, and why the message that one
+    // matches is produced by the client rather than by a test. Corrected 31 August 2026.
     traceRegex: '.*[\\\\/]tests[\\\\/]defects[\\\\/].*',
     matchedStatuses: [Status.FAILED, Status.BROKEN],
     description:
       'A test in tests/defects/ that is red because the deployment it names is still broken. ' +
       'Red here is the expected state and green is the news — it would mean the defect was fixed. ' +
       'These never belong in a count of things wrong with our code.',
-  },
-  {
-    name: 'Target unavailable',
-    // Somebody else's uptime. The contract suite talks to a live third-party deployment, and the
-    // README's whole argument for splitting the suites is that our gate must not go red because
-    // their server went down. This category is that argument, made visible in the report.
-    messageRegex:
-      '(?s).*(ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|net::ERR_|apiRequestContext: Timeout|Target page, context or browser has been closed).*',
-    matchedStatuses: [Status.FAILED, Status.BROKEN],
-    description:
-      'The target could not be reached at all. Not a defect in this repository and not a defect ' +
-      'in the target either — it says only that the network or somebody else’s host was down ' +
-      'while the suite ran. Re-run before reading anything into it.',
   },
   {
     name: 'Setup failed before the subject',

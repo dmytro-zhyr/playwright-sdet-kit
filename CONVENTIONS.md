@@ -311,6 +311,13 @@ is in it. That one line converts "passed about nothing" into a failure.
 
 ## How the suites run
 
+⛔ **`--reporter=list` replaces the reporters, it does not add one.** Passing it on the command line
+discards everything `playwright.config.ts` declares, Allure included, so the run produces no result
+files and `allure-results/` silently keeps whatever the last full run left there. Cost an hour on 31
+August 2026, spent looking for a reporter bug that was a command-line flag. Run `npm run test:*` and
+let the config decide; the `list` reporter is already the first one it declares.
+
+
 | Command | Project | Notes |
 |---|---|---|
 | `npm run test:contract` | `contract` | `--workers=1`, deliberately — see below |
