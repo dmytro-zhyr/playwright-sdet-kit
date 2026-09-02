@@ -6,6 +6,7 @@ import {
   resolveUiDeployment,
   uiDeploymentNames,
 } from '@deployments/registry';
+import { thrownMessage } from '@support/thrown';
 
 // An environment with nothing in it, so a default is exercised as a default rather than as
 // whatever the machine running the suite happens to export.
@@ -86,12 +87,7 @@ test.describe('resolveDeployment — a name it does not know', () => {
   // Turns red if the error stops offering the names that would have worked. An error that says
   // only "unknown" leaves the reader guessing at the spelling that failed them.
   test('the error names every deployment that would have worked', () => {
-    let message = '';
-    try {
-      resolveDeployment('gate', NO_ENV);
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
-    }
+    const message = thrownMessage(() => resolveDeployment('gate', NO_ENV));
 
     const unnamed = deploymentNames().filter((name) => !message.includes(name));
     expect(unnamed, 'the error must list the valid names, not just reject the invalid one').toEqual(
@@ -144,12 +140,7 @@ test.describe('resolveUiDeployment — the browser surface', () => {
   // Turns red if the error stops offering the deployments that would have worked — the same
   // courtesy the unknown-name error already owes its reader.
   test('the error names every deployment that does have a UI', () => {
-    let message = '';
-    try {
-      resolveUiDeployment('conduit-gate', NO_ENV);
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
-    }
+    const message = thrownMessage(() => resolveUiDeployment('conduit-gate', NO_ENV));
 
     expect(uiDeploymentNames().filter((name) => !message.includes(name))).toEqual([]);
   });

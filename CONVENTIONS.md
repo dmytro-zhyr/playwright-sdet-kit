@@ -172,6 +172,16 @@ await expect(page.locator('h1')).toBeVisible();
 - 📌 **An `async` body with no `await` in it is also an error** (`require-await`). Not pedantry:
   it is the exact shape a *missing* await leaves behind, so the two must not look alike. A test
   that genuinely does no I/O drops the `async` keyword rather than earning an exemption.
+- 🔑 **Rules about how a test is written come from `eslint-plugin-playwright`**, scoped to
+  `tests/`. Three of them are load-bearing here: `expect-expect` (a test that asserts nothing),
+  `no-conditional-in-test` (a test that branches asserts different things depending on the data it
+  meets) and `no-focused-test` (`.only` caught before the push rather than by `forbidOnly` on CI).
+  The first two are the D-12 defect from other angles — a check that is not looking.
+- ⛔ **A conditional in a test body is lifted out, not disabled.** `no-conditional-in-test` fires on
+  two shapes that are not what it is hunting: narrowing an `unknown` catch variable, and turning a
+  method named in a table into a call. Both moved to `tests/support/` — `thrownMessage()` and
+  `send()` — which satisfies the rule honestly and leaves the test body reading as assertions
+  only. **Do not reach for `eslint-disable`**: it keeps the shape the rule exists to make visible.
 - 📌 A non-JSON body is handed back as the raw text rather than thrown away. A `503` with an HTML
   page arrives as a string in `body`.
 
@@ -330,6 +340,13 @@ that fires on every run is a test nobody is running.
 is in it. That one line converts "passed about nothing" into a failure.
 
 ## How the suites run
+
+⛔ **A lint probe that reports parse errors is not reporting a count.** Measuring what
+`eslint-plugin-playwright` would find, a throwaway config was written without the typescript-eslint
+base, so most files failed to parse and were never linted. It reported **1** finding; the real
+config reported **8**. The parse errors were in the output the whole time, in a column that was not
+being read. Rule of thumb: reconcile the file count before believing the finding count. Cost twenty
+minutes on 2 September 2026.
 
 ⛔ **`--reporter=list` replaces the reporters, it does not add one.** Passing it on the command line
 discards everything `playwright.config.ts` declares, Allure included, so the run produces no result

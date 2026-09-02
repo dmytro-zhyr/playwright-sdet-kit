@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { send } from '@support/send';
 
 // Eight is the number that reproduced D-4 reliably during reconnaissance. Fewer parallel
 // registrations sometimes let every token resolve correctly and the defect stays hidden.
@@ -126,8 +127,7 @@ test(
 
     const control: string[] = [];
     for (const { method, path, valid } of VALIDATED_BEFORE_AUTHENTICATED) {
-      const response =
-        method === 'put' ? await gate.put(path, valid) : await gate.post(path, valid);
+      const response = await send(gate, method, path, valid);
       control.push(`${method} ${path} -> ${response.status}`);
     }
 
@@ -139,7 +139,7 @@ test(
 
     const observed: string[] = [];
     for (const { method, path } of VALIDATED_BEFORE_AUTHENTICATED) {
-      const response = method === 'put' ? await gate.put(path, {}) : await gate.post(path, {});
+      const response = await send(gate, method, path, {});
       observed.push(`${method} ${path} -> ${response.status}`);
     }
 

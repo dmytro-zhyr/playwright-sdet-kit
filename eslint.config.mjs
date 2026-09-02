@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import playwright from 'eslint-plugin-playwright';
 
 export default tseslint.config(
   js.configs.recommended,
@@ -28,7 +29,28 @@ export default tseslint.config(
     },
   },
   {
+    // Rules about how a *Playwright test* is written, which the TypeScript rules cannot express.
+    // The two worth naming: `expect-expect` fails a test that asserts nothing, and
+    // `no-conditional-in-test` fails a test that branches — one that asserts different things
+    // depending on the data it happens to meet. Both are the same defect as D-12 seen from a
+    // different side: a check that is not looking. `no-focused-test` is the third, and it is the
+    // cheap one — `.only` caught before a push rather than by `forbidOnly` on CI.
+    //
+    // Scoped to `tests/`: `api/`, `po/` and `deployments/` are not tests, and rules about
+    // `test()` bodies have nothing to say about them.
+    //
+    // 📌 Adopting this cost one fix. Every Playwright-specific anti-pattern it knows about —
+    // `waitForTimeout`, `networkidle`, `elementHandle`, `force: true`, assertions that are not
+    // web-first — reported nothing, which is worth having stated by a tool rather than claimed
+    // in a README. From here it is a ratchet.
+    files: ['tests/**/*.ts'],
+    ...playwright.configs['flat/recommended'],
+  },
+  {
     rules: {
+      // ⚠️ Order matters here. The Playwright preset above switches `no-empty-pattern` fully
+      // *off* inside tests; this block runs after it and turns it back on with the narrower
+      // exemption, so `const {} = value` in a test is still an error.
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'warn',
       // `async ({}, use) => {}` is how Playwright declares a fixture that depends on no other

@@ -7,8 +7,10 @@ client, fixtures composed through `mergeTests`, test data factories, strict `zod
 schemas with a custom matcher, **type-aware ESLint** + Prettier, and CI on GitHub Actions.
 
 Type-aware is the word that matters: the rule set is `recommendedTypeChecked`, so a missing
-`await` on an assertion is a lint error rather than a test that passes without looking. That is
-the same defect class this suite found by hand in D-12, and the linter catches it every run.
+`await` on an assertion is a lint error rather than a test that passes without looking. On top of
+it `eslint-plugin-playwright` adds the rules about how a *test* is written — `expect-expect`,
+`no-conditional-in-test`, `no-focused-test`. All three describe the same defect this suite found
+by hand in D-12: a check that is not looking. The linter catches that class every run.
 
 On top of it sits an **agent chain, BA → QA → TA**, that turns the
 [RealWorld / Conduit](https://github.com/gothinkster/realworld) specification into contract API

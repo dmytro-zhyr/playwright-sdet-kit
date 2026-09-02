@@ -1,5 +1,6 @@
 import { test, expect } from '@fixtures';
 import { UserResponseSchema } from '@schemas/conduit.schema';
+import { send, type Method } from '@support/send';
 
 // The specification states no success status for registration or for login — it says only that
 // each "returns a User", and conforming deployments disagree: 201 on api.realworld.show, 200 on
@@ -11,7 +12,6 @@ const USER_ENDPOINT_SUCCESS_MESSAGE =
   'the specification states no success status for registration or login, only that each returns a User, so 200 and 201 are both accepted';
 
 /** The client's four verbs, so the endpoint table below stays data and not a chain of branches. */
-type Method = 'get' | 'put' | 'post' | 'del';
 
 // Turns red if the API stops honouring a token it issued itself — a header nobody reads, a token
 // nobody verifies, a lookup that resolves it to a different account — or if a login token and a
@@ -169,15 +169,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const observed: string[] = [];
 
   for (const { method, path, data } of guarded) {
-    const response =
-      method === 'get'
-        ? await api.get(path)
-        : method === 'del'
-          ? await api.del(path)
-          : method === 'put'
-            ? await api.put(path, data ?? {})
-            : await api.post(path, data ?? {});
-
+    const response = await send(api, method, path, data);
     observed.push(`${method} ${path} -> ${response.status}`);
   }
 

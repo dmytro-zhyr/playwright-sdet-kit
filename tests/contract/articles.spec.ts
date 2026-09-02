@@ -106,9 +106,10 @@ test('C-062 — creating an article refuses a body missing a required field', as
 
   const nothingCreated = await registeredUser.api.get(`/articles?author=${username}`);
   const refusedInto = nothingCreated.body as { articles: unknown[] };
-  expect(refusedInto.articles.length, 'a refused creation must not have created an article').toBe(
-    0
-  );
+  expect(
+    refusedInto.articles,
+    'a refused creation must not have created an article'
+  ).toHaveLength(0);
 
   const complete = await registeredUser.api.post('/articles', {
     article: factories.article.build(),

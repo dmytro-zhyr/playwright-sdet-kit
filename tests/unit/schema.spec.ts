@@ -1,6 +1,7 @@
 import { test, expect as playwrightExpect } from '@playwright/test';
 import { z } from 'zod';
 import { expect } from '@schemas/toMatchSchema';
+import { thrownMessage } from '@support/thrown';
 
 const Sample = z.strictObject({ id: z.string(), count: z.number() });
 
@@ -35,12 +36,7 @@ test('extending a strict schema keeps it strict', () => {
 // Turns red if the failure message stops naming the offending field, which is the whole reason
 // this matcher exists instead of a bare Schema.parse().
 test('the failure message names the field and the problem', () => {
-  let message = '';
-  try {
-    expect({ id: 1, count: 1 }).toMatchSchema(Sample);
-  } catch (error) {
-    message = error instanceof Error ? error.message : String(error);
-  }
+  const message = thrownMessage(() => expect({ id: 1, count: 1 }).toMatchSchema(Sample));
 
   playwrightExpect(message).toContain('id');
   playwrightExpect(message).not.toContain('ZodError');

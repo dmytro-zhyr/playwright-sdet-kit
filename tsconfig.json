@@ -14,7 +14,8 @@
       "@schemas/*": ["./schemas/*"],
       "@pipeline/*": ["./pipeline/*"],
       "@report/*": ["./report/*"],
-      "@fixtures": ["./fixtures.ts"]
+      "@fixtures": ["./fixtures.ts"],
+      "@support/*": ["./tests/support/*"]
     }
   },
   "include": ["**/*.ts"],
