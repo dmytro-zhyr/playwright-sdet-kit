@@ -152,6 +152,26 @@ expect(Array.isArray(body.articles)).toBe(true);
 - ⛔ **`any` is forbidden** — `@typescript-eslint/no-explicit-any` is an ESLint **error**, so
   `npm run lint` fails on it. TypeScript runs in `strict` mode; `npm run typecheck` is the other
   gate.
+- 🔑 **A missing `await` is an ESLint error, not a flaky test.** The rule set is
+  `recommendedTypeChecked`, so `@typescript-eslint/no-floating-promises` is on and it is
+  type-aware — nothing in the *syntax* of `expect(locator).toBeVisible()` says a promise came
+  back. Unawaited, that assertion never runs and the test reports success. Playwright's own
+  best-practices page names this rule for exactly that reason.
+
+```ts
+// ⛔ green, and looking at nothing
+expect(page.locator('h1')).toBeVisible();
+
+// ✅
+await expect(page.locator('h1')).toBeVisible();
+```
+
+  📌 **This is the same defect class the suite already found by hand** — a check that cannot go
+  red (`spec/FINDINGS.md`, "How D-12 was missed"). That one took a week and a person; this one is
+  caught every run by a rule.
+- 📌 **An `async` body with no `await` in it is also an error** (`require-await`). Not pedantry:
+  it is the exact shape a *missing* await leaves behind, so the two must not look alike. A test
+  that genuinely does no I/O drops the `async` keyword rather than earning an exemption.
 - 📌 A non-JSON body is handed back as the raw text rather than thrown away. A `503` with an HTML
   page arrives as a string in `body`.
 
