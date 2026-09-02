@@ -42,6 +42,47 @@ the schema matcher.
 | `@pipeline/*` | the agent-chain artifact parsers and validators |
 | `@report/*` | Allure categories and environment |
 | `@fixtures` | the merged `test` and `expect` — a file, so no trailing `/*` |
+| `@support/*` | ⬜ **temporary and wrong — see the decision below** |
+
+### ⬜ Decided 2 September 2026, not yet applied: `tests/support/` must go
+
+`tests/support/` was created to hold two helpers lifted out of test bodies for
+`playwright/no-conditional-in-test`. It breaks two rules of this layout at once, and both are
+written above: **`tests/` holds specifications only**, and **a directory is named for its subject,
+never for its role**. `support` is a role, and a role-named directory has no criterion for what
+does *not* belong in it, which is how it becomes the place things are put when nobody decided.
+
+The precedent was already here and went unread — `api/registerUser.ts`, whose own comment says it:
+a plain function, in the layer it belongs to, because independent callers need it.
+
+**The two helpers do not share an answer.**
+
+- ➡️ **`send()` and `Method` move to `api/send.ts`.** It takes a `ConduitClient` and returns an
+  `ApiResponse`; its subject is the client. ⛔ Not a fifth method on `ConduitClient`: dispatching a
+  verb read from a table is a test idiom, not a capability of a client, and no other consumer will
+  ask for it. The class is documented as doing four things and should keep doing four.
+- ➡️ **`thrownMessage()` moves to a new `assertions/`, and `toMatchSchema.ts` moves there with
+  it.** Its subject is neither the API nor deployments: it is *how we assert, and how we read a
+  failure*. That subject has no directory today, and `schemas/` is not it — `schemas/` currently
+  holds both the shapes data must have (`conduit.schema.ts`) and one way of claiming things about
+  them (`toMatchSchema.ts`), which is two subjects in one directory. Splitting them is the older
+  seam this problem exposed, not new work invented for it.
+
+  📌 **It has a constituency, not one caller.** Five modules here throw deliberately informative
+  errors — `api/conduitClient.ts`, `api/registerUser.ts`, `deployments/registry.ts`,
+  `pipeline/parse.ts`, `po/pages/editorPage.ts`. Reading the message one of them threw is what
+  `thrownMessage` is for; three unit tests do it today and five modules could.
+
+  ⚠️ **The argument against, kept because it is a real one:** `toMatchSchema` sits next to
+  `conduit.schema.ts` for a reason — it exists to assert schemas. Separating them puts the matcher
+  away from what it matches. The answer is that the matcher knows nothing about Conduit; it is
+  generic over `zod`, so it is bound to a library rather than to its neighbour.
+
+  ⛔ **Rejected: leave `toMatchSchema` in `schemas/` and give `assertions/` one file.** A directory
+  holding one thing and no criterion is `support/` again under a better name.
+
+**Cost, measured before deciding:** two import lines (`fixtures.ts`, `tests/unit/schema.spec.ts`),
+one alias, one row in the table above.
 
 📌 It used to be a single `@/*` pointing at the repository root, which made every import read
 `@/api/...` and told the reader nothing the path did not already say. Per-directory aliases match
