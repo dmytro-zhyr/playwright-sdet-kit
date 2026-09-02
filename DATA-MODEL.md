@@ -224,6 +224,12 @@ carry a defect of one target into a system that does not have it.
 
 ## 7. Now, and at the second system
 
+⚠️ **Two items below were corrected the next day, by pricing them against the code.** `Actor` is
+held until a test actually has two actors, and request schemas wait for a request shape that earns
+one — Conduit's are four flat fields. Both corrections, with their reasoning, are in
+[PLAN.md](PLAN.md) under Stage C. They are recorded there rather than edited away here, because a
+rule that was too eager is worth seeing next to what disproved it.
+
 🔴 **Designing three systems before the second one exists produces the wrong three.** An abstraction
 drawn from one example describes that example. So the split is by cost, not by appetite.
 

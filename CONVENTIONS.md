@@ -86,7 +86,8 @@ one alias, one row in the table above.
 
 ### ⬜ Decided 2 September 2026, not yet applied: three types that name a use, not a shape
 
-📌 **The reasoning behind all three now lives in [DATA-MODEL.md](DATA-MODEL.md)**, which
+📌 **Sequenced in [PLAN.md](PLAN.md), Stage A**, with the blast radius of each counted from the
+code. The reasoning behind all three lives in [DATA-MODEL.md](DATA-MODEL.md), which
 says what a test is written *out of* — schemas, types, factories, classes, fixtures — and was
 written against Salesforce as well as Conduit so the rules are not descriptions of one system.
 
