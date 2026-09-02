@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
-import { resolveDeployment, resolveUiDeployment } from './deployments/registry';
-import { ALLURE_CATEGORIES, allureEnvironment } from './report/allure';
+import { resolveDeployment, resolveUiDeployment } from '@deployments/registry';
+import { ALLURE_CATEGORIES, allureEnvironment } from '@report/allure';
 
 dotenv.config({ quiet: true });
 

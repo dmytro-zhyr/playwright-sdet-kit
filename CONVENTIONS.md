@@ -86,6 +86,10 @@ one alias, one row in the table above.
 
 ### ⬜ Decided 2 September 2026, not yet applied: three types that name a use, not a shape
 
+📌 **The reasoning behind all three now lives in [DATA-MODEL.md](DATA-MODEL.md)**, which
+says what a test is written *out of* — schemas, types, factories, classes, fixtures — and was
+written against Salesforce as well as Conduit so the rules are not descriptions of one system.
+
 Found while answering "why is `PageObjectFixtures` shaped like that". Independent of the move
 above, and of each other. The common thread is worth stating once: **a type is named for what it
 is, not for the first thing it was used for** — the same mistake as `support/`, one level down.
