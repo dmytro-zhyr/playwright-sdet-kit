@@ -84,6 +84,52 @@ a plain function, in the layer it belongs to, because independent callers need i
 **Cost, measured before deciding:** two import lines (`fixtures.ts`, `tests/unit/schema.spec.ts`),
 one alias, one row in the table above.
 
+### ⬜ Decided 2 September 2026, not yet applied: three types that name a use, not a shape
+
+Found while answering "why is `PageObjectFixtures` shaped like that". Independent of the move
+above, and of each other. The common thread is worth stating once: **a type is named for what it
+is, not for the first thing it was used for** — the same mistake as `support/`, one level down.
+
+**1. ⛔ `UiAccount` is `RegisteredAccount` under a second name.** Both are
+`{ user: NewUser; token: string }`, and the `uiAccount` fixture assigns one straight from
+`registerUser()`. Its comment claims the account "exists on the UI project's backend", but the
+type carries no such thing — structural typing accepts an account from any deployment without a
+word. Enforcing it would need a branded type, which is too much machinery for two fixtures.
+
+➡️ Delete `UiAccount`; `po/poFixtures.ts` imports `RegisteredAccount` from `@api/registerUser`, as
+it already imports `registerUser` and `ConduitClient` from there. The claim about *which* backend
+stays where it actually holds — the fixture's doc block, next to `UI_BACKEND`.
+
+📌 It also makes the fixture list read for itself. `uiAccount` and `signedIn` share a type because
+they are the same account; the difference is a side effect on the browser, not on the value —
+which is why `signedIn` has a name-by-name exemption in the ESLint config.
+
+**2. ⬜ `RegisteredUser` restates its parent instead of extending it.** It is
+`RegisteredAccount` plus `api: ConduitClient`, written out by hand, so a field added to
+`RegisteredAccount` would silently not arrive here.
+
+➡️ `type RegisteredUser = RegisteredAccount & { api: ConduitClient }`.
+
+**3. ⬜ `NewUser` names one use of the shape.** It is `{ username, email, password }` — what a
+sign-up sends, what the sign-up form fills, and, minus the username, what a login sends. Nothing
+in it is about being new, and `tests/contract/login.spec.ts` already builds one to sign in with,
+where "new" is simply false.
+
+➡️ Rename to `Credentials`. ⛔ Not `User` — the API's own `user` object is a different shape
+(`bio`, `image`, `token`), and the collision would be read as the same thing. ⛔ Not `Account` —
+that is what `RegisteredAccount` already means here.
+
+⚠️ **The case that raised it — a standing admin or moderator — does not belong to the factory at
+all.** `userFactory.build({ username: …, email: …, password: … })` with every field overridden
+uses the factory for nothing but its shape, and a shape is a type. A standing account is a fact
+about a deployment, not generated data, and this repository already has one way to hold those:
+a name in `.env`, resolved in one place, erroring with the list of valid names rather than
+falling back. That is where such an account arrives from when it arrives. The type is shared; the
+factory stays a factory of fresh accounts.
+
+📌 Only one override exists in the repository today — `factories.user.build({ username:
+'qa_fixed_name' })` in `tests/contract/registration.spec.ts`, which is a test *of the factory*.
+
 📌 It used to be a single `@/*` pointing at the repository root, which made every import read
 `@/api/...` and told the reader nothing the path did not already say. Per-directory aliases match
 [`websocket-test`](https://github.com/dmytro-zhyr/websocket-test), and an import now names a
