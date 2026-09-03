@@ -92,7 +92,7 @@ jobs:
       # sailed past it. The `ui` job below is where a browser is installed on purpose.
       - run: npm run lint
       - run: npm run typecheck
-      - run: npx c8 --reporter=none npm run test:unit
+      - run: ./node_modules/.bin/c8 --reporter=none npm run test:unit
 
       # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
       # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
@@ -264,7 +264,7 @@ jobs:
       - name: One report over all of them
         run: |
           if [ -d coverage/tmp ] && [ -n "$(ls -A coverage/tmp 2>/dev/null)" ]; then
-            npx c8 report --reporter=lcov --reporter=text-summary
+            ./node_modules/.bin/c8 report --reporter=lcov --reporter=text-summary
           else
             echo "No suite produced coverage counters; SonarQube will see none and say so."
           fi
@@ -332,7 +332,7 @@ jobs:
           fi
 
       # One worker, pinned by the `test:contract` script itself — see D-4 in spec/FINDINGS.md.
-      - run: npx c8 --reporter=none npm run test:contract
+      - run: ./node_modules/.bin/c8 --reporter=none npm run test:contract
 
       # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
       # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
@@ -389,6 +389,12 @@ jobs:
       # commands that happen to also run things, so a rule about installing fires on them — and
       # `npm exec --no` still did, which is fair: the reader cannot tell from the line alone that
       # nothing can be fetched. A path into `node_modules/.bin` says it and cannot do otherwise.
+      #
+      # ⚠️ **Written once and broken within the hour.** The `c8` lines added on 3 September used
+      # `npx` again and raised ten of these at once. A rule applied by hand to the lines in front of
+      # you is not applied — it is remembered, and the next commit forgets it. Every binary this
+      # workflow runs now comes out of `node_modules/.bin`, and that is the sentence to check
+      # against, not the one occurrence that prompted it.
       - run: ./node_modules/.bin/playwright install --with-deps chromium
 
       # Two variables, because the UI project names one deployment and uses both of its surfaces:
@@ -414,7 +420,7 @@ jobs:
             echo "conduit-overstrict UI: no repository variable set, keeping the default in deployments/registry.ts"
           fi
 
-      - run: npx c8 --reporter=none npm run test:ui
+      - run: ./node_modules/.bin/c8 --reporter=none npm run test:ui
 
       # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
       # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
@@ -493,7 +499,7 @@ jobs:
           fi
 
       # Expected to fail. A green run here is the news: it means a defect was fixed.
-      - run: npx c8 --reporter=none npm run test:defects
+      - run: ./node_modules/.bin/c8 --reporter=none npm run test:defects
 
       # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
       # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as

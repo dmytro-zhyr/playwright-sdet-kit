@@ -486,6 +486,12 @@ let the config decide; the `list` reporter is already the first one it declares.
 | `npm run snyk:deps`, `npm run snyk:code` | — | known vulnerabilities, and Snyk Code over our own source |
 | — | CI only | SonarQube Cloud: maintainability, duplication, the quality gate. No local command on purpose — a local run publishes into the same project and would put a dirty tree in the history |
 
+⛔ **In a workflow, run a binary from `node_modules/.bin`, never through `npx` or `npm exec`.** Both
+are install commands that also happen to run things, so nothing in the line tells a reader — or a
+scanner — that no package can be fetched. This was applied to one line on 3 September 2026 and
+broken by the next commit, which added five more; a rule you apply by hand is remembered rather
+than enforced.
+
 ### Everything is a `devDependency`
 
 There is no `dependencies` block, and that is a decision rather than an oversight. The split answers
