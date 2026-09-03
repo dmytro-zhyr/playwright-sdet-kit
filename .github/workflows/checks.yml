@@ -137,11 +137,16 @@ jobs:
             exit 1
           }
 
-      # 🔑 `--dev` is the flag that makes this a check at all. Without it Snyk tests **production**
-      # dependencies only — 4 of 216 here, because a test framework keeps its entire substance in
-      # devDependencies. It would have passed every time while looking at almost nothing, which is
-      # the same defect as D-12 wearing a security badge. Measured 3 September 2026: 4 dependencies
-      # without the flag, 216 with it.
+      # 🔑 `--dev` is the flag that makes this a check at all. Snyk tests **production**
+      # dependencies by default, and this package has none — it is private, unpublished, and
+      # everything it uses is development tooling. Measured 3 September 2026: **216 dependencies
+      # with the flag, and without it Snyk does not even print a count** — it prints a green tick
+      # over nothing. That is the purest form of the defect this repository spent a week on in
+      # D-12: a check that passes because it is not looking.
+      #
+      # ⛔ Do not "fix" that by moving packages back into `dependencies` to feed the scanner. The
+      # split answers one question — what must come with this package if someone installs it —
+      # and nobody installs this one. The flag is the answer; the split is not.
       #
       # `--severity-threshold=high` is a starting position, and it is now measured rather than
       # assumed: `npm audit` and `snyk test --dev` both report 0 at every severity, and

@@ -473,6 +473,25 @@ let the config decide; the `list` reporter is already the first one it declares.
 | `npm run test:unit` | `unit` | parser, matcher and URL helpers; no network |
 | `npm run test:defects` | `defects` | red on purpose; see the note below about its concurrency |
 | `npm run lint`, `npm run typecheck`, `npm run format` | — | ESLint, `tsc --noEmit`, Prettier |
+| `npm run snyk:deps`, `npm run snyk:code` | — | known vulnerabilities, and Snyk Code over our own source |
+
+### Everything is a `devDependency`
+
+There is no `dependencies` block, and that is a decision rather than an oversight. The split answers
+exactly one question — **what must be installed alongside this package when someone installs it** —
+and nobody installs this one: it is `"private": true`, has no `main` and no `files`, and is never
+published. So nothing here is a runtime dependency of anything.
+
+⚠️ **Upstream install instructions disagree with each other, and both are right for their own
+reader.** `dotenv` documents `--save` because it is written for an application that ships and reads
+its environment in production; `@faker-js/faker` and `@playwright/test` document `--save-dev`
+because they are development tooling. This repository is neither an application that ships nor a
+library that is consumed, so neither instruction transfers — the rule above is its own.
+
+🔑 **One tool reads the split and changes behaviour: Snyk.** `snyk test` scans production
+dependencies by default, which here is none at all. `--dev` is therefore load-bearing, and the
+reasoning is in `.github/workflows/checks.yml` next to the flag. ⛔ Never move a package into
+`dependencies` to make a scanner see it.
 
 ### Which target a project takes by default
 
