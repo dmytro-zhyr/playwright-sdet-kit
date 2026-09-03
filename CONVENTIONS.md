@@ -80,7 +80,10 @@ a plain function, in the layer it belongs to, because independent callers need i
 - ➡️ **`send()` and `Method` move to `api/send.ts`.** It takes a `ConduitClient` and returns an
   `ApiResponse`; its subject is the client. ⛔ Not a fifth method on `ConduitClient`: dispatching a
   verb read from a table is a test idiom, not a capability of a client, and no other consumer will
-  ask for it. The class is documented as doing four things and should keep doing four.
+  ask for it. ⚠️ This sentence used to end "the class does four things and should keep doing four";
+  it does five since 3 September 2026, because backing off a rate limit **is** a capability every
+  consumer of the client wants. The argument against `send()` was never the count — it was that
+  reading a verb out of a table is the test's business, and that still holds.
 - ➡️ **`thrownMessage()` moves to a new `assertions/`, and `toMatchSchema.ts` moves there with
   it.** Its subject is neither the API nor deployments: it is *how we assert, and how we read a
   failure*. That subject has no directory today, and `schemas/` is not it — `schemas/` currently
@@ -228,6 +231,13 @@ and the response body in the message. A test does not need to check that the fix
 recognisable by the `qa_` prefix in both `username` and `email`. See `spec/FINDINGS.md`.
 
 ## The client
+
+🔑 **A 429 is waited out, not reported.** The client backs off and asks again — four attempts,
+growing pauses, `Retry-After` honoured when the target sends one — and only then produces
+`Target unavailable`. 502, 503 and 504 do not retry: those say the target is broken, and asking
+again only postpones a truthful red. ⛔ Do not add a `retries` bump to work around a rate limit —
+re-running a whole test registers accounts again and sends **more** traffic at a target that just
+asked for less.
 
 ```ts
 type ApiResponse = { status: number; body: unknown };

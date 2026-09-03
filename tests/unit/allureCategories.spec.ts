@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import { Status } from 'allure-js-commons';
-import { ConduitClient, TARGET_UNAVAILABLE } from '@api/conduitClient';
+import { ConduitClient, TARGET_UNAVAILABLE, type RetryPolicy } from '@api/conduitClient';
 import { ALLURE_CATEGORIES } from '@report/allure';
 
 /**
@@ -19,18 +19,54 @@ import { ALLURE_CATEGORIES } from '@report/allure';
 
 /** A stand-in for one HTTP exchange, shaped like the part of APIResponse the client uses. */
 function respondingWith(status: number, body = '{}'): APIRequestContext {
-  const response = {
-    status: (): number => status,
-    text: (): Promise<string> => Promise.resolve(body),
-    url: (): string => 'https://example.invalid/api/articles',
+  return respondingInSequence([status], body);
+}
+
+/**
+ * The same stand-in, answering a different status each time it is asked.
+ *
+ * The client retries a 429, so a stub that can only give one answer cannot show the difference
+ * between backing off and giving up. The last entry repeats for any further calls.
+ */
+function respondingInSequence(statuses: number[], body = '{}'): APIRequestContext {
+  let call = 0;
+
+  const respond = (): unknown => {
+    const status = statuses[Math.min(call, statuses.length - 1)];
+    call += 1;
+    return {
+      status: (): number => status,
+      text: (): Promise<string> => Promise.resolve(body),
+      url: (): string => 'https://example.invalid/api/articles',
+      headers: (): Record<string, string> => ({}),
+    };
   };
 
   return {
-    get: () => Promise.resolve(response),
-    post: () => Promise.resolve(response),
-    put: () => Promise.resolve(response),
-    delete: () => Promise.resolve(response),
+    get: () => Promise.resolve(respond()),
+    post: () => Promise.resolve(respond()),
+    put: () => Promise.resolve(respond()),
+    delete: () => Promise.resolve(respond()),
   } as unknown as APIRequestContext;
+}
+
+/**
+ * The client's waiting, made instant and countable.
+ *
+ * ⛔ Not a shorter real delay. A test that sleeps is a test that is slow for a reason unrelated to
+ * what it is checking, and the thing worth checking here is *how many times* the client waited,
+ * not for how long.
+ */
+function noWait(): RetryPolicy & { waits: number[] } {
+  const waits: number[] = [];
+  return {
+    attempts: 4,
+    waits,
+    pause: (ms: number): Promise<void> => {
+      waits.push(ms);
+      return Promise.resolve();
+    },
+  };
 }
 
 /**
@@ -98,7 +134,7 @@ const CONTRACT_TRACE = 'at /home/runner/work/kit/kit/tests/contract/not-found.sp
 // one is a case where carrying on produces a failure three steps later, naming the wrong thing.
 for (const status of [429, 502, 503, 504]) {
   test(`the client refuses HTTP ${status} instead of returning it`, async () => {
-    const client = new ConduitClient(respondingWith(status));
+    const client = new ConduitClient(respondingWith(status), undefined, noWait());
 
     await expect(client.get('/articles')).rejects.toThrow(TARGET_UNAVAILABLE);
   });
@@ -109,17 +145,40 @@ for (const status of [429, 502, 503, 504]) {
 // that swallowed it would delete that finding.
 for (const status of [200, 401, 404, 422, 500]) {
   test(`the client returns HTTP ${status} to the test, as it always has`, async () => {
-    const client = new ConduitClient(respondingWith(status));
+    const client = new ConduitClient(respondingWith(status), undefined, noWait());
 
     expect((await client.get('/articles')).status).toBe(status);
   });
 }
 
+// Turns red if the client stops backing off on a rate limit and goes straight to refusing. The
+// target answers 429 twice and then serves the request; a client that gives up on the first one
+// turns a passing test red for a reason that is not about the application.
+test('a rate limit is waited out rather than reported', async () => {
+  const retry = noWait();
+  const client = new ConduitClient(respondingInSequence([429, 429, 200]), undefined, retry);
+
+  expect((await client.get('/articles')).status, 'the third answer is the one that counts').toBe(
+    200
+  );
+  expect(retry.waits, 'it waited once per refusal, and the waits grow').toEqual([500, 1000]);
+});
+
+// And the other half: backing off is bounded. A target that never stops saying 429 still produces
+// the same failure it always did, so the report tells one story rather than two.
+test('a rate limit that never lifts still ends as an unavailable target', async () => {
+  const retry = noWait();
+  const client = new ConduitClient(respondingWith(429), undefined, retry);
+
+  await expect(client.get('/articles')).rejects.toThrow(TARGET_UNAVAILABLE);
+  expect(retry.waits, 'four attempts means three waits').toHaveLength(3);
+});
+
 // 🔑 The check this file exists for. A 429 inside tests/defects/ matches BOTH categories — the
 // message of one and the file path of the other — so it is decided by order alone. Reverse the two
 // declarations and this is the test that says so.
 test('an unavailable target inside tests/defects is not counted as a known defect', async () => {
-  const client = new ConduitClient(respondingWith(429));
+  const client = new ConduitClient(respondingWith(429), undefined, noWait());
   const message = await client
     .get('/articles')
     .then(() => '')
