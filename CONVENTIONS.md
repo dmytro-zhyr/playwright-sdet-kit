@@ -44,6 +44,26 @@ the schema matcher.
 | `@fixtures` | the merged `test` and `expect` — a file, so no trailing `/*` |
 | `@assertions/*` | how we claim things and how we read a failure — `toMatchSchema`, `thrownMessage` |
 
+### Not every layer has fixtures, and that is the rule rather than an omission
+
+Four of the eight directories carry a `*Fixtures.ts`, and it is not an accident that the others do
+not. A layer joins the composition in one of three ways:
+
+| Joins | Layers | Because |
+|---|---|---|
+| `mergeTests` | `api`, `data`, `deployments`, `po` | they hand a test something **built for that test**, with a lifetime |
+| `mergeExpects` | `assertions` | it extends **how a claim is made**, not what is handed over |
+| neither — imported directly | `schemas`, `report`, `pipeline` | nothing per-test to build |
+
+🔑 The decision test is the one in [DATA-MODEL.md](DATA-MODEL.md) §1: **does it need setup or
+teardown per test?** A matcher needs neither — same function every time, no state, nothing to
+dispose. ⛔ Wrapping it in a fixture would give it a lifetime it does not have and force every test
+wanting `toMatchSchema` to destructure it.
+
+📌 A layer need not join in only one way. `assertions/` sends `toMatchSchema` into `expect` and
+`thrownMessage` nowhere — it is imported where it is used. The directory is named for its subject;
+its members join where each belongs.
+
 ### ✅ Decided 2 September 2026, applied 3 September: `tests/support/` is gone
 
 `tests/support/` was created to hold two helpers lifted out of test bodies for
