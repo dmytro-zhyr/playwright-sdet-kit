@@ -486,6 +486,35 @@ let the config decide; the `list` reporter is already the first one it declares.
 | `npm run snyk:deps`, `npm run snyk:code` | — | known vulnerabilities, and Snyk Code over our own source |
 | — | CI only | SonarQube Cloud: maintainability, duplication, the quality gate. No local command on purpose — a local run publishes into the same project and would put a dirty tree in the history |
 
+### What coverage counts, and what it deliberately does not
+
+There are three layers here, and confusing the middle two is what makes a coverage figure
+meaningless:
+
+| Layer | What it is | Example |
+|---|---|---|
+| The framework | what this repository produces | `api/`, `po/`, `data/`, `schemas/`, `pipeline/` |
+| Tests **of** the framework | what proves the framework works | `tests/unit/` |
+| Tests **written with** the framework | what the framework is *for* | `tests/contract/`, `tests/ui/`, `tests/defects/` |
+
+🔑 **Coverage is reported from `tests/unit/` alone.** The third layer is the product, not a test of
+this code, and a figure made from it answers a different question than the one it appears to.
+
+⚠️ **Not because those suites fail to exercise the framework** — they exercise it heavily and go red
+when it breaks. Because they go red with a message about somebody else's API, and only while that
+API is reachable. A number that cannot tell *this line is untested* from *the target was down* is
+not a measurement. Measured 4 September 2026 from one run: **96% with them, 67.77% without**. The
+larger number is not a better result; it is a different question with a third party inside it.
+
+📌 **So `po/`, `fixtures.ts` and `api/registerUser.ts` have no unit tests, and that is stated rather
+than hidden.** Their proof is the UI suite, which is the right proof for a page object. The figure
+says two thirds because two thirds is what this repository tests on its own, and the rest is tested
+the only way it can be.
+
+⛔ **The coverage condition is therefore not a blocking one in the quality gate.** The five static
+conditions block; coverage is reported. A gate that cannot attribute its own red teaches people to
+ignore it.
+
 ⛔ **In a workflow, run a binary from `node_modules/.bin`, never through `npx` or `npm exec`.** Both
 are install commands that also happen to run things, so nothing in the line tells a reader — or a
 scanner — that no package can be fetched. This was applied to one line on 3 September 2026 and

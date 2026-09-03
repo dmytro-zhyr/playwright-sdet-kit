@@ -16,32 +16,9 @@ const LOGIN_SUCCESS = [200, 201];
 const LOGIN_SUCCESS_MESSAGE =
   'the specification states no success status for login, only that it returns a User, so 200 and 201 are both accepted';
 
-// These two build objects and assert on them; nothing here is asynchronous. They were `async`
-// anyway, because every other test in the repository is, and `require-await` — new with the
-// type-checked rule set — is what noticed. Worth keeping the fix rather than the exemption: an
-// `async` body with no `await` in a Playwright suite is exactly the shape a *missing* await
-// leaves behind, so the two cases should not look alike.
-// Turns red if the factory starts reusing values, which would make parallel workers collide on
-// the same account, or if the qa_ prefix is dropped and the accounts stop being recognisable.
-test('the user factory produces unique, recognisable accounts', ({ factories }) => {
-  const first = factories.user.build();
-  const second = factories.user.build();
-
-  expect(first.email).not.toBe(second.email);
-  expect(first.username).not.toBe(second.username);
-  expect(first.username.startsWith('qa_'), 'accounts must be recognisable as ours').toBe(true);
-  expect(first.email.startsWith('qa_'), 'accounts must be recognisable as ours').toBe(true);
-});
-
-// Turns red if overrides stop being applied, which would silently ignore the one field a test
-// cares about while still producing a plausible-looking user.
-test('the user factory applies overrides', ({ factories }) => {
-  const user = factories.user.build({ username: 'qa_fixed_name' });
-
-  expect(user.username).toBe('qa_fixed_name');
-  expect(user.email).toBeTruthy();
-  expect(user.password).toBeTruthy();
-});
+// 📌 The two factory tests that used to open this file are in `tests/unit/factories.spec.ts` now.
+// They asserted on a built object and touched no network, so they belonged to the suite that tests
+// this repository's own code — not to the one that needs a live deployment to run at all.
 
 // Turns red if registration stops returning a usable token, or if the token stops being attached
 // to the client the fixture hands over.
