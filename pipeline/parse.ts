@@ -180,12 +180,16 @@ const OBJECTION_HEADING = /^### (O-\d{3}) — (.+)$/;
 // ⚠️ Two attempts to satisfy it by rewriting the pattern both failed, and the third answer was not
 // a better pattern. This expression was doing three jobs — recognise the heading, isolate the
 // separator, isolate the title — and only the first is work for a regular expression. Splitting
-// the remainder is a two-line job in code that says plainly what it does, and each expression
-// below now carries a single quantifier with nothing after it to be ambiguous against.
+// the remainder is a two-line job in code that says plainly what it does.
+//
+// ⚠️ And the same mistake once more, on a pair I had not looked at: `(\d+)(.*)` overlaps too, since
+// `\d` is inside `.`. The remainder now has to start with a non-digit — which is also what the
+// format says, three digits and then a separator. Three rounds on one rule, and each round was the
+// same error: checking one pair of quantifiers and not the next.
 //
 // 📌 The behaviour is unchanged on purpose: `separator` is still `''` when nothing follows the
 // identifier, which is what makes the missing-em-dash message fire.
-const LOOSE_HEADING = /^### ([RCO])-(\d+)(.*)$/u;
+const LOOSE_HEADING = /^### ([RCO])-(\d+)([^\d].*|)$/u;
 const LEADING_BLANKS = /^[ \t]+/;
 const LEADING_PUNCTUATION = /^[^\w\s]*/u;
 
