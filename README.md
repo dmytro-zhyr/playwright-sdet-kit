@@ -34,6 +34,8 @@ npm run test:ui           # browser tests against the UI gate
 npm run test:defects      # known defects, each naming its deployment — red on purpose
 npm run lint
 npm run typecheck
+npm run snyk:deps         # known vulnerabilities in dependencies
+npm run snyk:code         # Snyk Code over this repository's own source
 ```
 
 `contract`, `unit` and `defects` need no browser: they go through `APIRequestContext` only.

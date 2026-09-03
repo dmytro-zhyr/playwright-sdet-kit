@@ -14,7 +14,9 @@
     "allure:open": "allure open allure-report",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "snyk:deps": "snyk test --severity-threshold=high",
+    "snyk:code": "snyk code test --severity-threshold=high"
   },
   "keywords": [],
   "author": "",
@@ -33,6 +35,7 @@
     "jsforce": "^3.10.22",
     "prettier": "^3.9.6",
     "rimraf": "^6.1.3",
+    "snyk": "^1.1307.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0"
   },

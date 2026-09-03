@@ -6,6 +6,7 @@ name: checks
 #   contract  are this code and these schemas still in agreement with the gate deployment
 #   ui        do sign-up, sign-in and publishing still work for a user in a real browser
 #   defects   is the deployment each test names still broken
+#   security  known vulnerabilities in dependencies, and Snyk Code over our own source
 #   report    one Allure report over whichever of the four ran
 #
 # 🔑 The job names are written on one axis on purpose — `id — what is measured, against what` —
@@ -91,6 +92,65 @@ jobs:
           name: allure-results-static
           path: allure-results/
           retention-days: 7
+
+  # Parallel to `static`, and deliberately not a dependency of anything: a vulnerable transitive
+  # dependency says nothing about whether the contract holds, and a red gate here should not hide
+  # the answer to a different question.
+  security:
+    name: security — dependencies and code, against Snyk
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # ⛔ Not `snyk/actions/node@master`. Snyk publishes its action only on a moving branch, and
+      # this repository pins everything else it runs. The CLI is a devDependency instead — ten
+      # packages, in the lock file, the same version here and locally — which is how
+      # `allure-commandline` is handled and for the same reason.
+      #
+      # 📌 It follows that `npm run snyk:deps` works on a laptop too. A check that only exists on
+      # CI is a check nobody runs while writing the thing it would have caught.
+
+      # A missing token fails the job. The alternative — skipping when the secret is absent — is a
+      # security check that reports success while looking at nothing, which is the exact defect
+      # this repository spent a week on in D-12. If this job is red because nothing is configured,
+      # that is the correct report.
+      - name: The token is configured
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          test -n "$SNYK_TOKEN" || {
+            echo "SNYK_TOKEN is not set. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          }
+
+      # `--severity-threshold=high`, and the number is a starting position rather than a finding.
+      # `npm audit` reports 0 vulnerabilities of any severity across 216 dependencies today
+      # (measured 3 September 2026), so nothing is being hidden by this threshold — but Snyk's
+      # database is wider than npm's, and what it says has not been measured yet. If the first run
+      # is clean at `high`, tighten it; that is then a measurement rather than a guess.
+      #
+      # ⛔ No `.snyk` policy file. There is nothing to ignore, and writing an ignore file before
+      # there is something to ignore builds policy for a problem that does not exist.
+      - name: Dependencies
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: npm run snyk:deps
+
+      # Snyk Code is static analysis over this repository's own source, not a lookup in a
+      # vulnerability database. ⚠️ It has to be enabled once for the organisation in Snyk's
+      # settings; until it is, this step fails with a message saying so rather than passing.
+      - name: Our own code
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: npm run snyk:code
 
   contract:
     name: contract — schemas vs conduit-gate
