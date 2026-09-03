@@ -39,7 +39,7 @@ does not carry and structural typing will not enforce.
 **Radius:** `po/poFixtures.ts` only. The claim about which backend stays in the fixture's doc block,
 next to `UI_BACKEND`, where it actually holds.
 
-### A3 · `RegisteredUser` becomes an intersection
+### ✅ A3 · `RegisteredUser` becomes an intersection — done 03.09.2026
 
 `type RegisteredUser = RegisteredAccount & { api: ConduitClient }`, instead of restating its
 parent's fields by hand where a later addition would silently not arrive.

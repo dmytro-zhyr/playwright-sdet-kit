@@ -1,13 +1,11 @@
 import { test as base } from '@playwright/test';
 import { ConduitClient } from '@api/conduitClient';
-import { registerUser } from '@api/registerUser';
-import type { NewUser } from '@data/userFactory';
+import { registerUser, type RegisteredAccount } from '@api/registerUser';
 
-export type RegisteredUser = {
-  user: NewUser;
-  token: string;
-  api: ConduitClient;
-};
+// The account `registerUser` hands back, plus a client already carrying its token. Written as an
+// intersection rather than by restating the fields: a field added to `RegisteredAccount` has to
+// arrive here, and spelling them out again is how that stops happening quietly.
+export type RegisteredUser = RegisteredAccount & { api: ConduitClient };
 
 export type ApiFixtures = {
   api: ConduitClient;
