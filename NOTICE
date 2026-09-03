@@ -1,0 +1,25 @@
+# Third-party content in this repository
+
+Everything under `.claude/` is not one thing, and the difference matters when reading it.
+
+## Written here
+
+- `.claude/agents/ba.md`, `qa.md`, `ta.md`, `critic.md` — the agent chain this repository is
+  about. Their design, their handoff contract and the artifacts they produce are the subject of
+  `pipeline/` and of the README.
+
+## Vendored, not ours
+
+- `.claude/agents/playwright-test-planner.md`, `playwright-test-generator.md`,
+  `playwright-test-healer.md`
+- `.claude/skills/playwright-cli/`, `.claude/skills/playwright-component-testing/`,
+  `.claude/skills/playwright-trace/`
+
+These are Playwright tooling definitions shipped with Claude Code, vendored into the repository so
+that a clone reproduces the same environment. They are included unmodified and are the property of
+their respective authors. They are not part of what this repository claims as its own work, and
+nothing in the MIT licence above is asserted over them.
+
+📌 They are kept because reproducibility is the point: `CONVENTIONS.md` records that the CLI is the
+first choice and MCP the fallback, and that decision is only checkable if the tooling it names is
+present.

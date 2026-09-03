@@ -19,6 +19,10 @@ tests. Every handoff between agents is a diffable artifact under git, and its sh
 
 The agents commit nothing themselves. They produce **proposals** in `pipeline/`; a human decides.
 
+📌 `ba`, `qa`, `ta` and `critic` under `.claude/agents/` are written here. The `playwright-*`
+agents and skills beside them are vendored Claude Code tooling, included unmodified — see
+[NOTICE](NOTICE). MIT licensed: [LICENSE](LICENSE).
+
 [CONVENTIONS.md](CONVENTIONS.md) is how to write a test here. [DATA-MODEL.md](DATA-MODEL.md) is what a
 test is written out of: which shapes come from schemas, what a factory may and may not know, and
 where an id, a token and a role each belong.
