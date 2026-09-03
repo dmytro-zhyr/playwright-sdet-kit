@@ -88,6 +88,7 @@ export default tseslint.config(
       'playwright-report/',
       'allure-results/',
       'allure-report/',
+      'coverage/',
     ],
   }
 );

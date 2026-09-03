@@ -6,3 +6,4 @@ playwright-report/
 allure-results/
 allure-report/
 .allure-history-carry/
+coverage/

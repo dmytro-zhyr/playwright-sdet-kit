@@ -92,7 +92,20 @@ jobs:
       # sailed past it. The `ui` job below is where a browser is installed on purpose.
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run test:unit
+      - run: npx c8 --reporter=none npm run test:unit
+
+      # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
+      # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
+      # `report` merges Allure results. `--reporter=none` because generating a report here would
+      # only produce four reports nobody compares.
+      - name: Coverage counters
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-unit
+          path: coverage/tmp/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Allure results
         if: ${{ !cancelled() }}
@@ -205,7 +218,12 @@ jobs:
   # would enter the analysis history and the trend would stop meaning anything. The rule is about
   # checks that could run locally without side effects. This one has one.
   quality:
-    name: quality — maintainability and duplication, against SonarQube Cloud
+    name: quality — maintainability, duplication and coverage, against SonarQube Cloud
+    # Late rather than parallel, because coverage arrives from the suites and a figure assembled
+    # from some of them is not the figure. `!cancelled()` for the same reason `report` has it: a
+    # suite that went red is exactly when this is worth reading.
+    needs: [static, contract, ui, defects]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -225,9 +243,43 @@ jobs:
             exit 1
           }
 
+      - run: npm ci --ignore-scripts
+
+      # Every fragment that arrived, into one directory. `continue-on-error` and the check below
+      # have the same shape as in `report`: a run that stopped before any suite ran has nothing to
+      # merge, and that is a sentence rather than a failure.
+      - name: Collect the coverage counters of every suite that ran
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: coverage/tmp/
+          merge-multiple: true
+
+      # 🔑 `--all` is what makes the number honest, and it lives in `.c8rc.json` so a collecting run
+      # and this one cannot disagree about it. Without it c8 reports only the files something
+      # loaded, so a file no test touches leaves the denominator instead of scoring zero. Measured
+      # 3 September 2026 from one run: 96.72% over ten files, 66.91% over all of them. The first
+      # number is not a better result, it is a smaller question.
+      - name: One report over all of them
+        run: |
+          if [ -d coverage/tmp ] && [ -n "$(ls -A coverage/tmp 2>/dev/null)" ]; then
+            npx c8 report --reporter=lcov --reporter=text-summary
+          else
+            echo "No suite produced coverage counters; SonarQube will see none and say so."
+          fi
+
       # `qualitygate.wait=true` makes this a gate rather than a notification: the job ends red when
       # the quality gate fails, in the same list as everything else. Without it the scanner uploads
       # and exits 0, and the result lives only on a dashboard.
+      #
+      # ⚠️ **Coverage is reported here and does not block, and that is deliberate.** It is measured
+      # partly by suites that talk to live third-party deployments, so a 429 or an outage lowers it
+      # — and a quality gate cannot then tell "this code is untested" from "the target was down".
+      # A gate that cannot attribute its own red is the defect this repository exists to
+      # demonstrate, one level up. The other five conditions are pure static analysis, depend on
+      # nothing outside this repository, and do block.
+      #
       # Pinned to a commit, not to `v8.2.1`. A tag can be moved by whoever owns the repository;
       # a commit cannot. SonarQube's own `githubactions:S7637` asked for this, and it is the same
       # rule this file already applied when it refused Snyk's `@master` — it just had not been
@@ -280,7 +332,20 @@ jobs:
           fi
 
       # One worker, pinned by the `test:contract` script itself — see D-4 in spec/FINDINGS.md.
-      - run: npm run test:contract
+      - run: npx c8 --reporter=none npm run test:contract
+
+      # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
+      # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
+      # `report` merges Allure results. `--reporter=none` because generating a report here would
+      # only produce four reports nobody compares.
+      - name: Coverage counters
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-contract
+          path: coverage/tmp/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Playwright report
         # `!cancelled()`, not `always()`: a run somebody cancelled by hand should not spill
@@ -349,7 +414,20 @@ jobs:
             echo "conduit-overstrict UI: no repository variable set, keeping the default in deployments/registry.ts"
           fi
 
-      - run: npm run test:ui
+      - run: npx c8 --reporter=none npm run test:ui
+
+      # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
+      # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
+      # `report` merges Allure results. `--reporter=none` because generating a report here would
+      # only produce four reports nobody compares.
+      - name: Coverage counters
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-ui
+          path: coverage/tmp/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Playwright report
         if: ${{ !cancelled() }}
@@ -415,7 +493,20 @@ jobs:
           fi
 
       # Expected to fail. A green run here is the news: it means a defect was fixed.
-      - run: npm run test:defects
+      - run: npx c8 --reporter=none npm run test:defects
+
+      # The raw V8 counters, not a report. One suite's numbers are not a coverage figure — they are
+      # a fragment of one — and the `quality` job merges whatever fragments arrived, exactly as
+      # `report` merges Allure results. `--reporter=none` because generating a report here would
+      # only produce four reports nobody compares.
+      - name: Coverage counters
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-defects
+          path: coverage/tmp/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Defects report
         if: ${{ !cancelled() }}

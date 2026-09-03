@@ -1,0 +1,18 @@
+{
+  "all": true,
+  "src": ["."],
+  "include": [
+    "api/**",
+    "assertions/**",
+    "data/**",
+    "deployments/**",
+    "fixtures.ts",
+    "pipeline/**",
+    "playwright.config.ts",
+    "po/**",
+    "report/**",
+    "schemas/**"
+  ],
+  "exclude": ["**/*.spec.ts", "report/*.mjs", "node_modules/**"],
+  "temp-directory": "coverage/tmp"
+}
