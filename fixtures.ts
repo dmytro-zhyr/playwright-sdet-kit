@@ -3,7 +3,7 @@ import { test as apiTest } from '@api/apiFixtures';
 import { test as deploymentTest } from '@deployments/deploymentFixtures';
 import { test as dataTest } from '@data/dataFixtures';
 import { test as poTest } from '@po/poFixtures';
-import { expect as schemaExpect } from '@schemas/toMatchSchema';
+import { expect as schemaExpect } from '@assertions/toMatchSchema';
 
 // `po` joins as one more argument, which is the whole point of composing fixtures this way:
 // the UI layer arrived in stage 3 without a line changing in api/ or data/. A test that never

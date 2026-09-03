@@ -6,7 +6,7 @@ import {
   resolveUiDeployment,
   uiDeploymentNames,
 } from '@deployments/registry';
-import { thrownMessage } from '@support/thrown';
+import { thrownMessage } from '@assertions/thrown';
 
 // An environment with nothing in it, so a default is exercised as a default rather than as
 // whatever the machine running the suite happens to export.

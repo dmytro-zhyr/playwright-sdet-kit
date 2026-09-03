@@ -12,10 +12,10 @@
       "@data/*": ["./data/*"],
       "@po/*": ["./po/*"],
       "@schemas/*": ["./schemas/*"],
+      "@assertions/*": ["./assertions/*"],
       "@pipeline/*": ["./pipeline/*"],
       "@report/*": ["./report/*"],
-      "@fixtures": ["./fixtures.ts"],
-      "@support/*": ["./tests/support/*"]
+      "@fixtures": ["./fixtures.ts"]
     }
   },
   "include": ["**/*.ts"],

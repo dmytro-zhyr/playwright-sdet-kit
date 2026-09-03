@@ -14,7 +14,7 @@ started.
 These fix confusion that exists today. None of them needs a new abstraction, and each is
 independently revertible.
 
-### A1 · Undo `tests/support/`
+### ✅ A1 · Undo `tests/support/` — done 03.09.2026
 
 `tests/` holds specifications only, and a directory is named for its subject, never for its role.
 

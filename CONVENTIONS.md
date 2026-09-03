@@ -27,7 +27,7 @@ of our fixtures, and its `expect` has no `toMatchSchema`.
 📌 `tests/defects/` imports exactly the same way, from `@fixtures`.
 
 📌 Exception: `tests/unit/` tests the framework's own code, needs no fixtures, and imports `test`
-straight from `@playwright/test`. It imports `expect` from `@schemas/toMatchSchema` when it needs
+straight from `@playwright/test`. It imports `expect` from `@assertions/toMatchSchema` when it needs
 the schema matcher.
 
 **One alias per directory**, declared in `tsconfig.json`:
@@ -42,9 +42,9 @@ the schema matcher.
 | `@pipeline/*` | the agent-chain artifact parsers and validators |
 | `@report/*` | Allure categories and environment |
 | `@fixtures` | the merged `test` and `expect` — a file, so no trailing `/*` |
-| `@support/*` | ⬜ **temporary and wrong — see the decision below** |
+| `@assertions/*` | how we claim things and how we read a failure — `toMatchSchema`, `thrownMessage` |
 
-### ⬜ Decided 2 September 2026, not yet applied: `tests/support/` must go
+### ✅ Decided 2 September 2026, applied 3 September: `tests/support/` is gone
 
 `tests/support/` was created to hold two helpers lifted out of test bodies for
 `playwright/no-conditional-in-test`. It breaks two rules of this layout at once, and both are
