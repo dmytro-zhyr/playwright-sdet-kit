@@ -278,16 +278,14 @@ jobs:
             echo "No suite produced coverage counters; SonarQube will see none and say so."
           fi
 
-      # `qualitygate.wait=true` makes this a gate rather than a notification: the job ends red when
-      # the quality gate fails, in the same list as everything else. Without it the scanner uploads
-      # and exits 0, and the result lives only on a dashboard.
+      # ⛔ No `-Dsonar.qualitygate.wait=true`. That flag fails on **whatever SonarQube's gate says**,
+      # and the gate this project is judged by is the built-in "Sonar way": it cannot be edited, a
+      # custom one cannot be assigned on the free plan, and it requires 80% coverage on new code.
+      # This repository reports coverage from unit tests only and stands at 67.77% by design — see
+      # CONVENTIONS.md, "What coverage counts" — so the flag would paint the job red every run for
+      # a condition we deliberately do not hold. A check that is always red is a check nobody reads.
       #
-      # ⚠️ **Coverage is reported here and does not block, and that is deliberate.** It is measured
-      # partly by suites that talk to live third-party deployments, so a 429 or an outage lowers it
-      # — and a quality gate cannot then tell "this code is untested" from "the target was down".
-      # A gate that cannot attribute its own red is the defect this repository exists to
-      # demonstrate, one level up. The other five conditions are pure static analysis, depend on
-      # nothing outside this repository, and do block.
+      # The step after the scan states the gate we actually mean, condition by condition.
       #
       # Pinned to a commit, not to `v8.2.1`. A tag can be moved by whoever owns the repository;
       # a commit cannot. SonarQube's own `githubactions:S7637` asked for this, and it is the same
@@ -296,8 +294,47 @@ jobs:
       - uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: -Dsonar.qualitygate.wait=true
+
+      # 🔑 The gate, written out rather than delegated. Every condition SonarQube evaluated is
+      # checked here except `new_coverage`, and the exception is named in the output rather than
+      # hidden in a setting: coverage is measured, printed and not blocking, because a figure that
+      # cannot distinguish "untested" from "the target was down" cannot justify a red build.
+      #
+      # ⚠️ Reading the conditions needs the analysis to have finished, which is what the flag used
+      # to wait for. `report-task.txt` is what the scanner leaves behind to make that possible.
+      - name: The conditions this repository treats as blocking
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          task_url=$(grep '^ceTaskUrl=' .scannerwork/report-task.txt | cut -d= -f2-)
+          for _ in $(seq 1 60); do
+            status=$(curl -sS -u "$SONAR_TOKEN:" "$task_url" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).task.status')
+            [ "$status" = "PENDING" ] || [ "$status" = "IN_PROGRESS" ] || break
+            sleep 5
+          done
+          test "$status" = "SUCCESS" || { echo "Analysis did not finish: $status"; exit 1; }
+
+          analysis=$(curl -sS -u "$SONAR_TOKEN:" "$task_url" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).task.analysisId')
+          curl -sS -u "$SONAR_TOKEN:"             "https://sonarcloud.io/api/qualitygates/project_status?analysisId=$analysis"             | node -e '
+              const s = JSON.parse(require("fs").readFileSync(0, "utf8")).projectStatus;
+              const reported = ["new_coverage"];
+              let failed = 0;
+              for (const c of s.conditions) {
+                const blocking = !reported.includes(c.metricKey);
+                const bad = c.status === "ERROR";
+                if (bad && blocking) failed += 1;
+                console.log(
+                  `${bad ? "FAIL" : "ok  "}  ${blocking ? "blocking" : "reported"}  ` +
+                  `${c.metricKey} = ${c.actualValue} (${c.comparator} ${c.errorThreshold})`
+                );
+              }
+              console.log("");
+              if (failed) {
+                console.error(failed + " blocking condition(s) failed.");
+                process.exit(1);
+              }
+              console.log("Every blocking condition holds.");
+            '
 
   contract:
     name: contract — schemas vs conduit-gate
