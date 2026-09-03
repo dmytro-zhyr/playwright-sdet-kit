@@ -7,6 +7,7 @@ name: checks
 #   ui        do sign-up, sign-in and publishing still work for a user in a real browser
 #   defects   is the deployment each test names still broken
 #   security  known vulnerabilities in dependencies, and Snyk Code over our own source
+#   quality   maintainability, duplication and the quality gate, from SonarQube Cloud
 #   report    one Allure report over whichever of the four ran
 #   pages     that report, published from main so it has an address rather than a download
 #
@@ -177,6 +178,54 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: npm run snyk:code
+
+  # Parallel to `static` and `security`, and a dependency of nothing, for the same reason: what
+  # SonarQube says about maintainability is a different question from whether the contract holds.
+  #
+  # ⛔ Automatic Analysis is switched off in the project's settings, and it has to stay off — the
+  # two cannot both run, and the CI one fails loudly saying so. It is off on purpose rather than by
+  # accident: analysis belongs in this checks list, beside `static` and `security`, not on a
+  # dashboard nobody opens. It is also the only way to control the split below.
+  #
+  # 🔑 That split is the whole reason to configure this rather than let it scan: `sonar.tests`
+  # tells SonarQube which files are tests, and rules about duplication and dead stores are applied
+  # differently to them. Analysed as source, `tests/` would produce a page of findings about test
+  # code being test-shaped.
+  #
+  # ⚠️ Unlike `security`, this one has no local command, and that is a deliberate exception to the
+  # rule stated there — "a check that only exists on CI is a check nobody runs". It does not
+  # transfer: a scanner run from a laptop publishes into the same project, so a dirty working tree
+  # would enter the analysis history and the trend would stop meaning anything. The rule is about
+  # checks that could run locally without side effects. This one has one.
+  quality:
+    name: quality — maintainability and duplication, against SonarQube Cloud
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # ⛔ Not the default shallow clone. SonarQube reads blame to attribute an issue to the
+          # change that introduced it, which is what makes "new code" a meaningful category rather
+          # than a synonym for "the whole file".
+          fetch-depth: 0
+
+      - name: The token is configured
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test -n "$SONAR_TOKEN" || {
+            echo "SONAR_TOKEN is not set. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          }
+
+      # `qualitygate.wait=true` makes this a gate rather than a notification: the job ends red when
+      # the quality gate fails, in the same list as everything else. Without it the scanner uploads
+      # and exits 0, and the result lives only on a dashboard.
+      - uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.qualitygate.wait=true
 
   contract:
     name: contract — schemas vs conduit-gate

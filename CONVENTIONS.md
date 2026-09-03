@@ -484,6 +484,7 @@ let the config decide; the `list` reporter is already the first one it declares.
 | `npm run test:defects` | `defects` | red on purpose; see the note below about its concurrency |
 | `npm run lint`, `npm run typecheck`, `npm run format` | — | ESLint, `tsc --noEmit`, Prettier |
 | `npm run snyk:deps`, `npm run snyk:code` | — | known vulnerabilities, and Snyk Code over our own source |
+| — | CI only | SonarQube Cloud: maintainability, duplication, the quality gate. No local command on purpose — a local run publishes into the same project and would put a dirty tree in the history |
 
 ### Everything is a `devDependency`
 
