@@ -320,11 +320,11 @@ jobs:
       # Chromium only. The suite runs one project against one browser, and installing three would
       # download about 400 MB to leave two of them unused. `--with-deps` because a GitHub runner
       # has no shared libraries a browser needs.
-      # `npm exec --no`, not `npx`: `--no` refuses to fetch anything that is not already installed,
-      # so this can only run the Playwright that `npm ci` put in the lock file. `npx` would silently
-      # download a package on demand if the local one were missing — which is the whole of
-      # `githubactions:S6505`, and it is right.
-      - run: npm exec --no -- playwright install --with-deps chromium
+      # The binary out of `node_modules`, not `npx` and not `npm exec`. Both of those are install
+      # commands that happen to also run things, so a rule about installing fires on them — and
+      # `npm exec --no` still did, which is fair: the reader cannot tell from the line alone that
+      # nothing can be fetched. A path into `node_modules/.bin` says it and cannot do otherwise.
+      - run: ./node_modules/.bin/playwright install --with-deps chromium
 
       # Two variables, because the UI project names one deployment and uses both of its surfaces:
       # conduit-overstrict's API for setting an account up, and its browser UI for the test

@@ -173,20 +173,26 @@ const OBJECTION_HEADING = /^### (O-\d{3}) — (.+)$/;
  * It exists so that a heading the strict expressions above reject can still be recognised well
  * enough to say what is wrong with it, instead of vanishing and leaving "No rules found" behind.
  */
-// ⚠️ The trailing `[ \t]*` that used to sit before the last group is gone. It could never match
-// anything the group before it had not already refused — `[^\w\s]` excludes whitespace — so all it
-// added was an ambiguous split of a run of spaces between two quantifiers, which is what
-// `typescript:S8786` objects to. Any spaces now land in the title, which is trimmed anyway.
-const LOOSE_HEADING = /^### ([RCO])-(\d+)[ \t]*([^\w\s]*)(.*)$/u;
+// ⚠️ Two passes at `typescript:S8786` before this held, and the first one missed the point. The
+// objection is not to any one quantifier, it is to **two adjacent ones whose character sets
+// overlap**: the engine then has more than one way to split the same text and has to try them.
+// Here `([^\w\s]*)` was followed by `(.*)`, and `.` matches punctuation too, so every position in
+// a run of punctuation was a candidate boundary.
+//
+// The fix is to make the groups disjoint rather than to shorten them: the title now has to begin
+// with a word character or a space, which is exactly what the separator group cannot match. One
+// boundary, one pass. The empty alternative keeps a heading with nothing after the identifier
+// matching, so `separator === ''` still reports the missing em dash.
+const LOOSE_HEADING = /^### ([RCO])-(\d+)[ \t]*([^\w\s]*)([\w\s].*|)$/u;
 
 const EM_DASH = '—';
 
 /** Any `**Name:**` line, whether or not the name is one this artifact knows. */
-// ⚠️ `[^*:]`, not `[^*]`. With the colon allowed inside the name the engine had to backtrack to
-// find the last one before `**`, which is the super-linear shape `typescript:S8786` names. Field
-// names in this format carry no colon — `**Source:**`, `**Kind:**`, `**Statement:**` — so
-// excluding it costs nothing and lets the expression decide in one pass.
-const FIELD_LINE = /^\*\*([^*:]+):\*\*[ \t]*(.*)$/;
+// ⚠️ Two changes, both for `typescript:S8786`. `[^*:]` rather than `[^*]`, because a colon allowed
+// inside the name made the engine backtrack to find the last one before `**`. And the value now
+// has to begin with a character that is not a space or a tab — disjoint from the `[ \t]*` in front
+// of it, where `(.*)` overlapped it and left the boundary ambiguous.
+const FIELD_LINE = /^\*\*([^*:]+):\*\*[ \t]*([^ \t].*|)$/;
 /** The same shape, used to decide where a wrapped value stops. */
 const ANY_FIELD = /^\*\*[^*]+:\*\*/;
 const ANY_HEADING = /^#{1,6} /;
