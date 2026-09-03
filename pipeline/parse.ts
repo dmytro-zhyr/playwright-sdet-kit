@@ -176,14 +176,18 @@ const OBJECTION_HEADING = /^### (O-\d{3}) — (.+)$/;
 // ⚠️ Two passes at `typescript:S8786` before this held, and the first one missed the point. The
 // objection is not to any one quantifier, it is to **two adjacent ones whose character sets
 // overlap**: the engine then has more than one way to split the same text and has to try them.
-// Here `([^\w\s]*)` was followed by `(.*)`, and `.` matches punctuation too, so every position in
-// a run of punctuation was a candidate boundary.
 //
-// The fix is to make the groups disjoint rather than to shorten them: the title now has to begin
-// with a word character or a space, which is exactly what the separator group cannot match. One
-// boundary, one pass. The empty alternative keeps a heading with nothing after the identifier
-// matching, so `separator === ''` still reports the missing em dash.
-const LOOSE_HEADING = /^### ([RCO])-(\d+)[ \t]*([^\w\s]*)([\w\s].*|)$/u;
+// ⚠️ Two attempts to satisfy it by rewriting the pattern both failed, and the third answer was not
+// a better pattern. This expression was doing three jobs — recognise the heading, isolate the
+// separator, isolate the title — and only the first is work for a regular expression. Splitting
+// the remainder is a two-line job in code that says plainly what it does, and each expression
+// below now carries a single quantifier with nothing after it to be ambiguous against.
+//
+// 📌 The behaviour is unchanged on purpose: `separator` is still `''` when nothing follows the
+// identifier, which is what makes the missing-em-dash message fire.
+const LOOSE_HEADING = /^### ([RCO])-(\d+)(.*)$/u;
+const LEADING_BLANKS = /^[ \t]+/;
+const LEADING_PUNCTUATION = /^[^\w\s]*/u;
 
 const EM_DASH = '—';
 
@@ -440,8 +444,13 @@ function headingProblem(line: string, prefix: string): string | null {
   const match = LOOSE_HEADING.exec(line);
   if (!match) return null;
 
-  const [, letter, digits, separator, title] = match;
+  const [, letter, digits, remainder] = match;
   if (letter !== prefix) return null;
+
+  const afterId = remainder.replace(LEADING_BLANKS, '');
+  const separator = LEADING_PUNCTUATION.exec(afterId)?.[0] ?? '';
+  const title = afterId.slice(separator.length);
+
   const id = `${letter}-${digits}`;
 
   if (digits.length !== 3) {
