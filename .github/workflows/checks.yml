@@ -111,12 +111,18 @@ jobs:
       - run: npm ci
 
       # ⛔ Not `snyk/actions/node@master`. Snyk publishes its action only on a moving branch, and
-      # this repository pins everything else it runs. The CLI is a devDependency instead — ten
-      # packages, in the lock file, the same version here and locally — which is how
-      # `allure-commandline` is handled and for the same reason.
+      # this repository pins everything else it runs. The version is pinned in the npm script
+      # instead — `npx --yes snyk@1.1307.0` — so CI and a laptop run the same scanner.
       #
-      # 📌 It follows that `npm run snyk:deps` works on a laptop too. A check that only exists on
-      # CI is a check nobody runs while writing the thing it would have caught.
+      # ⚠️ It was a devDependency for about an hour on 3 September 2026, by analogy with
+      # `allure-commandline`. The analogy was wrong, and the scanner said so itself: installing it
+      # put `snyk > global-agent > semver@7.3.8` in the tree, and that ReDoS was **the only
+      # vulnerability the scan found**. `overrides` cannot reach it — snyk bundles its
+      # dependencies. A scanner that is part of what it scans reports on itself, so it is not
+      # part of it.
+      #
+      # 📌 `npm run snyk:deps` works on a laptop too. A check that only exists on CI is a check
+      # nobody runs while writing the thing it would have caught.
 
       # A missing token fails the job. The alternative — skipping when the secret is absent — is a
       # security check that reports success while looking at nothing, which is the exact defect
@@ -131,11 +137,16 @@ jobs:
             exit 1
           }
 
-      # `--severity-threshold=high`, and the number is a starting position rather than a finding.
-      # `npm audit` reports 0 vulnerabilities of any severity across 216 dependencies today
-      # (measured 3 September 2026), so nothing is being hidden by this threshold — but Snyk's
-      # database is wider than npm's, and what it says has not been measured yet. If the first run
-      # is clean at `high`, tighten it; that is then a measurement rather than a guess.
+      # 🔑 `--dev` is the flag that makes this a check at all. Without it Snyk tests **production**
+      # dependencies only — 4 of 216 here, because a test framework keeps its entire substance in
+      # devDependencies. It would have passed every time while looking at almost nothing, which is
+      # the same defect as D-12 wearing a security badge. Measured 3 September 2026: 4 dependencies
+      # without the flag, 216 with it.
+      #
+      # `--severity-threshold=high` is a starting position, and it is now measured rather than
+      # assumed: `npm audit` and `snyk test --dev` both report 0 at every severity, and
+      # `snyk code test` reports 0 down to `low`. Tightening would change nothing today, so the
+      # threshold stays where a real finding will be worth acting on.
       #
       # ⛔ No `.snyk` policy file. There is nothing to ignore, and writing an ignore file before
       # there is something to ignore builds policy for a problem that does not exist.
@@ -145,8 +156,17 @@ jobs:
         run: npm run snyk:deps
 
       # Snyk Code is static analysis over this repository's own source, not a lookup in a
-      # vulnerability database. ⚠️ It has to be enabled once for the organisation in Snyk's
-      # settings; until it is, this step fails with a message saying so rather than passing.
+      # vulnerability database.
+      #
+      # 📌 Its first run found one HIGH — `javascript/HardcodedNonCryptoSecret` on a constant then
+      # called `TOKEN_KEY`, holding the string `'jwtToken'`. There is no secret there: it is the
+      # name of a localStorage key belonging to the application under test, readable in any
+      # browser's devtools. But the finding was **half right** — the name did imply a secret — so
+      # the fix was to rename it `LOCAL_STORAGE_SESSION_KEY` rather than to suppress the rule. The
+      # name is better on its own merits; the scanner just noticed it first.
+      #
+      # ⚠️ `// deepcode ignore <rule>: <reason>` was tried before the rename and had no effect on
+      # this version. If something here ever genuinely needs suppressing, it is not that.
       - name: Our own code
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

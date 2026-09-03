@@ -22,7 +22,7 @@ export type PageObjectFixtures = {
 const UI_BACKEND: DeploymentName = 'conduit-overstrict';
 
 /** How the application stores its session. Observed 30 August 2026 — no cookie, no sessionStorage. */
-const TOKEN_KEY = 'jwtToken';
+const LOCAL_STORAGE_SESSION_KEY = 'jwtToken';
 
 /**
  * Page objects, one fixture each, plus the session they are usually driven with.
@@ -117,7 +117,7 @@ export const test = base.extend<PageObjectFixtures>({
       ([key, value]) => {
         window.localStorage.setItem(key, value);
       },
-      [TOKEN_KEY, uiAccount.token] as const
+      [LOCAL_STORAGE_SESSION_KEY, uiAccount.token] as const
     );
 
     await use(uiAccount);
