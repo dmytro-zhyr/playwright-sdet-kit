@@ -5,15 +5,8 @@ import { EditorPage } from '@po/pages/editorPage';
 import { ArticlePage } from '@po/pages/articlePage';
 import { HomePage } from '@po/pages/homePage';
 import { ConduitClient } from '@api/conduitClient';
-import { registerUser } from '@api/registerUser';
+import { registerUser, type RegisteredAccount } from '@api/registerUser';
 import { resolveDeployment, resolveUiDeployment, type DeploymentName } from '@deployments/registry';
-import type { NewUser } from '@data/userFactory';
-
-/** An account that exists on the UI project's backend. Says nothing about the browser. */
-export type UiAccount = {
-  user: NewUser;
-  token: string;
-};
 
 export type PageObjectFixtures = {
   registerPage: RegisterPage;
@@ -21,8 +14,8 @@ export type PageObjectFixtures = {
   editorPage: EditorPage;
   articlePage: ArticlePage;
   homePage: HomePage;
-  uiAccount: UiAccount;
-  signedIn: UiAccount;
+  uiAccount: RegisteredAccount;
+  signedIn: RegisteredAccount;
 };
 
 /** The deployment whose API backs the UI project. One place, so a move cannot half-happen. */
@@ -69,6 +62,12 @@ export const test = base.extend<PageObjectFixtures>({
 
   /**
    * An account created through the **API**, and nothing else. The browser stays anonymous.
+   *
+   * It is a `RegisteredAccount`, the same type `registerUser` returns — there is no separate UI
+   * account type. One was tried and removed: an identical record under a second name claims which
+   * backend the account belongs to, and structural typing does not enforce that claim for a
+   * moment. The claim is true, so it is stated here, where it is also enforced — by `UI_BACKEND`
+   * below being the only address this fixture registers against.
    *
    * ⛔ It does not use `registeredUser` from `api/apiFixtures.ts`, and the reason is a trap worth
    * naming: that fixture is built on the standard `request` fixture, which carries **the project's

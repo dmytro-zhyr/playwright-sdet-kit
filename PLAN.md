@@ -30,7 +30,7 @@ the CONVENTIONS alias table.
 ⛔ Not a fifth method on `ConduitClient`: dispatching a verb read from a table is a test idiom, not
 a capability of a client.
 
-### A2 · Delete `UiAccount`
+### ✅ A2 · Delete `UiAccount` — done 03.09.2026
 
 It is `RegisteredAccount` under a second name — identical fields, assigned straight from
 `registerUser()`. Its comment claims the account belongs to the UI project's backend, which the type
