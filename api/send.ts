@@ -2,6 +2,11 @@ import type { ApiResponse, ConduitClient } from '@api/conduitClient';
 
 export type Method = 'get' | 'put' | 'post' | 'del';
 
+// Lives in `api/` because that is what it is about: it takes a `ConduitClient` and returns an
+// `ApiResponse`. Same precedent as `registerUser.ts` — a plain function in the layer it belongs to,
+// because independent callers need it. ⛔ Not a fifth method on the client: dispatching a verb read
+// from a table is a test idiom, not a capability a client owes anyone.
+//
 // A table, not a chain of ternaries. Two tests walk a list of endpoints and have to turn the
 // method *named in the list* into a call — `playwright/no-conditional-in-test` refuses branching
 // inside a test body, and it is right about the category even where it is wrong about this

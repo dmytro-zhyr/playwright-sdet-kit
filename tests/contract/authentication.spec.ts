@@ -1,6 +1,6 @@
 import { test, expect } from '@fixtures';
 import { UserResponseSchema } from '@schemas/conduit.schema';
-import { send, type Method } from '@support/send';
+import { send, type Method } from '@api/send';
 
 // The specification states no success status for registration or for login — it says only that
 // each "returns a User", and conforming deployments disagree: 201 on api.realworld.show, 200 on
