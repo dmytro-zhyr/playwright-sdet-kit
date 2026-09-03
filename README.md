@@ -2,6 +2,12 @@
 
 ![checks](https://github.com/dmytro-zhyr/playwright-sdet-kit/actions/workflows/checks.yml/badge.svg?branch=main&event=push)
 
+📊 **[The Allure report from the latest run on `main`](https://dmytro-zhyr.github.io/playwright-sdet-kit/)**
+— open the **Categories** tab first. The failures there are the point: one suite reproduces known
+defects of the deployment under test and is red on purpose, and the categories are what separate
+those from an outage and from a defect of this code. The reasoning is in
+[Why the nightly run stays red](#why-the-nightly-run-stays-red-and-why-that-is-not-a-defect-of-the-setup).
+
 A test automation framework built from scratch on **Playwright + TypeScript**: a typed API
 client, fixtures composed through `mergeTests`, test data factories, strict `zod` response
 schemas with a custom matcher, **type-aware ESLint** + Prettier, and CI on GitHub Actions.

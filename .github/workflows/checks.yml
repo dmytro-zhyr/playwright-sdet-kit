@@ -8,6 +8,7 @@ name: checks
 #   defects   is the deployment each test names still broken
 #   security  known vulnerabilities in dependencies, and Snyk Code over our own source
 #   report    one Allure report over whichever of the four ran
+#   pages     that report, published from main so it has an address rather than a download
 #
 # 🔑 The job names are written on one axis on purpose — `id — what is measured, against what` —
 # because a checks list is scanned, not read. They were five different axes until 31 August 2026:
@@ -443,12 +444,19 @@ jobs:
       - if: steps.results.outputs.present == 'true'
         run: npm run allure:generate
 
-      # ⛔ Not published to GitHub Pages. This repository is private, and Pages would either be
-      # unavailable or would put the report — deployment URLs, test names, failure messages — on a
-      # public address. An artifact is downloaded by whoever has access to the repository already.
+      # ⚠️ **This block used to say the report is deliberately not on GitHub Pages**, because "this
+      # repository is private, and Pages would put the report — deployment URLs, test names,
+      # failure messages — on a public address". The premise was named with the decision, and on
+      # 3 September 2026 it stopped holding: the repository is public, so none of those three is a
+      # disclosure any more. The decision is reversed rather than quietly edited away.
       #
-      # 📌 It must be served rather than opened from the filesystem: `npx allure open allure-report`
-      # after unzipping. Opening index.html directly shows an empty page.
+      # 📌 The artifact stays alongside Pages. They answer different questions — Pages is the
+      # latest report at a link somebody can open, the artifact is *this* run's report thirty days
+      # from now. Keeping one would lose the other.
+      #
+      # It must be served rather than opened from the filesystem: `npx allure open allure-report`
+      # after unzipping. Opening index.html directly shows an empty page — which is also why Pages
+      # works, since Pages serves it.
       - name: Allure report
         if: steps.results.outputs.present == 'true'
         uses: actions/upload-artifact@v7
@@ -456,3 +464,31 @@ jobs:
           name: allure-report
           path: allure-report/
           retention-days: 30
+
+      - name: Package the report for Pages
+        if: steps.results.outputs.present == 'true' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: allure-report/
+
+  # A job of its own because deploying needs write permissions the reporting job should not carry,
+  # and because a failed deployment must not make the report itself look broken.
+  #
+  # ⛔ Only from `main`. A report published from a branch would overwrite the one a reader was
+  # sent, with results from work in progress.
+  pages:
+    name: pages — the latest report from main, at a link
+    needs: report
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4
