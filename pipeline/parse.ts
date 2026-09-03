@@ -173,12 +173,20 @@ const OBJECTION_HEADING = /^### (O-\d{3}) — (.+)$/;
  * It exists so that a heading the strict expressions above reject can still be recognised well
  * enough to say what is wrong with it, instead of vanishing and leaving "No rules found" behind.
  */
-const LOOSE_HEADING = /^### ([RCO])-(\d+)[ \t]*([^\w\s]*)[ \t]*(.*)$/u;
+// ⚠️ The trailing `[ \t]*` that used to sit before the last group is gone. It could never match
+// anything the group before it had not already refused — `[^\w\s]` excludes whitespace — so all it
+// added was an ambiguous split of a run of spaces between two quantifiers, which is what
+// `typescript:S8786` objects to. Any spaces now land in the title, which is trimmed anyway.
+const LOOSE_HEADING = /^### ([RCO])-(\d+)[ \t]*([^\w\s]*)(.*)$/u;
 
 const EM_DASH = '—';
 
 /** Any `**Name:**` line, whether or not the name is one this artifact knows. */
-const FIELD_LINE = /^\*\*([^*]+):\*\*[ \t]*(.*)$/;
+// ⚠️ `[^*:]`, not `[^*]`. With the colon allowed inside the name the engine had to backtrack to
+// find the last one before `**`, which is the super-linear shape `typescript:S8786` names. Field
+// names in this format carry no colon — `**Source:**`, `**Kind:**`, `**Statement:**` — so
+// excluding it costs nothing and lets the expression decide in one pass.
+const FIELD_LINE = /^\*\*([^*:]+):\*\*[ \t]*(.*)$/;
 /** The same shape, used to decide where a wrapped value stops. */
 const ANY_FIELD = /^\*\*[^*]+:\*\*/;
 const ANY_HEADING = /^#{1,6} /;

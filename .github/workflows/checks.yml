@@ -72,7 +72,14 @@ jobs:
 
       # `npm ci`, not `npm install`: it requires the lock file and deliberately does not update
       # it. That is the point — CI installs exactly what is installed locally.
-      - run: npm ci
+      #
+      # `--ignore-scripts` because a package's install hook runs with whatever the job holds, and
+      # some of these jobs hold secrets. Measured before adding it, 3 September 2026: exactly two
+      # of 216 installed packages declare an install hook — `core-js` and `core-js-pure` — and both
+      # print a funding banner inside a try/catch. `@playwright/test` has none; browsers arrive
+      # through the explicit `playwright install` command below, not through a hook. So this costs
+      # nothing here, which is the only reason it is safe to state as a rule.
+      - run: npm ci --ignore-scripts
 
       # ⛔ No `npx playwright install` here, and that is a check rather than an omission. The
       # `unit` project tests this repository's own code and goes nowhere near a browser, so the
@@ -110,7 +117,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       # ⛔ Not `snyk/actions/node@master`. Snyk publishes its action only on a moving branch, and
       # this repository pins everything else it runs. The version is pinned in the npm script
@@ -221,7 +228,11 @@ jobs:
       # `qualitygate.wait=true` makes this a gate rather than a notification: the job ends red when
       # the quality gate fails, in the same list as everything else. Without it the scanner uploads
       # and exits 0, and the result lives only on a dashboard.
-      - uses: SonarSource/sonarqube-scan-action@v8.2.1
+      # Pinned to a commit, not to `v8.2.1`. A tag can be moved by whoever owns the repository;
+      # a commit cannot. SonarQube's own `githubactions:S7637` asked for this, and it is the same
+      # rule this file already applied when it refused Snyk's `@master` — it just had not been
+      # applied to the action added to satisfy that rule. `actions/*` are exempt: GitHub owns them.
+      - uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
@@ -243,7 +254,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       # Repository variables, never secrets: the URL of a public Conduit deployment is not a
       # secret, and this project has no secrets at all. Putting non-secret configuration into
@@ -304,12 +315,16 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       # Chromium only. The suite runs one project against one browser, and installing three would
       # download about 400 MB to leave two of them unused. `--with-deps` because a GitHub runner
       # has no shared libraries a browser needs.
-      - run: npx playwright install --with-deps chromium
+      # `npm exec --no`, not `npx`: `--no` refuses to fetch anything that is not already installed,
+      # so this can only run the Playwright that `npm ci` put in the lock file. `npx` would silently
+      # download a package on demand if the local one were missing — which is the whole of
+      # `githubactions:S6505`, and it is right.
+      - run: npm exec --no -- playwright install --with-deps chromium
 
       # Two variables, because the UI project names one deployment and uses both of its surfaces:
       # conduit-overstrict's API for setting an account up, and its browser UI for the test
@@ -371,7 +386,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       # Two names, because this suite is about two deployments: the project's default target is
       # `conduit-unsound` (D-1 to D-5), and the tests that name `conduit-gate` reproduce D-6 to
@@ -441,7 +456,7 @@ jobs:
       # For allure-commandline, which is a devDependency. The report is built by the same script
       # that builds it locally — `npm run allure:generate` — so a report assembled here and one
       # assembled on a laptop cannot drift apart.
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       # Merged into one directory, which is what produces one report over four suites instead of
       # four reports nobody compares. Each job uploaded its own results under its own name because
