@@ -1,6 +1,6 @@
 import { test, expect } from '@fixtures';
 import type { ConduitClient } from '@api/conduitClient';
-import type { NewUser } from '@data/userFactory';
+import type { UserCreateInput } from '@data/userFactory';
 import type { DataFixtures } from '@data/dataFixtures';
 
 // Turns green the day a freshly registered account represents an unset `bio` and an unset `image`
@@ -75,8 +75,8 @@ test(
 const COLLISION_TRIALS = 3;
 
 type Trial = {
-  original: NewUser;
-  duplicate: NewUser;
+  original: UserCreateInput;
+  duplicate: UserCreateInput;
   duplicateStatus: number;
 };
 

@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { Navigation } from '@po/components/navigation';
-import type { NewUser } from '@data/userFactory';
+import type { UserCreateInput } from '@data/userFactory';
 
 /**
  * `/register` — the sign-up form.
@@ -55,7 +55,7 @@ export class RegisterPage {
   }
 
   /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
-  async fill(user: NewUser): Promise<void> {
+  async fill(user: UserCreateInput): Promise<void> {
     await test.step(`fill the sign-up form as ${user.username}`, async () => {
       await this.username.fill(user.username);
       await this.email.fill(user.email);
@@ -76,7 +76,7 @@ export class RegisterPage {
    * Waiting on the response is answerable: it happens once, it carries a status, and it cannot be
    * satisfied early by a quiet moment on the wire.
    */
-  async signUp(user: NewUser): Promise<number> {
+  async signUp(user: UserCreateInput): Promise<number> {
     return test.step(`sign up as ${user.username}`, async () => {
       await this.fill(user);
 

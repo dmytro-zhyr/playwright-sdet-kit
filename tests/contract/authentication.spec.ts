@@ -1,6 +1,7 @@
 import { test, expect } from '@fixtures';
 import { UserResponseSchema } from '@schemas/conduit.schema';
 import { send, type Method } from '@api/send';
+import type { Credentials } from '@data/userFactory';
 
 // The specification states no success status for registration or for login — it says only that
 // each "returns a User", and conforming deployments disagree: 201 on api.realworld.show, 200 on
@@ -305,7 +306,10 @@ test('C-005 — an endpoint that requires no authentication serves an anonymous 
   const { article } = created.body as { article: { slug: string } };
   expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
 
-  const credentials = { email: registeredUser.user.email, password: registeredUser.user.password };
+  const credentials: Credentials = {
+    email: registeredUser.user.email,
+    password: registeredUser.user.password,
+  };
 
   const calls = [
     { key: 'user', response: await api.post('/users/login', { user: credentials }) },

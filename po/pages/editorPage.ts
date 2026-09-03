@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { Navigation } from '@po/components/navigation';
-import type { NewArticle } from '@data/articleFactory';
+import type { ArticleCreateInput } from '@data/articleFactory';
 
 /**
  * `/editor` — where an article is written and published.
@@ -67,7 +67,7 @@ export class EditorPage {
    * Fills the four fields. Each tag is committed with Enter, which is how the widget turns typed
    * text into a chip — typing alone leaves it in the input and it is dropped on submit.
    */
-  async fill(article: NewArticle): Promise<void> {
+  async fill(article: ArticleCreateInput): Promise<void> {
     await test.step(`fill the editor with "${article.title}"`, async () => {
       await this.title.fill(article.title);
       await this.description.fill(article.description);
@@ -93,7 +93,7 @@ export class EditorPage {
    * decided to navigate to and the slug is what the server decided to store. A test that wants to
    * check the two agree needs them from two sources.
    */
-  async publishArticle(article: NewArticle): Promise<{ status: number; slug: string }> {
+  async publishArticle(article: ArticleCreateInput): Promise<{ status: number; slug: string }> {
     return test.step(`publish "${article.title}"`, async () => {
       await this.fill(article);
 

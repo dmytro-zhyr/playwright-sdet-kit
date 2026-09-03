@@ -104,7 +104,7 @@ a plain function, in the layer it belongs to, because independent callers need i
 **Cost, measured before deciding:** two import lines (`fixtures.ts`, `tests/unit/schema.spec.ts`),
 one alias, one row in the table above.
 
-### ⬜ Decided 2 September 2026, not yet applied: three types that name a use, not a shape
+### ✅ Decided 2 September 2026, applied 3 September: three types that named a use, not a shape
 
 📌 **Sequenced in [PLAN.md](PLAN.md), Stage A**, with the blast radius of each counted from the
 code. The reasoning behind all three lives in [DATA-MODEL.md](DATA-MODEL.md), which

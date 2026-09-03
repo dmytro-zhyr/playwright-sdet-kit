@@ -1,5 +1,6 @@
 import { test, expect } from '@fixtures';
 import { ErrorsSchema, UserResponseSchema } from '@schemas/conduit.schema';
+import type { Credentials } from '@data/userFactory';
 
 // The specification states no success status for login — anywhere, and for any endpoint. It says
 // only that the call "returns a User", the same words it uses for registration, where conforming
@@ -60,7 +61,10 @@ test('C-027 — login refuses a body with no email or no password', async ({
   api,
   registeredUser,
 }) => {
-  const credentials = { email: registeredUser.user.email, password: registeredUser.user.password };
+  const credentials: Credentials = {
+    email: registeredUser.user.email,
+    password: registeredUser.user.password,
+  };
   const omissions = ['password', 'email'] as const;
   const observed: string[] = [];
 

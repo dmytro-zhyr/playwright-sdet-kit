@@ -1,8 +1,8 @@
 import type { ConduitClient } from '@api/conduitClient';
-import { userFactory, type NewUser } from '@data/userFactory';
+import { userFactory, type UserCreateInput } from '@data/userFactory';
 
 export type RegisteredAccount = {
-  user: NewUser;
+  user: UserCreateInput;
   token: string;
 };
 

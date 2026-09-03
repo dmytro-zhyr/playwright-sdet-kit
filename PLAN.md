@@ -46,14 +46,20 @@ parent's fields by hand where a later addition would silently not arrive.
 
 **Radius:** `api/apiFixtures.ts` only.
 
-### A4 · Rename the request bodies by their place on the wire
+### ✅ A4 · Rename the request bodies by their place on the wire — done 03.09.2026
 
 | Now          | Becomes                 | Is really                            |
 | ------------ | ----------------------- | ------------------------------------ |
-| `NewUser`    | `RegistrationRequest`   | the body of `POST /users`            |
-| —            | `Credentials`           | the body of `POST /users/login`, `{ email, password }` — built inline today |
-| `NewArticle` | `CreateArticleRequest`  | the body of `POST /articles`         |
-| `NewComment` | `CreateCommentRequest`  | the body of `POST /articles/:slug/comments` |
+| `NewUser`    | `UserCreateInput`       | what `POST /users` carries under `user`  |
+| —            | `Credentials`           | what `POST /users/login` carries under `user` — a `Pick` of the above |
+| `NewArticle` | `ArticleCreateInput`    | what `POST /articles` carries under `article` |
+| `NewComment` | `CommentCreateInput`    | what `POST /articles/:slug/comments` carries under `comment` |
+
+⚠️ **Names revised 03.09 before applying.** The draft said `RegistrationRequest` and
+`CreateArticleRequest`; neither is a request, and neither is even the body — the body is
+`{ user: … }` and the wrapping is added at the call site. `…CreateInput` names what it is, and
+`Create` is explicit because the specification also has `PUT /user` and `PUT /articles/:slug`,
+whose inputs are different shapes.
 
 **Radius:** `NewUser` 6 files, `NewArticle` 2, `NewComment` 1.
 
