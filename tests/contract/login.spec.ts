@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
 import { ErrorsSchema, UserResponseSchema } from '@schemas/conduit.schema';
 import type { Credentials } from '@data/userFactory';
 
@@ -42,9 +43,7 @@ test('C-026 — login with an account’s credentials answers with that account'
     LOGIN_SUCCESS,
     `a login with matching credentials must be carried out — ${LOGIN_SUCCESS_MESSAGE}`
   ).toContain(response.status);
-  expect(response.body).toMatchSchema(UserResponseSchema);
-
-  const { user } = response.body as { user: { email: string; username: string } };
+  const { user } = parseBody(response.body, UserResponseSchema);
   expect(user.email, 'login must answer with the account the email belongs to').toBe(
     registeredUser.user.email
   );
@@ -77,8 +76,7 @@ test('C-027 — login refuses a body with no email or no password', async ({
 
     // The strict envelope already says it: a body that matches ErrorsSchema has `errors` as its
     // only top-level key, so no user document can be sitting beside it.
-    expect(response.body).toMatchSchema(ErrorsSchema);
-    const { errors } = response.body as { errors: Record<string, string[]> };
+    const { errors } = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
       `the 422 for a missing ${omitted} must name at least one field`

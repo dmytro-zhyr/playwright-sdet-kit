@@ -347,6 +347,37 @@ what the endpoint returns.
 📌 `toMatchSchema` is a custom matcher wired in through `mergeExpects`. It reports the offending
 field and the problem, which is why it exists instead of a bare `Schema.parse()`.
 
+### 🔑 When the test then reads a field, use `parseBody` — one call, not two
+
+```ts
+const { user } = parseBody(response.body, UserResponseSchema);
+```
+
+⛔ **Not this, which was the pattern until 4 September 2026:**
+
+```ts
+expect(response.body).toMatchSchema(UserResponseSchema);
+const { user } = response.body as { user: { email: string; username: string } };
+```
+
+The second line asserts nothing — a cast tells the compiler to stop asking — and it restates a
+shape the schema on the line above already knows. Two declarations of one fact, and only one of
+them runs.
+
+📌 **`parseBody` is `toMatchSchema` plus a return value**, deliberately: the matcher runs first and
+fails with the same field-level message in the same place in the report, and `schema.parse` below
+it is only reached when it cannot fail. There is no second way of failing to learn.
+
+⚠️ **A cast that is partial on purpose stays a cast.** `as { article?: { slug?: string } }` exists
+where the test wants to report **its own** message about a missing field, and a strict parse would
+fail before that message could be produced. 32 of the original 46 casts remain, and they are
+retired per site rather than swept — see PLAN.md, B2.
+
+📌 **The schemas also export their types** — `User`, `Article`, `Comment`, `UserResponse` and the
+rest, via `z.infer`. They exist because `parseBody` returns them. ⛔ `response.body as User` is not
+an improvement on `response.body as { user: … }`: it is the same unverified claim with a better
+name.
+
 📌 This project is on **zod 4**. Write `z.strictObject({...})`, `z.email()`, `z.iso.datetime()` —
 not the zod 3 spellings `z.object({...}).strict()`, `z.string().email()`, `z.string().datetime()`.
 

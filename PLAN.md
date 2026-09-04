@@ -73,18 +73,17 @@ leaving all three alone. Cut them if the scope is unwelcome; the rule does not d
 
 ## Stage B — the payoff, and the larger half
 
-### B1 · Derive response types from the schemas
+### ✅ B1 · Response types derived from the schemas — done 04.09.2026
 
-```ts
-export type User = z.infer<typeof UserSchema>;
-```
+`Profile`, `User`, `ArticlePreview`, `Article`, `Comment`, `Errors` and the six response wrappers,
+all via `z.infer`, in `schemas/conduit.schema.ts`.
 
-for `User`, `Profile`, `Article`, `ArticlePreview`, `Comment` and the response wrappers. Trivial to
-add: the schemas already exist and already validate.
+⚠️ **Not shipped alone, and that was the correction.** The plan said "radius: `schemas/` only,
+until B2 uses them" — which is a description of dead code. Exported types with no consumer prove
+nothing, the same objection this repository makes to everything else, so B1 landed together with
+the first slice of B2 below and the types had a caller the moment they existed.
 
-**Radius:** `schemas/conduit.schema.ts` only, until B2 uses them.
-
-### B2 · Retire the hand-narrowed casts — gradually, not as a sweep
+### 🟡 B2 · Retire the hand-narrowed casts — 14 of 46 done 04.09.2026
 
 There are **46 `response.body as { … }` casts across 14 files**. They are the reason `body` is
 `unknown` and the reason every test re-describes a shape the schema already knows.
@@ -104,6 +103,46 @@ is missing, and a strict parse would throw before that message could be produced
 ➡️ So B2 is done per site, alongside whatever else touches the file, and the helper has to keep the
 failure message quality `toMatchSchema` already has. It is not a task with an end date; it is a
 direction with a first step.
+
+---
+
+#### ✅ The first step, 04.09.2026
+
+`assertions/parseBody.ts`:
+
+```ts
+export function parseBody<T>(body: unknown, schema: ZodType<T>): T {
+  expect(body).toMatchSchema(schema);
+  return schema.parse(body);
+}
+```
+
+🔑 **It delegates rather than catching a `ZodError` of its own.** `toMatchSchema` already produces
+`user.bio: expected string, received null` and lands in the report as an assertion; a second way of
+failing for the same class of problem is a second vocabulary for the reader. `schema.parse` is
+reached only when it cannot fail. Four unit tests in `tests/unit/parseBody.spec.ts` pin the return
+value, the failure, the message and that strictness survives the helper.
+
+**14 sites converted**, chosen by a rule rather than by taste: every cast that already sat directly
+under a `toMatchSchema` on the same body. Those add no check — they only remove a duplication, so
+the first slice could not be a behaviour change.
+
+| File | Sites |
+|---|---|
+| `tests/contract/registration.spec.ts` | 4 |
+| `tests/contract/articles.spec.ts` | 3 |
+| `tests/contract/authentication.spec.ts` | 2 |
+| `tests/contract/login.spec.ts` | 2 |
+| `tests/contract/current-user.spec.ts` | 1 |
+| `tests/contract/tags.spec.ts` | 1 |
+
+⚠️ One candidate was rejected on inspection: `tests/defects/schemas.spec.ts:115` looked paired to a
+grep, but the `toMatchSchema` above it asserts a **different** response, and the cast under it is
+the deliberate floor check that the file's own comment explains.
+
+**32 casts remain.** They are not one job: some are partial on purpose, some sit in `tests/defects/`
+where a strict parse would hide the defect being reproduced, and one is in `api/registerUser.ts`,
+which throws its own error because it is setup rather than a test. Each is decided where it lives.
 
 ---
 

@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
 import { ErrorsSchema, UserResponseSchema } from '@schemas/conduit.schema';
 
 // The specification states no success status for registration — anywhere, and for any endpoint.
@@ -54,9 +55,7 @@ test('C-029 — registration answers with the account it was given', async ({ ap
   const response = await api.post('/users', { user: account });
 
   expect(REGISTRATION_SUCCESS, REGISTRATION_SUCCESS_MESSAGE).toContain(response.status);
-  expect(response.body).toMatchSchema(UserResponseSchema);
-
-  const { user } = response.body as { user: { username: string; email: string } };
+  const { user } = parseBody(response.body, UserResponseSchema);
   expect(user.username, 'registration must echo the username it was given').toBe(account.username);
   expect(user.email, 'registration must echo the email it was given').toBe(account.email);
 });
@@ -79,8 +78,7 @@ test('C-030 — registration refuses a body missing a required field', async ({ 
     const response = await api.post('/users', { user });
     observed.push(`without ${omitted} -> ${response.status}`);
 
-    expect(response.body).toMatchSchema(ErrorsSchema);
-    const { errors } = response.body as { errors: Record<string, string[]> };
+    const { errors } = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
       `the 422 for a missing ${omitted} must name at least one field`
@@ -137,9 +135,7 @@ test('C-031 — registration refuses an email or a username another account hold
   ] as const;
 
   for (const [collided, refusal] of refusals) {
-    expect(refusal.body).toMatchSchema(ErrorsSchema);
-
-    const { errors } = refusal.body as { errors: Record<string, string[]> };
+    const { errors } = parseBody(refusal.body, ErrorsSchema);
     expect(
       Object.values(errors).flat().length,
       `the refusal of a taken ${collided} must carry at least one message`
@@ -200,9 +196,7 @@ test('C-032 — the credentials a registration was given log in afterwards', asy
   });
 
   expect(LOGIN_SUCCESS, LOGIN_SUCCESS_MESSAGE).toContain(login.status);
-  expect(login.body).toMatchSchema(UserResponseSchema);
-
-  const { user } = login.body as { user: { email: string; username: string } };
+  const { user } = parseBody(login.body, UserResponseSchema);
   expect(
     [user.email, user.username],
     'the login must answer with the account the registration created'

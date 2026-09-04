@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
 import { UserResponseSchema } from '@schemas/conduit.schema';
 
 // Turns red if the update never reaches the store — a handler that renders the merged document
@@ -17,9 +18,7 @@ test('C-036 — an update outlives the request that made it', async ({ registere
   const readBack = await registeredUser.api.get('/user');
 
   expect(readBack.status, 'the account must still be readable after the update').toBe(200);
-  expect(readBack.body).toMatchSchema(UserResponseSchema);
-
-  const stored = readBack.body as { user: { bio: string | null; image: string | null } };
+  const stored = parseBody(readBack.body, UserResponseSchema);
   expect(
     [stored.user.bio, stored.user.image],
     'a later read must report the bio and the image the update sent'

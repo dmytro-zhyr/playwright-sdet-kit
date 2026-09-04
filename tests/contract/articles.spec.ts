@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
 import { ArticleResponseSchema, ErrorsSchema } from '@schemas/conduit.schema';
 
 // The specification states no success status for creating an article — anywhere, and for any
@@ -34,9 +35,7 @@ test('C-060 — creating an article returns it authored by the caller', async ({
   });
 
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
-  expect(created.body).toMatchSchema(ArticleResponseSchema);
-
-  const { article } = created.body as { article: { author: { username: string } } };
+  const { article } = parseBody(created.body, ArticleResponseSchema);
   expect(article.author.username, 'the author is the caller, not whoever the payload named').toBe(
     registeredUser.user.username
   );
@@ -60,11 +59,7 @@ test('C-061 — a created article is fetched by its slug and keeps what it was g
   const response = await api.get(`/articles/${article.slug}`);
 
   expect(response.status, 'the slug a creation returned must address the article').toBe(200);
-  expect(response.body).toMatchSchema(ArticleResponseSchema);
-
-  const fetched = response.body as {
-    article: { title: string; description: string; body: string };
-  };
+  const fetched = parseBody(response.body, ArticleResponseSchema);
   expect(
     [fetched.article.title, fetched.article.description, fetched.article.body],
     'the article read back must carry the values the creation sent'
@@ -90,8 +85,7 @@ test('C-062 — creating an article refuses a body missing a required field', as
     const response = await registeredUser.api.post('/articles', { article });
     observed.push(`without ${omitted} -> ${response.status}`);
 
-    expect(response.body).toMatchSchema(ErrorsSchema);
-    const { errors } = response.body as { errors: Record<string, string[]> };
+    const { errors } = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
       `the 422 for a missing ${omitted} must name at least one field`

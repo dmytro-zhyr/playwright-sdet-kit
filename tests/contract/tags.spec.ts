@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
 import { TagsResponseSchema } from '@schemas/conduit.schema';
 
 // The specification states no success status for creating an article — anywhere, and for any
@@ -34,8 +35,6 @@ test('C-025 — the tags document is an array of strings under one key', async (
   const response = await api.get('/tags');
 
   expect(response.status, 'the tag list must be readable with no Authorization header').toBe(200);
-  expect(response.body).toMatchSchema(TagsResponseSchema);
-
-  const { tags } = response.body as { tags: string[] };
+  const { tags } = parseBody(response.body, TagsResponseSchema);
   expect(tags.length, 'a tagged article exists, so the list must not be empty').toBeGreaterThan(0);
 });

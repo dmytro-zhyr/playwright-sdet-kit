@@ -1,4 +1,5 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
 import { UserResponseSchema } from '@schemas/conduit.schema';
 import { send, type Method } from '@api/send';
 import type { Credentials } from '@data/userFactory';
@@ -51,9 +52,7 @@ test('C-001 — a token from a registration and a token from a login both authen
   ).toEqual(reads.map(({ minted }) => `${minted} token -> 200`));
 
   for (const { minted, response } of reads) {
-    expect(response.body).toMatchSchema(UserResponseSchema);
-
-    const { user } = response.body as { user: { email: string; username: string } };
+    const { user } = parseBody(response.body, UserResponseSchema);
     expect(user.email, `the ${minted} token must resolve to the account it was issued for`).toBe(
       account.email
     );
@@ -271,11 +270,8 @@ test('C-004 — a token addresses its own account and no other', async ({
   expect([first.status, other.status], 'each account must be able to read itself').toEqual([
     200, 200,
   ]);
-  expect(first.body).toMatchSchema(UserResponseSchema);
-  expect(other.body).toMatchSchema(UserResponseSchema);
-
-  const firstUser = (first.body as { user: { username: string; email: string } }).user;
-  const otherUser = (other.body as { user: { username: string; email: string } }).user;
+  const { user: firstUser } = parseBody(first.body, UserResponseSchema);
+  const { user: otherUser } = parseBody(other.body, UserResponseSchema);
 
   expect(
     [firstUser.username, firstUser.email],

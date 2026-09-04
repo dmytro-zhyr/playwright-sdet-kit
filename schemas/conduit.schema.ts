@@ -77,3 +77,30 @@ export const ArticlesResponseSchema = z.strictObject({
   articles: z.array(ArticlePreviewSchema),
   articlesCount: z.number().int().nonnegative(),
 });
+
+/**
+ * The same shapes as TypeScript types, derived rather than written twice.
+ *
+ * 🔑 A hand-written `interface User` beside `UserSchema` is two declarations of one fact, and
+ * nothing keeps them in step: the schema is what runs, so a type that disagrees with it is wrong
+ * in silence. `z.infer` makes the schema the single declaration and the type its shadow.
+ *
+ * ⛔ A type is still not a check. `response.body as User` remains an unverified claim — it is the
+ * same cast with a nicer name. These types are worth having because `parseBody` returns them:
+ * there the narrowing and the validation are one call, so the shape a test relies on is the shape
+ * that was checked. See `assertions/parseBody.ts`.
+ */
+export type Profile = z.infer<typeof ProfileSchema>;
+export type User = z.infer<typeof UserSchema>;
+export type ArticlePreview = z.infer<typeof ArticlePreviewSchema>;
+export type Article = z.infer<typeof ArticleSchema>;
+export type Comment = z.infer<typeof CommentSchema>;
+
+export type Errors = z.infer<typeof ErrorsSchema>;
+export type UserResponse = z.infer<typeof UserResponseSchema>;
+export type ProfileResponse = z.infer<typeof ProfileResponseSchema>;
+export type ArticleResponse = z.infer<typeof ArticleResponseSchema>;
+export type CommentResponse = z.infer<typeof CommentResponseSchema>;
+export type CommentsResponse = z.infer<typeof CommentsResponseSchema>;
+export type TagsResponse = z.infer<typeof TagsResponseSchema>;
+export type ArticlesResponse = z.infer<typeof ArticlesResponseSchema>;
