@@ -21,19 +21,19 @@ export class RegisterPage {
     return this.page.getByRole('heading', { name: 'Sign up' });
   }
 
-  get username(): Locator {
+  get usernameField(): Locator {
     return this.page.getByPlaceholder('Username');
   }
 
-  get email(): Locator {
+  get emailField(): Locator {
     return this.page.getByPlaceholder('Email');
   }
 
-  get password(): Locator {
+  get passwordField(): Locator {
     return this.page.getByPlaceholder('Password');
   }
 
-  get submit(): Locator {
+  get signUpButton(): Locator {
     return this.page.getByRole('button', { name: 'Sign up' });
   }
 
@@ -42,24 +42,24 @@ export class RegisterPage {
    * like, one `<li>` each. Observed on 30 August 2026 against conduit-overstrict.
    *
    * A locator, not a getter that reads the text: the difference decides whether an empty list can
-   * be asserted on. `expect(page.errors).toHaveCount(0)` waits and retries; a string read once
+   * be asserted on. `expect(page.errorMessages).toHaveCount(0)` waits and retries; a string read once
    * cannot, and would pass simply by looking too early.
    */
-  get errors(): Locator {
+  get errorMessages(): Locator {
     return this.page.locator('.error-messages li');
   }
 
-  async open(): Promise<void> {
+  async goto(): Promise<void> {
     await this.page.goto('/register');
     await this.heading.waitFor();
   }
 
   /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
-  async fill(user: UserCreateInput): Promise<void> {
+  async fillRegistration(user: UserCreateInput): Promise<void> {
     await test.step(`fill the sign-up form as ${user.username}`, async () => {
-      await this.username.fill(user.username);
-      await this.email.fill(user.email);
-      await this.password.fill(user.password);
+      await this.usernameField.fill(user.username);
+      await this.emailField.fill(user.email);
+      await this.passwordField.fill(user.password);
     });
   }
 
@@ -78,14 +78,14 @@ export class RegisterPage {
    */
   async signUp(user: UserCreateInput): Promise<number> {
     return test.step(`sign up as ${user.username}`, async () => {
-      await this.fill(user);
+      await this.fillRegistration(user);
 
       const [response] = await Promise.all([
         this.page.waitForResponse(
           (candidate) =>
             candidate.url().endsWith('/api/users') && candidate.request().method() === 'POST'
         ),
-        this.submit.click(),
+        this.signUpButton.click(),
       ]);
 
       return response.status();

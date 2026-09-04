@@ -693,9 +693,73 @@ reuse and nobody will update.
 inside one cannot be read at the call site: the test would say `await nav.checkSignedIn()` and the
 report would name the component, not the behaviour under test.
 
-📌 **Prefer a role, and say so when you cannot.** The feed tabs carry no interactive role at all,
-so `po/pages/homePage.ts` uses a class and a comment explaining that the markup, not the locator, is the
-reason.
+📌 **Prefer a role, and say so when you cannot.** The feed tabs are `<a>` elements with no `href`,
+and an anchor without one is not a link in the accessibility tree — so `po/pages/homePage.ts` falls
+back on a class and a comment explaining that the markup, not the locator, is the reason.
+
+### A locator's name says what it is
+
+🔑 **The kind belongs in the name**, because the kind is the affordance: `signInLink` can be
+clicked, `emailField` can be filled, `titleHeading` can only be read. Playwright's own examples do
+this — `getStartedLink`, `inputBox` — and the reason is not tidiness. Before this rule, `title` was
+an input on the editor and a heading on the article page, and nothing but the file it came from
+could tell a reader which one they were holding.
+
+| Suffix | For | What may be done with it |
+|---|---|---|
+| `…Link` | `getByRole('link')` | click; it navigates |
+| `…Button` | `getByRole('button')` | click; it acts in place |
+| `…Field` | a text input or textarea | `fill`, `clear` |
+| `…Heading` | `getByRole('heading')` | read |
+| `…Text` | a rendered block | read |
+| `…Cards`, `…Chips`, `…Messages`, `…Tabs` | a collection | count, index, filter |
+
+⚠️ **A name that already is a kind is finished** — `heading`, `errorMessages`, `feedTabs`. The rule
+adds the kind; it does not add a suffix to a name that carries one.
+
+⛔ **A name that does not match the markup is a lie, and a comment does not make it true — except
+where nothing matches.** The feed tabs are named `…Tab` although they have no `tab` role, because
+every honest alternative is equally role-free and says less. That exception is written down where
+the locator is; there is one of it.
+
+### Which form a member takes is decided, not chosen
+
+| Returns | Takes an argument | Form |
+|---|---|---|
+| `Locator` | no | `get x(): Locator` |
+| `Locator` | yes | `x(arg): Locator` |
+| an action | — | `async x(): Promise<…>` |
+| an object built once | — | `readonly` field |
+
+📌 **A locator is a getter, never a field.** A field writes the name twice — once to declare, once
+to assign — and separates the locator from the comment explaining it, which matters here because
+most of them carry an observation about the running application. Two could not be fields at all:
+`activeFeedTab` is derived from `feedTab`, and in constructor form that is a dependency on the order
+of assignments.
+
+📌 **A parameterised locator is not `async`.** Building a `Locator` touches no browser; only
+acting on it does. `profileLink(username)` returning a promise would make every call site `await`
+a string operation.
+
+⛔ **`public` is never written.** It is the default and says nothing. `private` and `readonly` each
+say something, so they are written.
+
+### Two ways to reach a page
+
+🔑 **`goto` is by address; a `go…` method is by clicking, and it lives on the page you are
+leaving.** `homePage.goto()` types the URL. `nav.goHome()` clicks the header link and waits for the
+URL to change — the control belongs to the header, so the method does too. Both exist because tests
+need both: a chain of clicks is what proves the links work, and an address is what every other test
+should use to get to its subject in one hop.
+
+⛔ **A navigation method with no caller is not written.** The click route exists only where a test
+drives it; adding the other four "for symmetry" is dead code in a repository whose whole argument
+is that unexercised code proves nothing.
+
+📌 **`goto` waits for the page's own first answer, not for its skeleton.** `homePage.goto()`
+returns after `/api/articles` has replied, because the toggle renders before the articles do — and
+a test that clicked a tab in that gap switched feeds while the previous response was still in
+flight, then watched it paint over the feed it had just chosen.
 
 ⚠️ **Wait for a response, never for `networkidle`.** In a single-page app the network settles while
 a form is still mid-submit, and an assertion taken there reports a defect that does not exist —

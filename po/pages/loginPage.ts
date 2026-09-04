@@ -14,43 +14,43 @@ export class LoginPage {
     return this.page.getByRole('heading', { name: 'Sign in' });
   }
 
-  get email(): Locator {
+  get emailField(): Locator {
     return this.page.getByPlaceholder('Email');
   }
 
-  get password(): Locator {
+  get passwordField(): Locator {
     return this.page.getByPlaceholder('Password');
   }
 
-  get submit(): Locator {
+  get signInButton(): Locator {
     return this.page.getByRole('button', { name: 'Sign in' });
   }
 
-  get errors(): Locator {
+  get errorMessages(): Locator {
     return this.page.locator('.error-messages li');
   }
 
-  async open(): Promise<void> {
+  async goto(): Promise<void> {
     await this.page.goto('/login');
     await this.heading.waitFor();
   }
 
-  async fill(email: string, password: string): Promise<void> {
-    await this.email.fill(email);
-    await this.password.fill(password);
+  async fillCredentials(email: string, password: string): Promise<void> {
+    await this.emailField.fill(email);
+    await this.passwordField.fill(password);
   }
 
   /** Fills both fields and submits, returning the status the server answered with. */
   async signIn(email: string, password: string): Promise<number> {
     return test.step(`sign in as ${email}`, async () => {
-      await this.fill(email, password);
+      await this.fillCredentials(email, password);
 
       const [response] = await Promise.all([
         this.page.waitForResponse(
           (candidate) =>
             candidate.url().endsWith('/api/users/login') && candidate.request().method() === 'POST'
         ),
-        this.submit.click(),
+        this.signInButton.click(),
       ]);
 
       return response.status();

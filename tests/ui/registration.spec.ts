@@ -23,16 +23,16 @@ test.describe('Registration', () => {
   test('a new account is created and signed in', async ({ page, registerPage, factories }) => {
     const user = factories.user.build();
 
-    await registerPage.open();
+    await registerPage.goto();
     const status = await registerPage.signUp(user);
 
     expect(status, 'the server rejected a registration it should have accepted').toBe(201);
 
     await page.waitForURL('**/');
-    await expect(registerPage.nav.profile(user.username)).toBeVisible();
-    await expect(registerPage.nav.newArticle).toBeVisible();
+    await expect(registerPage.nav.profileLink(user.username)).toBeVisible();
+    await expect(registerPage.nav.newArticleLink).toBeVisible();
     await expect(
-      registerPage.nav.signIn,
+      registerPage.nav.signInLink,
       'the header still offers Sign in, so the session did not take'
     ).toBeHidden();
   });
@@ -47,18 +47,18 @@ test.describe('Registration', () => {
   }) => {
     const user = factories.user.build();
 
-    await registerPage.open();
+    await registerPage.goto();
     expect(await registerPage.signUp(user)).toBe(201);
     await page.waitForURL('**/');
 
     // A second, independent browser session. Clearing the token is what makes the second attempt
     // an unauthenticated registration rather than a signed-in user re-submitting a form.
     await page.evaluate(() => localStorage.clear());
-    await registerPage.open();
+    await registerPage.goto();
     const status = await registerPage.signUp(user);
 
     expect(status, 'a duplicate registration was accepted').not.toBe(201);
-    await expect(registerPage.errors).toContainText([
+    await expect(registerPage.errorMessages).toContainText([
       'email has already been taken',
       'username has already been taken',
     ]);
@@ -79,22 +79,22 @@ test.describe('Registration', () => {
   }) => {
     const user = factories.user.build();
 
-    await registerPage.open();
-    await expect(registerPage.submit).toBeDisabled();
+    await registerPage.goto();
+    await expect(registerPage.signUpButton).toBeDisabled();
 
-    await registerPage.username.fill(user.username);
-    await registerPage.email.fill(user.email);
+    await registerPage.usernameField.fill(user.username);
+    await registerPage.emailField.fill(user.email);
     await expect(
-      registerPage.submit,
+      registerPage.signUpButton,
       'the button enabled before the last field was filled'
     ).toBeDisabled();
 
-    await registerPage.password.fill(user.password);
-    await expect(registerPage.submit).toBeEnabled();
+    await registerPage.passwordField.fill(user.password);
+    await expect(registerPage.signUpButton).toBeEnabled();
 
-    await registerPage.email.fill('not-an-email');
+    await registerPage.emailField.fill('not-an-email');
     await expect(
-      registerPage.submit,
+      registerPage.signUpButton,
       'the form now validates the email client-side; the observation this test records has changed'
     ).toBeEnabled();
   });

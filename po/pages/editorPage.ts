@@ -17,23 +17,23 @@ export class EditorPage {
     this.nav = new Navigation(page);
   }
 
-  get title(): Locator {
+  get titleField(): Locator {
     return this.page.getByPlaceholder('Article Title');
   }
 
-  get description(): Locator {
+  get descriptionField(): Locator {
     return this.page.getByPlaceholder("What's this article about?");
   }
 
-  get body(): Locator {
+  get bodyField(): Locator {
     return this.page.getByPlaceholder('Write your article (in markdown)');
   }
 
-  get tags(): Locator {
+  get tagsField(): Locator {
     return this.page.getByPlaceholder('Enter tags');
   }
 
-  get publish(): Locator {
+  get publishButton(): Locator {
     return this.page.getByRole('button', { name: 'Publish Article' });
   }
 
@@ -50,7 +50,7 @@ export class EditorPage {
    * The absence of a field is a consequence, and a report built out of consequences is what makes
    * a suite expensive to read.
    */
-  async open(): Promise<void> {
+  async goto(): Promise<void> {
     await this.page.goto('/editor');
 
     if (!new URL(this.page.url()).pathname.startsWith('/editor')) {
@@ -60,22 +60,22 @@ export class EditorPage {
       );
     }
 
-    await this.title.waitFor();
+    await this.titleField.waitFor();
   }
 
   /**
    * Fills the four fields. Each tag is committed with Enter, which is how the widget turns typed
    * text into a chip — typing alone leaves it in the input and it is dropped on submit.
    */
-  async fill(article: ArticleCreateInput): Promise<void> {
+  async fillArticle(article: ArticleCreateInput): Promise<void> {
     await test.step(`fill the editor with "${article.title}"`, async () => {
-      await this.title.fill(article.title);
-      await this.description.fill(article.description);
-      await this.body.fill(article.body);
+      await this.titleField.fill(article.title);
+      await this.descriptionField.fill(article.description);
+      await this.bodyField.fill(article.body);
 
       for (const tag of article.tagList) {
-        await this.tags.fill(tag);
-        await this.tags.press('Enter');
+        await this.tagsField.fill(tag);
+        await this.tagsField.press('Enter');
       }
     });
   }
@@ -93,9 +93,9 @@ export class EditorPage {
    * decided to navigate to and the slug is what the server decided to store. A test that wants to
    * check the two agree needs them from two sources.
    */
-  async publishArticle(article: ArticleCreateInput): Promise<{ status: number; slug: string }> {
+  async publish(article: ArticleCreateInput): Promise<{ status: number; slug: string }> {
     return test.step(`publish "${article.title}"`, async () => {
-      await this.fill(article);
+      await this.fillArticle(article);
 
       const [response] = await Promise.all([
         this.page.waitForResponse(
@@ -103,7 +103,7 @@ export class EditorPage {
             /\/api\/articles\/?$/.test(new URL(candidate.url()).pathname) &&
             candidate.request().method() === 'POST'
         ),
-        this.publish.click(),
+        this.publishButton.click(),
       ]);
 
       const status = response.status();

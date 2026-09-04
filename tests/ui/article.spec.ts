@@ -21,16 +21,16 @@ test.describe('Publishing an article', () => {
   }) => {
     const article = factories.article.build();
 
-    await editorPage.open();
-    const { status, slug } = await editorPage.publishArticle(article);
+    await editorPage.goto();
+    const { status, slug } = await editorPage.publish(article);
 
     expect(status, 'the server refused an article it should have accepted').toBe(201);
     expect(slug, 'the response carried no slug').not.toBe('');
 
     await expect(page).toHaveURL(new RegExp(`/article/${slug}$`));
-    await expect(articlePage.title).toHaveText(article.title);
-    await expect(articlePage.body).toContainText(article.body.split('\n')[0]);
-    await expect(articlePage.author(signedIn.user.username)).toBeVisible();
+    await expect(articlePage.titleHeading).toHaveText(article.title);
+    await expect(articlePage.bodyText).toContainText(article.body.split('\n')[0]);
+    await expect(articlePage.authorLink(signedIn.user.username)).toBeVisible();
   });
 
   // Turns red if the author stops being offered the controls only an author has. This is the
@@ -42,14 +42,14 @@ test.describe('Publishing an article', () => {
     signedIn,
     factories,
   }) => {
-    await editorPage.open();
-    const { slug } = await editorPage.publishArticle(factories.article.build());
+    await editorPage.goto();
+    const { slug } = await editorPage.publish(factories.article.build());
 
-    await articlePage.open(slug);
+    await articlePage.goto(slug);
 
-    await expect(articlePage.author(signedIn.user.username)).toBeVisible();
-    await expect(articlePage.edit).toBeVisible();
-    await expect(articlePage.delete).toBeVisible();
+    await expect(articlePage.authorLink(signedIn.user.username)).toBeVisible();
+    await expect(articlePage.editLink).toBeVisible();
+    await expect(articlePage.deleteButton).toBeVisible();
   });
 
   // Turns red if a published article stops appearing in the global feed. The card is addressed by
@@ -58,14 +58,14 @@ test.describe('Publishing an article', () => {
   test('it appears in the global feed', async ({ editorPage, homePage, signedIn, factories }) => {
     const article = factories.article.build();
 
-    await editorPage.open();
-    const { slug } = await editorPage.publishArticle(article);
+    await editorPage.goto();
+    const { slug } = await editorPage.publish(article);
 
-    await homePage.open();
+    await homePage.goto();
 
-    await expect(homePage.card(slug)).toBeVisible();
-    await expect(homePage.card(slug)).toContainText(article.title);
-    await expect(homePage.card(slug)).toContainText(signedIn.user.username);
+    await expect(homePage.articleCard(slug)).toBeVisible();
+    await expect(homePage.articleCard(slug)).toContainText(article.title);
+    await expect(homePage.articleCard(slug)).toContainText(signedIn.user.username);
   });
 
   // 🔑 Not a bug report — a record of what the application does. A tag typed as `qa` comes back as
@@ -80,13 +80,13 @@ test.describe('Publishing an article', () => {
   }) => {
     const article = factories.article.build({ tagList: ['qa'] });
 
-    await editorPage.open();
-    const { slug } = await editorPage.publishArticle(article);
+    await editorPage.goto();
+    const { slug } = await editorPage.publish(article);
 
-    await articlePage.open(slug);
+    await articlePage.goto(slug);
 
     await expect(
-      articlePage.tags,
+      articlePage.tagChips,
       'the application no longer upper-cases tags; the observation this test records has changed'
     ).toHaveText(['QA']);
   });
@@ -98,6 +98,6 @@ test.describe('Publishing an article', () => {
     await page.goto('/editor');
 
     await expect(page, 'the editor is reachable without a session').toHaveURL(/\/$/);
-    await expect(editorPage.title).toBeHidden();
+    await expect(editorPage.titleField).toBeHidden();
   });
 });

@@ -736,9 +736,57 @@ element sits inside the link before the text. `exact: true` on those two would n
 ⚠️ **`/editor` and `/settings` redirect to `/` for an anonymous visitor.** There is an auth guard,
 so a test that forgets to sign in fails on a missing form rather than on a redirect it can name.
 
-⚠️ **The feed tabs are plain list items, not links or tabs.** `Your Feed` and `Global Feed` carry
-no interactive role, so `getByRole('tab')` finds nothing and a role-first locator strategy has to
-make an exception here.
+⚠️ **The feed tabs have no role.** See the section below — the first version of this line said
+"plain list items", which named the wrong element and gave the wrong reason.
+
+### 🔴 The feed toggle is not what it looks like
+
+Re-measured in the browser on 4 September 2026, after a feed test failed and the failure turned out
+to be worth more than the test. Five facts, each of which changes how a feed test must be written.
+
+**1. The tabs are `<a>` elements with no `href`.** Not list items — the `<li>` is the wrapper. An
+anchor without `href` is `generic` in the accessibility tree, which is the actual reason
+`getByRole('link')` and `getByRole('tab')` both find nothing. The header's four anchors all *do*
+carry `href`, so this is specific to the toggle rather than to the application.
+
+**2. They cannot be reached from the keyboard.** No `href` and no `tabindex`: `.focus()` moves
+nothing, and tabbing through the page skips them. A mouse-only control is a defect of the
+application, and it is the first accessibility finding in this repository.
+
+**3. Selection is carried by a class and nothing else.** There is no `aria-selected`. `.active` on
+the anchor is the whole of what the page says about which feed is showing — so an assertion about
+the selected feed has to read a CSS class, and `po/pages/homePage.ts` is where that is written once.
+
+**4. A third tab exists before it is shown, and it is `active` the whole time it is hidden.**
+Clicking a tag reveals `<li>` number three. Until then it sits in the DOM inside `li[hidden]`
+carrying `class="nav-link active"`, so `.feed-toggle .nav-link.active` matches **two** elements on a
+page that is displaying one, and a locator that ignores `hidden` fails Playwright's strict mode.
+
+**5. Switching a tab changes no URL.** The address stays `/` whichever feed is selected, tag feeds
+included. The state is not addressable: there is no faster route to a tag's feed than clicking, and
+no way for a test to arrive at one directly.
+
+➡️ Facts 2 and 5 are the same shape — the application holds state that is neither in the URL nor in
+the accessibility tree. Facts 1, 3 and 4 are why `po/pages/homePage.ts` exposes `feedTab(name)`,
+`activeFeedTab(name)` and `openFeedTab(name)` rather than a locator per tab.
+
+### 🔴 `.article-preview` is also the empty state
+
+`<div class="article-preview">No articles are here... yet.</div>` is what an empty feed renders, so
+counting the bare class reports **one article where there are none**. Found on 4 September 2026 by
+a test asserting that a new account's personal feed is empty; it failed, and the count it reported
+was neither 0 nor 1 but 10 — which was a second, unrelated fault in the same test.
+
+⚠️ **The 10 was the oracle's, not the application's.** `homePage.goto()` returned as soon as the
+toggle rendered, while the initial `/api/articles` request was still in flight; the click switched
+feeds, and the earlier response then painted ten global articles over the personal feed. The API
+was asked directly and answered `articlesCount = 0` for the same account, which is what separated
+"the application shows the wrong feed" from "the test looked while the page was still changing".
+
+➡️ `articleCards` now requires the link a card wraps, `emptyFeedNotice` names the empty state, and
+`goto()` waits for the articles response rather than for the toggle. This is the third time in this
+repository that a red UI result was the oracle's fault — see also "The first UI finding was about
+the test, not the page".
 
 ### The session is one `localStorage` key, and it can be seeded
 

@@ -12,14 +12,14 @@ test.describe('Sign in', () => {
   // Turns red if a valid sign-in stops producing a session. The header naming the account is the
   // assertion, not the redirect: landing on `/` only proves the router ran.
   test('valid credentials sign the user in', async ({ page, loginPage, uiAccount }) => {
-    await loginPage.open();
+    await loginPage.goto();
     const status = await loginPage.signIn(uiAccount.user.email, uiAccount.user.password);
 
     expect(status, 'the server refused credentials it had just issued').toBe(200);
 
     await page.waitForURL('**/');
-    await expect(loginPage.nav.profile(uiAccount.user.username)).toBeVisible();
-    await expect(loginPage.nav.signIn).toBeHidden();
+    await expect(loginPage.nav.profileLink(uiAccount.user.username)).toBeVisible();
+    await expect(loginPage.nav.signInLink).toBeHidden();
   });
 
   // Turns red if a wrong password stops being refused, and — the half that matters more — if it
@@ -30,16 +30,16 @@ test.describe('Sign in', () => {
     loginPage,
     uiAccount,
   }) => {
-    await loginPage.open();
+    await loginPage.goto();
     const status = await loginPage.signIn(uiAccount.user.email, 'not-the-password');
 
     expect(status, 'a wrong password was accepted').not.toBe(200);
-    await expect(loginPage.errors).toHaveCount(1);
+    await expect(loginPage.errorMessages).toHaveCount(1);
     await expect(page, 'a refused sign-in navigated away instead of staying put').toHaveURL(
       /\/login$/
     );
     await expect(
-      loginPage.nav.signIn,
+      loginPage.nav.signInLink,
       'the header shows a session after a refused sign-in'
     ).toBeVisible();
   });
@@ -48,13 +48,13 @@ test.describe('Sign in', () => {
   // observation as on the sign-up form, asserted separately: the two forms are different
   // components and one of them can lose the behaviour without the other noticing.
   test('the submit button is gated on both fields being filled', async ({ loginPage }) => {
-    await loginPage.open();
-    await expect(loginPage.submit).toBeDisabled();
+    await loginPage.goto();
+    await expect(loginPage.signInButton).toBeDisabled();
 
-    await loginPage.email.fill('someone@example.com');
-    await expect(loginPage.submit, 'the button enabled with no password').toBeDisabled();
+    await loginPage.emailField.fill('someone@example.com');
+    await expect(loginPage.signInButton, 'the button enabled with no password').toBeDisabled();
 
-    await loginPage.password.fill('something');
-    await expect(loginPage.submit).toBeEnabled();
+    await loginPage.passwordField.fill('something');
+    await expect(loginPage.signInButton).toBeEnabled();
   });
 });
