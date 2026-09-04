@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>playwright-sdet-kit — reports</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --ink: #16181d;
+        --muted: #5b6270;
+        --line: #dfe3ea;
+        --card: #ffffff;
+        --ground: #f6f7f9;
+        --accent: #2f5bd7;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e7e9ee;
+          --muted: #99a1b3;
+          --line: #2a2f3a;
+          --card: #171a21;
+          --ground: #0f1116;
+          --accent: #7fa0ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 3rem 1.25rem 4rem;
+        background: var(--ground);
+        color: var(--ink);
+        font:
+          16px/1.6 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.5rem;
+        letter-spacing: -0.01em;
+      }
+      .lede {
+        margin: 0 0 2rem;
+        color: var(--muted);
+      }
+      .lede a {
+        color: inherit;
+      }
+      .note {
+        margin: 0 0 2rem;
+        padding: 0.9rem 1rem;
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        border-radius: 6px;
+        background: var(--card);
+        font-size: 0.94rem;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.75rem;
+      }
+      a.card {
+        display: block;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+        color: inherit;
+        text-decoration: none;
+      }
+      a.card:hover {
+        border-color: var(--accent);
+      }
+      .name {
+        font-weight: 620;
+      }
+      .what {
+        color: var(--muted);
+        font-size: 0.94rem;
+      }
+      footer {
+        margin-top: 2.5rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+      footer a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>playwright-sdet-kit</h1>
+      <p class="lede">
+        Reports from the latest run on <code>main</code> —
+        <a href="https://github.com/dmytro-zhyr/playwright-sdet-kit">the repository is here</a>.
+      </p>
+
+      <p class="note">
+        <strong>The failures in the Allure report are the point.</strong> One suite reproduces known
+        defects of the deployment under test and is red on purpose; the report's
+        <strong>Categories</strong> tab is what separates those from an outage of the target and
+        from a defect of this code. A green run there would mean the demonstration had been deleted.
+      </p>
+
+      <ul>
+        <li>
+          <a class="card" href="allure/">
+            <div class="name">Allure report</div>
+            <div class="what">
+              Every suite that ran, with failures sorted into categories. Open
+              <em>Categories</em> first.
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="snyk/dependencies.html">
+            <div class="name">Snyk — dependencies</div>
+            <div class="what">
+              Known vulnerabilities across the dependency tree, development dependencies included:
+              this is a test framework, so that is where its substance lives.
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="snyk/code.html">
+            <div class="name">Snyk Code</div>
+            <div class="what">Static analysis over this repository's own source.</div>
+          </a>
+        </li>
+        <li>
+          <a
+            class="card"
+            href="https://sonarcloud.io/project/overview?id=dmytro-zhyr_playwright-sdet-kit"
+          >
+            <div class="name">SonarQube Cloud ↗</div>
+            <div class="what">
+              Maintainability, duplication and coverage. Kept as a link rather than copied here —
+              the live report has code navigation and history that a static export would lose.
+            </div>
+          </a>
+        </li>
+      </ul>
+
+      <footer>
+        Coverage is measured from the unit tests only, and stands at about two thirds by design: the
+        contract and UI suites are what this framework <em>produces</em>, not tests of its own code.
+        The reasoning is in <code>CONVENTIONS.md</code>.
+      </footer>
+    </main>
+  </body>
+</html>

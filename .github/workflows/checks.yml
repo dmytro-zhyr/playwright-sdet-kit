@@ -208,6 +208,23 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: npm run snyk:code
 
+      # The machine-readable half of both scans. Each script writes its file as it runs, so the
+      # artifact exists whether the scan was clean or not — `!cancelled()`, because a scan that
+      # found something is exactly the one worth reading afterwards.
+      #
+      # 📌 Turned into HTML in `report`, not here: converting needs the files and not the token, and
+      # the fewer jobs that hold a secret the better.
+      - name: Snyk findings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: snyk-report
+          path: |
+            snyk-dependencies.json
+            snyk-code.sarif
+          retention-days: 7
+          if-no-files-found: ignore
+
   # Parallel to `static` and `security`, and a dependency of nothing, for the same reason: what
   # SonarQube says about maintainability is a different question from whether the contract holds.
   #
@@ -643,11 +660,42 @@ jobs:
           path: allure-report/
           retention-days: 30
 
-      - name: Package the report for Pages
-        if: steps.results.outputs.present == 'true' && github.ref == 'refs/heads/main'
+      - name: Collect the Snyk findings
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: snyk-report
+          path: snyk/
+
+      # 🔑 One site with an index, rather than dropping a reader into the middle of Allure. The
+      # index is a committed file, not a generated one: it has no logic, so it cannot drift, and it
+      # is reviewable in the diff like anything else.
+      #
+      # ⛔ SonarQube is a link on that page, not a copy. It has no HTML export, so a local version
+      # would mean rebuilding its UI from the API — worse on every axis, and stale the moment it is
+      # written. The project is public, so the live report already has an address.
+      - name: Assemble the site
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p site/snyk
+          cp report/pages/index.html site/index.html
+          if [ -d allure-report ]; then cp -r allure-report site/allure; fi
+          for pair in "snyk/snyk-dependencies.json:dependencies" "snyk/snyk-code.sarif:code"; do
+            src=${pair%%:*}
+            name=${pair##*:}
+            if [ -f "$src" ]; then
+              ./node_modules/.bin/snyk-to-html -i "$src" -o "site/snyk/$name.html"
+            else
+              echo "<!doctype html><title>Snyk — $name</title><p>This run produced no $name report."                 > "site/snyk/$name.html"
+            fi
+          done
+          find site -maxdepth 2 -type d -o -type f -name '*.html' | sort
+
+      - name: Package the site for Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: allure-report/
+          path: site/
 
   # A job of its own because deploying needs write permissions the reporting job should not carry,
   # and because a failed deployment must not make the report itself look broken.

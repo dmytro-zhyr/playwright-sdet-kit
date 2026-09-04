@@ -7,3 +7,6 @@ allure-results/
 allure-report/
 .allure-history-carry/
 coverage/
+snyk-dependencies.json
+snyk-code.sarif
+site/
