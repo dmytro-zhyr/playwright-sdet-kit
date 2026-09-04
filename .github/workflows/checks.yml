@@ -90,6 +90,18 @@ jobs:
       # false without touching this file: `tests/ui/` asks for `page` on purpose. The claim was
       # never enforced either — this job only runs `test:unit`, so a browser test would have
       # sailed past it. The `ui` job below is where a browser is installed on purpose.
+
+      # 🔑 Formatting is checked here rather than trusted to whoever last ran `npm run format`.
+      # `tests/contract/articles.spec.ts` had been committed with a differently wrapped `expect`
+      # since August and nothing was ever going to say so: a rule applied by hand is a rule that is
+      # remembered rather than enforced.
+      #
+      # ⚠️ What this step does **not** catch is line endings. A working copy can hold CRLF — npm
+      # writes package.json that way on Windows, and so does Python's `write_text` — while the
+      # repository stays LF, because `.gitattributes` pins `eol=lf` and checkout applies it. This
+      # runner therefore always sees LF and would report nothing either way. That is the right split
+      # rather than a gap: `.gitattributes` owns line endings, this step owns everything else.
+      - run: ./node_modules/.bin/prettier --check .
       - run: npm run lint
       - run: npm run typecheck
       - run: ./node_modules/.bin/c8 --reporter=none npm run test:unit
