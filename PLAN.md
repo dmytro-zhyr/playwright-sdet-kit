@@ -83,7 +83,7 @@ until B2 uses them" — which is a description of dead code. Exported types with
 nothing, the same objection this repository makes to everything else, so B1 landed together with
 the first slice of B2 below and the types had a caller the moment they existed.
 
-### 🟡 B2 · Retire the hand-narrowed casts — 14 of 46 done 04.09.2026
+### 🟡 B2 · Retire the hand-narrowed casts — 30 of 46 done 07.09.2026
 
 There are **46 `response.body as { … }` casts across 14 files**. They are the reason `body` is
 `unknown` and the reason every test re-describes a shape the schema already knows.
@@ -140,9 +140,61 @@ the first slice could not be a behaviour change.
 grep, but the `toMatchSchema` above it asserts a **different** response, and the cast under it is
 the deliberate floor check that the file's own comment explains.
 
-**32 casts remain.** They are not one job: some are partial on purpose, some sit in `tests/defects/`
-where a strict parse would hide the defect being reproduced, and one is in `api/registerUser.ts`,
-which throws its own error because it is setup rather than a test. Each is decided where it lives.
+---
+
+#### ✅ The second step, 07.09.2026 — where the narrowing becomes a new check
+
+The first slice could not change behaviour by construction. This one can: none of these casts sat
+under a `toMatchSchema`, so converting each **adds** an assertion that was not there before.
+
+🔑 **The rule that decided it was measured, not assumed.** A cast may become `parseBody` only where
+its schema currently holds against `conduit-gate`. A probe was written that registers, creates,
+comments and reads on the live gate, then `safeParse`s each response:
+
+| Schema | On the gate | Why |
+|---|---|---|
+| `UserResponse`, `ArticleResponse`, `ProfileResponse`, `TagsResponse` | ✅ holds | — |
+| `ArticlesResponse` | ❌ `articles.0: Unrecognized key: "body"` | the stale serializer, already a finding |
+| `CommentResponse`, `CommentsResponse` | ❌ `comment.author.following: expected boolean, received undefined` | **D-12** |
+
+⛔ **So four contract sites are not converted, and that is the decision rather than the leftovers.**
+`tests/defects/` already owns both of those defects. Asserting them a second time from `contract/`
+would make the gate suite permanently red over a bug this repository does not control — which is
+exactly what the `defects` project exists to keep out of the gate.
+
+**16 sites converted**, all in `tests/contract/`:
+
+| File | Sites | Schema |
+|---|---|---|
+| `authentication.spec.ts` | 11 | `UserResponse`, `ArticleResponse`, `ProfileResponse` |
+| `articles.spec.ts` | 2 | `ArticleResponse` |
+| `not-found.spec.ts` | 1 | `ArticleResponse` |
+| `registration.spec.ts` | 1 | `UserResponse` |
+| `client.spec.ts` | 1 | `TagsResponse` |
+
+📌 **`client.spec.ts` lost an assertion and got stronger.** It read `Array.isArray(body.tags)`,
+which is true of `[1, 2, 3]`. `parseBody(response.body, TagsResponseSchema)` says an array of
+strings under one key and nothing else, so the hand-written check had nothing left to add.
+
+✅ **27 contract tests pass, the same 27 as before.** Sixteen unverified claims became sixteen
+checks and none of them found anything, which is the outcome to want on a suite that is the gate.
+
+---
+
+#### What is left, and why each one is left
+
+**16 casts remain**, and every one now has a named reason rather than a place in a queue:
+
+| Where | Count | Why it stays |
+|---|---|---|
+| `tests/defects/` | 10 | a strict parse would throw before the test can report the defect it reproduces |
+| `tests/contract/` | 4 | the schema does not hold on the gate; `defects/` owns those two findings |
+| `tests/contract/schemas.spec.ts` | 1 | partial on purpose — `as { article?: { slug?: string } }` lets the test report its own message about the missing field |
+| `api/registerUser.ts` | 1 | setup, not a test; it throws its own error |
+
+➡️ **So B2 is finished in the sense that mattered.** What remains is not a backlog: each entry is a
+decision already taken, and the four in `contract/` turn into conversions on the day somebody else
+fixes their API — which is the same day the matching `defects/` test goes green and tells us.
 
 ---
 

@@ -1,5 +1,6 @@
 import { test, expect } from '@fixtures';
-import { ProfileResponseSchema } from '@schemas/conduit.schema';
+import { parseBody } from '@assertions/parseBody';
+import { ArticleResponseSchema, ProfileResponseSchema } from '@schemas/conduit.schema';
 
 const UNHELD_USERNAME = 'qa_nobody_000';
 const UNHELD_SLUG = 'there-is-no-such-slug-000';
@@ -66,7 +67,7 @@ test('C-015 — a path naming a slug no article holds is answered 404', async ({
   const created = await registeredUser.api.post('/articles', {
     article: factories.article.build(),
   });
-  const { article } = created.body as { article: { slug: string } };
+  const { article } = parseBody(created.body, ArticleResponseSchema);
   expect(article?.slug, 'the case needs one article that exists for the controls').toBeTruthy();
 
   const lookups = [

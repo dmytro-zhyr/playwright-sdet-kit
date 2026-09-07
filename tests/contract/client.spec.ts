@@ -1,4 +1,6 @@
 import { test, expect } from '@fixtures';
+import { parseBody } from '@assertions/parseBody';
+import { TagsResponseSchema } from '@schemas/conduit.schema';
 
 // Turns red if the target stops serving tags or changes the shape of the response.
 test('GET /tags returns 200 and a list of tags', async ({ api }) => {
@@ -6,8 +8,7 @@ test('GET /tags returns 200 and a list of tags', async ({ api }) => {
 
   expect(response.status).toBe(200);
 
-  const body = response.body as { tags?: unknown };
-  expect(Array.isArray(body.tags), 'tags must be an array').toBe(true);
+  parseBody(response.body, TagsResponseSchema);
 });
 
 // Turns red if the client starts throwing on non-2xx instead of returning the status.

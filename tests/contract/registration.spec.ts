@@ -30,8 +30,8 @@ test('registeredUser creates an account and hands over a working token', async (
 
   expect(response.status).toBe(200);
 
-  const body = response.body as { user?: { email?: string } };
-  expect(body.user?.email).toBe(registeredUser.user.email);
+  const { user } = parseBody(response.body, UserResponseSchema);
+  expect(user.email).toBe(registeredUser.user.email);
 });
 
 // Turns red if the anonymous client starts carrying a token from somewhere, which would make

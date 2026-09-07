@@ -1,6 +1,10 @@
 import { test, expect } from '@fixtures';
 import { parseBody } from '@assertions/parseBody';
-import { UserResponseSchema } from '@schemas/conduit.schema';
+import {
+  ArticleResponseSchema,
+  ProfileResponseSchema,
+  UserResponseSchema,
+} from '@schemas/conduit.schema';
 import { send, type Method } from '@api/send';
 import type { Credentials } from '@data/userFactory';
 
@@ -30,7 +34,7 @@ test('C-001 — a token from a registration and a token from a login both authen
     USER_ENDPOINT_SUCCESS,
     `the account under test must be registered — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(registration.status);
-  const registered = registration.body as { user: { token: string } };
+  const registered = parseBody(registration.body, UserResponseSchema);
 
   const login = await api.post('/users/login', {
     user: { email: account.email, password: account.password },
@@ -39,7 +43,7 @@ test('C-001 — a token from a registration and a token from a login both authen
     USER_ENDPOINT_SUCCESS,
     `the same account must be able to log in — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(login.status);
-  const loggedIn = login.body as { user: { token: string } };
+  const loggedIn = parseBody(login.body, UserResponseSchema);
 
   const reads = [
     { minted: 'registration', response: await api.withToken(registered.user.token).get('/user') },
@@ -88,7 +92,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   // least one comment, so that the mutating endpoints address something a later read can check.
   const sent = factories.article.build();
   const created = await registeredUser.api.post('/articles', { article: sent });
-  const { article } = created.body as { article: { slug: string } };
+  const { article } = parseBody(created.body, ArticleResponseSchema);
   expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
 
   const commentBody = factories.comment.build().body;
@@ -120,7 +124,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const otherArticleCreated = await registeredUser.api.post('/articles', {
     article: factories.article.build(),
   });
-  const { article: otherArticle } = otherArticleCreated.body as { article: { slug: string } };
+  const { article: otherArticle } = parseBody(otherArticleCreated.body, ArticleResponseSchema);
   expect(otherArticle?.slug, 'the case needs a second article to favorite').toBeTruthy();
 
   const secondFavorite = await registeredUser.api.post(
@@ -186,9 +190,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   // listing for the create.
   const survivor = await registeredUser.api.get(`/articles/${article.slug}`);
   expect(survivor.status, 'an anonymous delete must not have removed the article').toBe(200);
-  const kept = survivor.body as {
-    article: { title: string; description: string; body: string; favoritesCount: number };
-  };
+  const kept = parseBody(survivor.body, ArticleResponseSchema);
   expect(
     [kept.article.title, kept.article.description, kept.article.body],
     'an anonymous update must not have changed the article'
@@ -203,7 +205,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
     otherArticleSurvivor.status,
     'an anonymous delete must not have removed the second article'
   ).toBe(200);
-  const otherArticleKept = otherArticleSurvivor.body as { article: { favoritesCount: number } };
+  const otherArticleKept = parseBody(otherArticleSurvivor.body, ArticleResponseSchema);
   expect(
     otherArticleKept.article.favoritesCount,
     'an anonymous unfavorite must not have removed the favorite the precondition made on the article the guarded DELETE targets'
@@ -218,20 +220,20 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   ).toEqual([`${comment.id}:${commentBody}`]);
 
   const account = await registeredUser.api.get('/user');
-  const stored = account.body as { user: { bio: string | null } };
+  const stored = parseBody(account.body, UserResponseSchema);
   expect(stored.user.bio, 'an anonymous update must not have written to the account').not.toBe(
     guardProbe
   );
 
   const profile = await registeredUser.api.get(`/profiles/${username}`);
-  const relationship = profile.body as { profile: { following: boolean } };
+  const relationship = parseBody(profile.body, ProfileResponseSchema);
   expect(
     relationship.profile.following,
     'an anonymous follow must not have made a relationship on the profile the guarded POST targets'
   ).toBe(false);
 
   const secondProfile = await registeredUser.api.get(`/profiles/${second.username}`);
-  const secondRelationship = secondProfile.body as { profile: { following: boolean } };
+  const secondRelationship = parseBody(secondProfile.body, ProfileResponseSchema);
   expect(
     secondRelationship.profile.following,
     'an anonymous unfollow must not have removed the relationship the precondition made on the profile the guarded DELETE targets'
@@ -262,7 +264,7 @@ test('C-004 — a token addresses its own account and no other', async ({
     USER_ENDPOINT_SUCCESS,
     `the case needs a second account — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(registration.status);
-  const { user } = registration.body as { user: { token: string } };
+  const { user } = parseBody(registration.body, UserResponseSchema);
 
   const first = await registeredUser.api.get('/user');
   const other = await api.withToken(user.token).get('/user');
@@ -299,7 +301,7 @@ test('C-005 — an endpoint that requires no authentication serves an anonymous 
   const created = await registeredUser.api.post('/articles', {
     article: factories.article.build(),
   });
-  const { article } = created.body as { article: { slug: string } };
+  const { article } = parseBody(created.body, ArticleResponseSchema);
   expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
 
   const credentials: Credentials = {

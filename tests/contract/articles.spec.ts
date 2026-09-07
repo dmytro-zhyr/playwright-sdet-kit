@@ -54,7 +54,7 @@ test('C-061 — a created article is fetched by its slug and keeps what it was g
 
   const created = await registeredUser.api.post('/articles', { article: sent });
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
-  const { article } = created.body as { article: { slug: string } };
+  const { article } = parseBody(created.body, ArticleResponseSchema);
 
   const response = await api.get(`/articles/${article.slug}`);
 
@@ -126,7 +126,7 @@ test('C-072 — deleting an article answers success and its slug stops resolving
     article: factories.article.build(),
   });
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
-  const { article } = created.body as { article: { slug: string } };
+  const { article } = parseBody(created.body, ArticleResponseSchema);
 
   const before = await api.get(`/articles/${article.slug}`);
   expect(before.status, 'the slug must address the article before it is deleted').toBe(200);
