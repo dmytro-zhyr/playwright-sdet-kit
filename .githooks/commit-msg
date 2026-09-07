@@ -1,0 +1,11 @@
+#!/bin/sh
+# Rejects a commit message that does not follow Conventional Commits, at the moment it is written.
+#
+# Installed by the `prepare` script in package.json, which points `core.hooksPath` here. Committed
+# to the repository on purpose: a hook that lives only in .git/hooks exists on one machine and is
+# invisible to review.
+#
+# The binary is called directly rather than through `npx`, matching how CI calls prettier. `npx`
+# would silently reach the network for a missing package; this way a missing install is an error
+# that names itself.
+exec ./node_modules/.bin/commitlint --edit "$1"
