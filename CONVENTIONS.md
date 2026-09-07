@@ -570,6 +570,43 @@ dependencies by default, which here is none at all. `--dev` is therefore load-be
 reasoning is in `.github/workflows/checks.yml` next to the flag. ⛔ Never move a package into
 `dependencies` to make a scanner see it.
 
+### Fixing a transitive dependency means naming it
+
+🔴 Measured 7 September 2026. Snyk reported eleven advisories in `undici@8.10.0`, two of them
+CRITICAL, all reached through `jsforce`. The obvious move — upgrade `jsforce` — was made, and
+changed nothing: the tree still held `undici@8.10.0`.
+
+🔑 **`jsforce` was never the constraint.** It declares `undici: ^8.5.0`, and `8.10.2` has always
+satisfied that. The lockfile pinned `8.10.0`, and installing a new `jsforce` does not re-resolve a
+transitive dependency whose existing version still fits its range. `npm update undici` was the
+entire fix, and it would have worked without touching `jsforce` at all.
+
+📌 **Measured on a copy of the old lockfile**, same starting point every time
+(`jsforce 3.10.22`, `undici 8.10.0`), resolved with `--package-lock-only`:
+
+| Command | Result |
+|---|---|
+| `npm install` | jsforce 3.10.22 · **undici 8.10.0** |
+| `npm install jsforce@^3.10.25` | jsforce 3.10.25 · **undici 8.10.0** |
+| `npm audit fix` | jsforce 3.10.22 · **undici 8.10.0** |
+| `npm update undici` | jsforce 3.10.22 · **undici 8.10.2** |
+| `npm update` | jsforce 3.10.25 · undici 8.10.2 |
+| no lockfile at all | jsforce 3.10.25 · undici 8.10.2 |
+
+The last row is the proof that `jsforce` was never the constraint: a clean resolve gets the fixed
+`undici` even on the *old* `jsforce`. What froze it was the lockfile, doing exactly its job —
+reproducibility, at the price that a fix inside a transitive range never arrives on its own.
+
+⚠️ `npm audit fix` changed nothing, and not because it could not. npm's advisory database has no
+entry for these, so `npm audit` reports 0 — a tool named for fixing vulnerabilities fixed none
+because it cannot see them. Snyk sees eleven.
+
+➡️ **Read the range before upgrading the parent.** `npm ls <package>` says what is installed;
+the parent's `dependencies` block says what is permitted. When the fixed version is inside the
+range, the parent is not the problem and upgrading it is a guess. When it is outside — as with
+`csv-parse`, pinned at `^5.5.2` against a fix in `7.0.2` — no update reaches it and the only
+routes left are an `overrides` or leaving it, on the record, with a reason.
+
 ### Which target a project takes by default
 
 | Project | Deployment | Environment variable |

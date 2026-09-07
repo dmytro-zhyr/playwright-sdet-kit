@@ -191,10 +191,16 @@ jobs:
       # split answers one question — what must come with this package if someone installs it —
       # and nobody installs this one. The flag is the answer; the split is not.
       #
-      # `--severity-threshold=high` is a starting position, and it is now measured rather than
-      # assumed: `npm audit` and `snyk test --dev` both report 0 at every severity, and
-      # `snyk code test` reports 0 down to `low`. Tightening would change nothing today, so the
-      # threshold stays where a real finding will be worth acting on.
+      # `--severity-threshold=high` is a starting position, and it is measured rather than assumed.
+      # On 3 September 2026 there was nothing below it either. On 7 September 2026 there is:
+      # `csv-parse@5.6.0` carries a MEDIUM prototype pollution, reached only through `jsforce`, and
+      # it is left standing on purpose. `jsforce` pins `csv-parse@^5.5.2` and the fix landed in
+      # 7.0.2, so the only route to it is an `overrides` forcing a major version on a library that
+      # no file in this repository imports yet. That is a larger change than the finding.
+      #
+      # ⚠️ `npm audit` reports 0 for the same tree on the same day. The two scanners read different
+      # databases, and the quiet one is not the one to trust — which is the whole argument for
+      # running a second scanner rather than the one npm ships with.
       #
       # ⛔ No `.snyk` policy file. There is nothing to ignore, and writing an ignore file before
       # there is something to ignore builds policy for a problem that does not exist.
