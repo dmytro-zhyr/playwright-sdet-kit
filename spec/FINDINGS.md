@@ -809,6 +809,76 @@ unreachability from `.focus()` alone; this is the first time the tab order itsel
 ⛔ **Whether Enter activates a focused tab is not asserted.** It cannot be reached while this fails,
 and a second assertion failing for the first one's reason reports one defect twice.
 
+### 🔴 D-14 · The document does not declare its language
+
+`<html>` carries no `lang`, on every route. **WCAG 3.1.1 Language of Page, level A** — the most
+basic level of the standard. A screen reader picks its pronunciation from that attribute, so with
+none it keeps whatever language it was last set to and reads English content in a Ukrainian or
+German voice. The fix is one attribute.
+
+`tests/defects-ui/language.spec.ts`, red. One route is asserted, not seven: `<html>` belongs to the
+application shell rather than to a page, and asserting the same shell seven times reports one defect
+seven times.
+
+---
+
+### ⬜ What an accessibility scan returns here, and why most of it must not be a test
+
+Measured 7 September 2026 · `conduit-overstrict` · `axe-core@4.13.0` · tags `wcag2a`, `wcag2aa`,
+`wcag21a`, `wcag21aa`, `wcag22aa` — 69 of axe's 105 rules. `best-practice` is excluded on purpose:
+30 rules carry no WCAG tag at all, and this application trips three of them
+(`landmark-one-main`, `region`, `page-has-heading-one`). Calling those "WCAG violations" would be
+false.
+
+| Route | rules | nodes | incomplete | what |
+|---|---|---|---|---|
+| `/` anonymous | 4 | **119** | 1 | contrast 98 · lang 1 · image-alt 10 · link-name 10 |
+| `/` signed in | 4 | 118 | 1 | contrast 96 · lang 1 · image-alt 11 · link-name 10 |
+| `/article/:slug` | 4 | 28 | 0 | contrast 21 · lang 1 · image-alt 4 · link-name 2 |
+| `/profile/:username` | 3 | 14 | 0 | contrast 11 · lang 1 · image-alt 2 |
+| `/settings` | 3 | 12 | 0 | contrast 10 · lang 1 · image-alt 1 |
+| `/editor` | 3 | 11 | 1 | contrast 9 · lang 1 · image-alt 1 |
+| `/login`, `/register` | 2 | 9 | 0 | contrast 8 · lang 1 |
+
+And the same page cut into regions, which is what decided everything below:
+
+| Region | rules | nodes |
+|---|---|---|
+| `form` on `/login` and `/register` | **0** | **0** |
+| `.navbar` | 1 | 4 — contrast only |
+| `.feed-toggle` | 1 | 2 — contrast only |
+| **`.article-preview`** | 3 | **96** — contrast 76 · image-alt 10 · link-name 10 |
+
+🔑 **Almost all of it is one region, and that region is other people's writing.** 76 of the home
+page's 98 contrast nodes, and every `image-alt` and `link-name` node, are inside the article list.
+Those counts move when somebody publishes — `/article/:slug` was measured twice within one hour on
+7 September and gave **29 then 28**, because the route takes whichever article leads the feed.
+
+➡️ **So the node count is not an oracle.** It measures how many articles exist, not how accessible
+the application is. What became a test is only what cannot drift:
+
+| | Where it went | Why |
+|---|---|---|
+| `form` at 0 violations | ✅ gate, `tests/ui/accessibility.spec.ts` | passes today, content-free, a change can break it |
+| `html-has-lang`, 1 node everywhere | 🔴 defect, D-14 | deterministic, level A, one attribute |
+| keyboard access to the feed tabs | 🔴 defect, D-13 | found by hand; **axe does not see it** |
+| contrast, `image-alt`, `link-name` | ⬜ this table, and nothing else | the count tracks the feed, not the code |
+
+⚠️ **`incomplete` is reported and not asserted.** It is axe saying a human has to look — one node on
+`/` and one on `/editor`, both contrast it could not compute. Turning an admission of uncertainty
+into a red build teaches people to narrow the filter until it goes quiet.
+
+🔴 **What this measurement is worth remembering for.** Scanning `.feed-toggle` — the exact element
+of D-13 — returns **one contrast issue and nothing else**. The keyboard defect, a level A failure of
+criterion 2.1.1, is invisible to the scanner. The claim that a scan supplements a hand-written
+accessibility test rather than replacing it is not an opinion here; it is a measurement.
+
+⚠️ **A correction to the first version of this measurement.** It filtered on four tags and omitted
+`wcag22aa`, so it reported a WCAG figure that excluded WCAG 2.2. Nothing failed — the number was
+simply smaller than the standard it named. Re-run with the tag included, the counts are unchanged
+(`target-size` finds nothing here), but they are now right by measurement rather than by luck. The
+list lives in `assertions/accessibility.ts` so it cannot drift between callers again.
+
 ### 🔴 `.article-preview` is also the empty state
 
 `<div class="article-preview">No articles are here... yet.</div>` is what an empty feed renders, so

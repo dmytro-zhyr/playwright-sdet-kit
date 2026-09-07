@@ -161,6 +161,6 @@ together with the methods it needs.
 | Oracle defects found | 2 — a count that included the empty state, a navigation that returned early |
 | Suppressions added | 0 |
 
-⬜ **Left open on purpose:** accessibility has no coverage in this repository, and the keyboard
-finding is the first evidence that it should. That is a stage of its own, not a footnote to a
-rename.
+✅ **Closed 7 September 2026.** Accessibility had no coverage in this repository and the keyboard
+finding was the first evidence that it should. It is now D-13, with D-14 beside it and a passing
+gate on the two forms — see spec/FINDINGS.md, "What an accessibility scan returns here".
