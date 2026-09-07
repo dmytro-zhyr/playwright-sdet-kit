@@ -563,6 +563,10 @@ jobs:
             echo "conduit-unsound: no repository variable set, keeping the default in deployments/registry.ts"
           fi
 
+      # A browser, because `defects-ui` is part of `test:defects` since D-13. Chromium only, and
+      # from `node_modules/.bin` rather than `npx`, for the reasons written on the `ui` job.
+      - run: ./node_modules/.bin/playwright install --with-deps chromium
+
       # ⛔ The exit code of this suite is not the verdict, and `continue-on-error` is what says so.
       # Every test here asserts the specification against a deployment that violates it, so failure
       # is the documented state — and a job that is red every single run carries no information at

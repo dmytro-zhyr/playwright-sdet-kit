@@ -751,7 +751,8 @@ carry `href`, so this is specific to the toggle rather than to the application.
 
 **2. They cannot be reached from the keyboard.** No `href` and no `tabindex`: `.focus()` moves
 nothing, and tabbing through the page skips them. A mouse-only control is a defect of the
-application, and it is the first accessibility finding in this repository.
+application, and it is the first accessibility finding in this repository. ➡️ It has a test and a
+number of its own since 7 September 2026 — **D-13**, below.
 
 **3. Selection is carried by a class and nothing else.** There is no `aria-selected`. `.active` on
 the anchor is the whole of what the page says about which feed is showing — so an assertion about
@@ -769,6 +770,44 @@ no way for a test to arrive at one directly.
 ➡️ Facts 2 and 5 are the same shape — the application holds state that is neither in the URL nor in
 the accessibility tree. Facts 1, 3 and 4 are why `po/pages/homePage.ts` exposes `feedTab(name)`,
 `activeFeedTab(name)` and `openFeedTab(name)` rather than a locator per tab.
+
+### 🔴 D-13 · The feed tabs are operable by pointer only
+
+The finding above, turned into a check on 7 September 2026 — `tests/defects-ui/feedTabs.spec.ts`.
+It asserts that a keyboard can reach a feed tab, and it is red.
+
+**What a keyboard walk actually does.** Focus is driven forward from the top of the document and
+every stop recorded. Forty presses on `conduit.bondaracademy.com`:
+
+```
+A "conduit" | A "Home" | A "Sign in" | A "Sign up" | A "https://bondaracadem"
+| A "Artem Bondar" | BUTTON "2220" | A "Discover Bondar Acad" | BUTTON "484" | …
+```
+
+**Zero stops inside `.feed-toggle`.** The header's four links are reachable and so is every article
+card, so the page is not broadly keyboard-hostile — the toggle alone is unreachable. The element
+reports `{"tag":"A","href":null,"tabindex":null,"role":null,"takesFocus":false}`.
+
+🔑 **This is not the RealWorld reference frontend, and that was measured rather than assumed.** The
+same toggle on `demo.realworld.show` — `conduit-unsound`'s UI — is `<a href="/">` and takes focus
+normally. The defect belongs to `conduit-overstrict`, which happens to be the deployment chosen as
+the UI gate. A finding about one host is a smaller claim than one about the reference
+implementation, and the smaller one is the true one.
+
+🔑 **An automated scan would not have found this**, which is the reason to record it before adding
+one. `axe` matches the DOM against rules, and an anchor with no `href` carrying a click handler is
+structurally an ordinary generic element with text. Nothing in the markup declares an intention to
+be a control, so no rule is broken. Knowing that this element *is* a control is exactly the part a
+scanner cannot supply — so a scan is an addition to this finding, never a replacement for it.
+
+⚠️ **A correction to the probe that produced this.** Its first version reported the tabs *were* in
+the tab order. They were not: the class `nav-link` is carried by the header links as well, and
+recording only the tag and first class made a header link read as a feed tab. Re-run against
+`closest('.feed-toggle')`, the count is zero. The measurement of 4 September had inferred
+unreachability from `.focus()` alone; this is the first time the tab order itself was walked.
+
+⛔ **Whether Enter activates a focused tab is not asserted.** It cannot be reached while this fails,
+and a second assertion failing for the first one's reason reports one defect twice.
 
 ### 🔴 `.article-preview` is also the empty state
 

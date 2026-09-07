@@ -30,6 +30,22 @@ const DEFECTS_URL = resolveDeployment('conduit-unsound');
 // See spec/FINDINGS.md, "UI reconnaissance".
 const UI_URL = resolveUiDeployment('conduit-overstrict');
 
+/**
+ * What a browser project uses, shared by `ui` and `defects-ui` so the two cannot drift apart.
+ *
+ * ⚠️ `extraHTTPHeaders: {}` is load-bearing. The API base URL sets `Content-Type: application/json`
+ * on every request, which is right for a client and wrong for a browser — it would be sent on
+ * document navigations too. A browser project states its own block rather than inheriting one
+ * written for `APIRequestContext`.
+ */
+const BROWSER = {
+  ...devices['Desktop Chrome'],
+  baseURL: UI_URL,
+  extraHTTPHeaders: {},
+  trace: 'on-first-retry',
+  screenshot: 'only-on-failure',
+} as const;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -88,22 +104,28 @@ export default defineConfig({
     {
       name: 'ui',
       testDir: './tests/ui',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: UI_URL,
-        // The API base URL above sets this header for every request, which is right for a client
-        // and wrong for a browser: it would be sent on document navigations too. The UI project
-        // states its own `use` block rather than inheriting one written for APIRequestContext.
-        extraHTTPHeaders: {},
-        trace: 'on-first-retry',
-        screenshot: 'only-on-failure',
-      },
+      use: BROWSER,
     },
     {
       name: 'defects',
       testDir: './tests/defects',
       // Its own baseURL, so the two targets can never collide: moving the gate leaves this alone.
       use: { baseURL: DEFECTS_URL },
+    },
+    // 🔑 A fourth project, and the reason is the same one that made `defects` a project rather than
+    // a folder inside `contract`: these tests assert what the application *should* do and are red
+    // until somebody else fixes it, so they must not stand in a gate. What they could not do is
+    // live in `defects` — that project's `use` is written for an API client, and the comment on
+    // BROWSER above is exactly why the two cannot share one block.
+    //
+    // ⛔ Not solved with `test.fail()` inside the `ui` suite instead. That would put a
+    // known-broken assertion inside the gate and give this repository a second vocabulary for a
+    // thing it already has one for: a defect is a test that asserts the specification and goes
+    // green the day the defect is fixed.
+    {
+      name: 'defects-ui',
+      testDir: './tests/defects-ui',
+      use: BROWSER,
     },
   ],
 });

@@ -91,7 +91,7 @@ Optional, and it is a noun for a part of the codebase — never a ticket number.
 follows the module aliases in `tsconfig.json` plus the things that are not modules:
 
 `po` · `api` · `assertions` · `schemas` · `fixtures` · `deployments` · `data` · `pipeline` ·
-`report` · `contract` · `ui` · `unit` · `defects` · `deps` · `ci` · `docs`
+`report` · `contract` · `ui` · `unit` · `defects` · `defects-ui` · `deps` · `ci` · `docs`
 
 ⬜ It is deliberately **not** enforced as a `scope-enum`. The list has existed for one day, and an
 enum rejects a scope that is legitimate and merely new. Same reasoning as the absent `.snyk` policy
