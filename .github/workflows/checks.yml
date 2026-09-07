@@ -26,7 +26,7 @@ name: checks
 # the reader to skip the row.
 #
 # The first three are the gate and run on every push and pull request. `defects` is monitoring: it
-# is red by design, so it runs only on a schedule or by hand and never stands in the gate.
+# is red on purpose, so it runs only on a schedule or by hand and never stands in the gate.
 #
 # ⚠️ `ui` is in the gate deliberately, and it is the arguable one. Like `contract` it depends on
 # somebody else's host being up, so a third party can turn the gate red — but that trade was
@@ -517,7 +517,7 @@ jobs:
           retention-days: 7
 
   defects:
-    name: defects — conduit-unsound, red by design, not a gate
+    name: defects — conduit-unsound, red only when something changed
     # Schedule or by hand only. These tests assert the specification against deployments that
     # violate it, so they are red until somebody else fixes their API. In the gate they would
     # block every commit over a bug this repository does not control.
@@ -563,15 +563,58 @@ jobs:
             echo "conduit-unsound: no repository variable set, keeping the default in deployments/registry.ts"
           fi
 
-      # Expected to fail. A green run here is the news: it means a defect was fixed.
-      - run: npm run test:defects
+      # ⛔ The exit code of this suite is not the verdict, and `continue-on-error` is what says so.
+      # Every test here asserts the specification against a deployment that violates it, so failure
+      # is the documented state — and a job that is red every single run carries no information at
+      # all. A scheduled run could not tell "the twelve defects still reproduce" from "npm ci died"
+      # or "the target is unreachable", which is the same defect this repository names in D-12: a
+      # check that cannot go red for the reason you care about.
+      - name: The defects
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_REPORT: defects.json
+        run: npm run test:defects
+
+      # 🔑 The verdict, inverted. Green means the world is still as spec/FINDINGS.md describes it;
+      # red means something changed and somebody has to look. That is the only shape in which this
+      # job can be worth a notification.
+      #
+      # Two numbers, both from Playwright's own stats: `unexpected` is a defect still reproducing,
+      # `expected` is one that stopped. ⛔ Deliberately not a script that walks the report to name
+      # which test passed — the Allure and HTML artifacts already answer that, and this file's own
+      # reporter comment says Allure exists for exactly that question. A second implementation of
+      # it here would be untested code doing a job something already does.
+      #
+      # 📌 Read with `node`, not `jq`. `jq` is on this runner and not on a Windows laptop, and a
+      # check that can only run on CI is a check nobody runs while writing the thing it would have
+      # caught — the same argument that put `snyk:deps` in an npm script.
+      - name: A defect that stopped reproducing is the news
+        run: |
+          test -f defects.json || {
+            echo "::error::The run wrote no JSON report, so nothing here is known about the defects."
+            exit 1
+          }
+          fixed=$(node -p "JSON.parse(require('fs').readFileSync('defects.json','utf8')).stats.expected")
+          still=$(node -p "JSON.parse(require('fs').readFileSync('defects.json','utf8')).stats.unexpected")
+          echo "still reproducing: $still — stopped reproducing: $fixed"
+          if [ "$((fixed + still))" -eq 0 ]; then
+            echo "::error::No defect test ran. A suite that runs nothing reports nothing."
+            exit 1
+          fi
+          if [ "$fixed" -ne 0 ]; then
+            echo "::error::$fixed defect test(s) passed — a defect stopped reproducing. Update spec/FINDINGS.md and move the test into the contract suite. The Allure report names which."
+            exit 1
+          fi
+          echo "All $still defects still reproduce. Nothing changed."
 
       - name: Defects report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: defects-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            defects.json
           retention-days: 30
 
       - name: Allure results

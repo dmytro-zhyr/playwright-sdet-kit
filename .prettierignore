@@ -4,6 +4,7 @@
 # pipeline/*.md are reviewed as diffs — reflowing lines would add noise with no content.
 *.md
 package-lock.json
+defects.json
 
 # Machine-local state written by Claude Code, gitignored and never reviewed. Formatting it
 # would be a standing argument between two tools that both rewrite the file.

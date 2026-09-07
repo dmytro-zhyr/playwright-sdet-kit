@@ -48,9 +48,20 @@ export default defineConfig({
   //
   // It runs locally too, not only on CI. History is what makes it worth having, and history that
   // only exists on CI cannot be looked at while writing the test that would have shown up in it.
+  //   json      a machine, and only when one asks — see PLAYWRIGHT_JSON_REPORT below
   reporter: [
     ['list'],
     ...(process.env.CI ? [['html', { open: 'never' }] as const] : []),
+    // 🔑 Off unless a caller names an output file, and there is exactly one caller: the `defects`
+    // job, which has to decide whether a run is news. That suite is red on purpose, so a red job
+    // says nothing — the job needs to know *how many* tests passed, and `stats.expected > 0` is
+    // that number. `.last-run.json` cannot answer it: it lists failures and not the total.
+    //
+    // ⛔ Not added to the list unconditionally. A reporter every run writes and nobody reads is
+    // the definition of decoration, and this file opens by saying none of the three are that.
+    ...(process.env.PLAYWRIGHT_JSON_REPORT
+      ? [['json', { outputFile: process.env.PLAYWRIGHT_JSON_REPORT }] as const]
+      : []),
     [
       'allure-playwright',
       {

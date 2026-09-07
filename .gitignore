@@ -8,5 +8,6 @@ allure-report/
 .allure-history-carry/
 coverage/
 snyk-dependencies.json
+defects.json
 snyk-code.sarif
 site/
