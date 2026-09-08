@@ -655,6 +655,50 @@ or `**Covers:**` value may wrap onto as many further lines as it needs.** The pa
 heading, or is blank, and joins the pieces with a single space. A long statement wraps like any
 other line in this repository and keeps its whole meaning.
 
+## How a defect is reported
+
+Every defect in `tests/defects/` and `tests/defects-ui/` has an issue on this repository, and the
+test's `issue` annotation carries the link — so the HTML and Allure reports click through from a red
+test to the report of what is wrong. Filed 8 September 2026; twelve of them, D-1 to D-14.
+
+⚠️ **The annotation used to promise them.** It read `GitHub issue to be filed when the repository is
+published`, the repository was published on 5 September, and nothing was filed. A promise inside
+shipped code that the code itself contradicts is worse than no promise, and it was found by reading
+rather than by any check.
+
+### The fields, and why these
+
+```
+[<deployment>] <one line: what is not right>
+
+Environment · Preconditions · Steps to reproduce · ER · AR
+Automated test · Open · Impact
+```
+
+| Field | Rule |
+|---|---|
+| **ER** | comes from the **specification, quoted**. Not from what seems reasonable |
+| **AR** | comes from a **measurement**, with the date and the count |
+| **Automated test** | `path:line` — the test asserts the specification, so it is red while the defect stands and green the day it is fixed |
+| **Open** | only where something is genuinely unresolved — see below |
+| **Impact** | only where the severity is not obvious from the title |
+
+⛔ **No "where the bug is" field.** We do not see the application's source, so any statement about
+its cause is a hypothesis presented as a finding. Where the *observations* localise something —
+the comment write and read agreeing with each other and disagreeing with every other author — that
+belongs in AR as measurement, not in a verdict.
+
+⛔ **No hand-typed `Evidence` block.** Text a reporter typed is the same claim in a monospace font;
+it establishes nothing. Attach the captured response instead. 🔑 **And where steps reproduce the
+defect, an attachment is optional** — it saves the reader time, it does not establish the fact.
+That is why D-13 has none: the defect is the *absence* of an event, and a screenshot of focus not
+landing anywhere looks like an ordinary page.
+
+🔑 **`Open` is the field worth having.** Two of these reports withdraw a claim their own earlier
+version made, and D-4 records that the control experiment contradicts the premise its own
+reproduction is built on. A report that says what its author does not know is worth more than one
+that reads as though everything were settled.
+
 ## Known defects of the pinned target
 
 Tests that assert the specification where a deployment violates it live in `tests/defects/`, not

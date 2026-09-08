@@ -1,5 +1,10 @@
 # Conduit reconnaissance — 23 August 2026
 
+📌 **Each defect below also has an issue on this repository**, filed 8 September 2026 — steps,
+ER, AR and the test that reproduces it, in the form a developer of the target would receive. This
+file is the reasoning; the issues are the reports. The `issue` annotation on each test links to its
+own.
+
 Everything below was **verified with requests**, not taken from the specification. Where the
 target diverges from the [specification](conduit-api.md), the divergence is written down
 separately and **the specification stays authoritative**.

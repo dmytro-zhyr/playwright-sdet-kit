@@ -22,7 +22,7 @@ test(
     annotation: {
       type: 'issue',
       description:
-        'spec/FINDINGS.md — D-7; GitHub issue to be filed when the repository is published',
+        'D-7 · spec/FINDINGS.md · https://github.com/dmytro-zhyr/playwright-sdet-kit/issues/5',
     },
   },
   async ({ deployment }) => {
@@ -52,7 +52,7 @@ test(
     annotation: {
       type: 'issue',
       description:
-        'spec/FINDINGS.md — D-8; GitHub issue to be filed when the repository is published',
+        'D-8 · spec/FINDINGS.md · https://github.com/dmytro-zhyr/playwright-sdet-kit/issues/6',
     },
   },
   async ({ deployment }) => {
@@ -85,7 +85,7 @@ test(
     annotation: {
       type: 'issue',
       description:
-        'spec/FINDINGS.md — D-12; GitHub issue to be filed when the repository is published',
+        'D-12 · spec/FINDINGS.md · https://github.com/dmytro-zhyr/playwright-sdet-kit/issues/10',
     },
   },
   async ({ deployment, factories }) => {

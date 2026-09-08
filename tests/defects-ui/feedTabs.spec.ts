@@ -54,7 +54,7 @@ test(
     annotation: {
       type: 'issue',
       description:
-        'spec/FINDINGS.md — D-13; GitHub issue to be filed when the repository is published',
+        'D-13 · spec/FINDINGS.md · https://github.com/dmytro-zhyr/playwright-sdet-kit/issues/11',
     },
   },
   async ({ page, homePage }) => {
