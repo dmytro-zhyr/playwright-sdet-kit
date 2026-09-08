@@ -151,6 +151,48 @@ together with the methods it needs.
 
 ---
 
+## ✅ P5 · Visibility, and the dead code it uncovered — done 08.09.2026
+
+Raised as a question about encapsulation: if a getter behaves like `readonly`, does it not become
+public where it need not be? **It does not** — `private get root()` was already in this layer, and
+`readonly nav: Navigation` is public. Both forms take a modifier; the default is the same.
+
+So the real question was which members are contract and which are machinery, and it was answered by
+counting callers rather than by taste.
+
+### 🔴 Five members had no caller anywhere
+
+| | |
+|---|---|
+| `goHome` | ⚠️ and **two documents hold it up as the worked example** of the `goto` / `go…` rule |
+| `signUpLink`, `settingsLink` | header links no test clicked |
+| `commentField`, `postCommentButton` | the UI comment flow is not tested; commenting is covered over the API |
+
+⛔ **Private would have been the wrong answer to all five.** It hides dead code from the reader and
+leaves it dead. This repository's own rule is stricter: P4 above refused to *write* four navigation
+methods for exactly this reason.
+
+➡️ **Four got a caller instead.** `tests/ui/navigation.spec.ts` walks the header — Sign in and Sign
+up for a signed-out visitor, Settings, New Article and the profile link for a signed-in one. It is
+the only test in the repository whose subject is that the links work; every other test reaches its
+page by address, because a chain of clicks is a worse setup. Two were deleted.
+
+### ✅ Eleven became private, and the modifier now carries a check
+
+`homeLink` · `feedTabs` · both `heading`s · `fillCredentials` · `fillRegistration` · `fillArticle` ·
+`descriptionField` · `bodyField` · `tagsField` · `publishButton` — each has an internal caller and
+no external one.
+
+`noUnusedLocals` was switched on in the same pass, because without it the modifier would have been
+decoration. It was verified rather than assumed: a private getter nobody calls fails the build with
+`TS6133`.
+
+📌 **One place the rule looks uneven, and it is the honest picture.** `editorPage.titleField` is
+public because a test asserts on it; its four siblings on the same form are private because nothing
+outside `fillArticle` touches them. The contract is what a test needs, not what is symmetrical.
+
+---
+
 ## What this cost, and what it caught
 
 | | |

@@ -43,14 +43,6 @@ export class ArticlePage {
     return this.page.getByRole('button', { name: 'Delete Article' }).first();
   }
 
-  get commentField(): Locator {
-    return this.page.getByPlaceholder('Write a comment...');
-  }
-
-  get postCommentButton(): Locator {
-    return this.page.getByRole('button', { name: 'Post Comment' });
-  }
-
   authorLink(username: string): Locator {
     return this.page.getByRole('link', { name: username, exact: true }).first();
   }

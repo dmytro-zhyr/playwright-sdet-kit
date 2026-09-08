@@ -10,7 +10,7 @@ export class LoginPage {
     this.nav = new Navigation(page);
   }
 
-  get heading(): Locator {
+  private get heading(): Locator {
     return this.page.getByRole('heading', { name: 'Sign in' });
   }
 
@@ -35,7 +35,7 @@ export class LoginPage {
     await this.heading.waitFor();
   }
 
-  async fillCredentials(email: string, password: string): Promise<void> {
+  private async fillCredentials(email: string, password: string): Promise<void> {
     await this.emailField.fill(email);
     await this.passwordField.fill(password);
   }

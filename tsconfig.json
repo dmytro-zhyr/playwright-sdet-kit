@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "preserve",
     "strict": true,
+    "noUnusedLocals": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

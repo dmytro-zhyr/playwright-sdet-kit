@@ -43,7 +43,7 @@ export class Navigation {
   }
 
   /** Present for everyone, signed in or not. */
-  get homeLink(): Locator {
+  private get homeLink(): Locator {
     return this.root.getByRole('link', { name: 'Home', exact: true });
   }
 

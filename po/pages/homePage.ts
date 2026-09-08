@@ -43,7 +43,7 @@ export class HomePage {
    * The strip holding the tabs. **Two or three of them**: a third appears when a tag is clicked,
    * so a test asserting a fixed count is asserting the state it happened to start in.
    */
-  get feedTabs(): Locator {
+  private get feedTabs(): Locator {
     return this.page.locator('.feed-toggle');
   }
 

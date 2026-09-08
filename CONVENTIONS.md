@@ -812,6 +812,39 @@ a string operation.
 ⛔ **`public` is never written.** It is the default and says nothing. `private` and `readonly` each
 say something, so they are written.
 
+### What is public is the contract; what is private is machinery
+
+Both forms take a modifier, so this is a decision rather than a consequence of the style:
+`private get root()` and `readonly nav: Navigation` sit in the same layer.
+
+🔑 **The line is what a test may legitimately need, not what happens to be unused today.** In a
+page object the contract is *locators, so a test can assert on them* — `expect(loginPage.errorMessages)`
+is the shape Playwright's own documentation uses. Machinery is what only the page object itself
+calls: a readiness signal, a container other locators derive from, a step of a larger method.
+
+⛔ **Do not make private everything the compiler would allow.** Hiding the locators a test asserts
+on forces wrapper methods that return them again, or assertions written inside the page object —
+and an expectation inside a component cannot be read at the call site. Encapsulation is *expose the
+contract, hide the machinery*; applied as *hide whatever compiles*, it reads as the pattern
+misunderstood rather than known.
+
+📌 **`private` here is a check, not a label.** `noUnusedLocals` is on in tsconfig.json, and
+TypeScript reports an unused **private** member and never an unused public one. Verified
+08.09.2026 by adding a private getter nobody called:
+
+```
+po/components/navigation.ts(46,15): error TS6133: 'neverCalled' is declared but its value is never read.
+```
+
+So marking machinery private turns "nobody uses this any more" into a failing build the day its
+last caller goes away. That is the whole reason the modifier is worth writing.
+
+⚠️ **A member nobody calls at all is a different question, and it is not about visibility.** Five
+were found on 8 September 2026: `goHome`, `signUpLink`, `settingsLink`, `commentField`,
+`postCommentButton`. Making them private would only have hidden dead code from the reader while
+leaving it dead. Four got a caller — `tests/ui/navigation.spec.ts` — and two were deleted. See
+PLAN-PO.md, P5.
+
 ### Two ways to reach a page
 
 🔑 **`goto` is by address; a `go…` method is by clicking, and it lives on the page you are

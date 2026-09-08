@@ -17,7 +17,7 @@ export class RegisterPage {
     this.nav = new Navigation(page);
   }
 
-  get heading(): Locator {
+  private get heading(): Locator {
     return this.page.getByRole('heading', { name: 'Sign up' });
   }
 
@@ -55,7 +55,7 @@ export class RegisterPage {
   }
 
   /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
-  async fillRegistration(user: UserCreateInput): Promise<void> {
+  private async fillRegistration(user: UserCreateInput): Promise<void> {
     await test.step(`fill the sign-up form as ${user.username}`, async () => {
       await this.usernameField.fill(user.username);
       await this.emailField.fill(user.email);

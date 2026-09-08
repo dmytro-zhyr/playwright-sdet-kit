@@ -21,19 +21,19 @@ export class EditorPage {
     return this.page.getByPlaceholder('Article Title');
   }
 
-  get descriptionField(): Locator {
+  private get descriptionField(): Locator {
     return this.page.getByPlaceholder("What's this article about?");
   }
 
-  get bodyField(): Locator {
+  private get bodyField(): Locator {
     return this.page.getByPlaceholder('Write your article (in markdown)');
   }
 
-  get tagsField(): Locator {
+  private get tagsField(): Locator {
     return this.page.getByPlaceholder('Enter tags');
   }
 
-  get publishButton(): Locator {
+  private get publishButton(): Locator {
     return this.page.getByRole('button', { name: 'Publish Article' });
   }
 
@@ -67,7 +67,7 @@ export class EditorPage {
    * Fills the four fields. Each tag is committed with Enter, which is how the widget turns typed
    * text into a chip — typing alone leaves it in the input and it is dropped on submit.
    */
-  async fillArticle(article: ArticleCreateInput): Promise<void> {
+  private async fillArticle(article: ArticleCreateInput): Promise<void> {
     await test.step(`fill the editor with "${article.title}"`, async () => {
       await this.titleField.fill(article.title);
       await this.descriptionField.fill(article.description);
