@@ -25,6 +25,13 @@ import { expect } from '@assertions/toMatchSchema';
  * So the matcher runs first and stops the test on a mismatch; `schema.parse` below is only ever
  * reached when it cannot fail. Parsing twice costs microseconds and buys one failure message.
  *
+ * 📌 **Every call site names the type it expects.** `const { user }: UserResponse = parseBody(...)`
+ * repeats a name the schema argument already carries, and that repetition is deliberate: this
+ * repository is read on GitHub, where there are no hover types and no inline hints. Inference
+ * resolves `ZodType<T>` to a structural shape, so the alias never appears on its own — a reader in
+ * a browser sees the type only if it is written. The annotation costs one word and is checked by
+ * the compiler, so it cannot drift from the schema.
+ *
  * ⚠️ **Not every cast should become this call.** Some are partial on purpose —
  * `as { article?: { slug?: string } }` exists so the test can report its own message about the
  * missing field, and a strict parse would fail before that message could be produced. See

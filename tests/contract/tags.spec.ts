@@ -1,6 +1,7 @@
 import { test, expect } from '@fixtures';
 import { parseBody } from '@assertions/parseBody';
 import { TagsResponseSchema } from '@schemas/conduit.schema';
+import type { TagsResponse } from '@schemas/conduit.schema';
 
 // The specification states no success status for creating an article — anywhere, and for any
 // endpoint. It says only that the call "will return an Article". All three live deployments answer
@@ -35,6 +36,6 @@ test('C-025 — the tags document is an array of strings under one key', async (
   const response = await api.get('/tags');
 
   expect(response.status, 'the tag list must be readable with no Authorization header').toBe(200);
-  const { tags } = parseBody(response.body, TagsResponseSchema);
+  const { tags }: TagsResponse = parseBody(response.body, TagsResponseSchema);
   expect(tags.length, 'a tagged article exists, so the list must not be empty').toBeGreaterThan(0);
 });

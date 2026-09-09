@@ -1,6 +1,7 @@
 import { test, expect } from '@fixtures';
 import { parseBody } from '@assertions/parseBody';
 import { ArticleResponseSchema, ErrorsSchema } from '@schemas/conduit.schema';
+import type { ArticleResponse, Errors } from '@schemas/conduit.schema';
 
 // The specification states no success status for creating an article — anywhere, and for any
 // endpoint. It says only that the call "will return an Article". All three live deployments
@@ -35,7 +36,7 @@ test('C-060 — creating an article returns it authored by the caller', async ({
   });
 
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
-  const { article } = parseBody(created.body, ArticleResponseSchema);
+  const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
   expect(article.author.username, 'the author is the caller, not whoever the payload named').toBe(
     registeredUser.user.username
   );
@@ -54,14 +55,14 @@ test('C-061 — a created article is fetched by its slug and keeps what it was g
 
   const created = await registeredUser.api.post('/articles', { article: sent });
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
-  const { article } = parseBody(created.body, ArticleResponseSchema);
+  const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
 
   const response = await api.get(`/articles/${article.slug}`);
 
   expect(response.status, 'the slug a creation returned must address the article').toBe(200);
-  const fetched = parseBody(response.body, ArticleResponseSchema);
+  const { article: fetched }: ArticleResponse = parseBody(response.body, ArticleResponseSchema);
   expect(
-    [fetched.article.title, fetched.article.description, fetched.article.body],
+    [fetched.title, fetched.description, fetched.body],
     'the article read back must carry the values the creation sent'
   ).toEqual([sent.title, sent.description, sent.body]);
 });
@@ -85,7 +86,7 @@ test('C-062 — creating an article refuses a body missing a required field', as
     const response = await registeredUser.api.post('/articles', { article });
     observed.push(`without ${omitted} -> ${response.status}`);
 
-    const { errors } = parseBody(response.body, ErrorsSchema);
+    const { errors }: Errors = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
       `the 422 for a missing ${omitted} must name at least one field`
@@ -126,7 +127,7 @@ test('C-072 — deleting an article answers success and its slug stops resolving
     article: factories.article.build(),
   });
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
-  const { article } = parseBody(created.body, ArticleResponseSchema);
+  const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
 
   const before = await api.get(`/articles/${article.slug}`);
   expect(before.status, 'the slug must address the article before it is deleted').toBe(200);
