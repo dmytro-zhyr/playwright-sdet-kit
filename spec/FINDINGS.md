@@ -971,6 +971,50 @@ does, so that a later test does not assert client-side email validation that was
 An expectation invented from what a form ought to do is the same failure as a locator invented from
 what markup ought to be.
 
+## ⬜ An observation interception made possible, and why it is not a defect
+
+Measured 10 September 2026 · `conduit-overstrict` · `page.route` fulfilling
+`GET /api/articles` with `500`.
+
+The page stays on its loading state and never leaves it:
+
+```
++2s   requests: 1 | loading: true | cards: 0 | error text: false
++5s   requests: 1 | loading: true | cards: 0 | error text: false
++10s  requests: 1 | loading: true | cards: 0 | error text: false
++20s  requests: 1 | loading: true | cards: 0 | error text: false
++30s  requests: 1 | loading: true | cards: 0 | error text: false
+```
+
+Sixty-seven seconds in total. One request, **no retry**, no error text, no empty state — the
+reader sees `Loading articles...` for as long as they are willing to wait.
+
+### ⛔ Why there is no D-15 here
+
+The first draft of this section called it a defect. It is not one, and the reason is the rule this
+repository already applies to schemas: **describe the contract, not our expectations.** No
+`slug` regex, because the specification guarantees only uniqueness; no JWT shape on `token`,
+because this target issues an opaque string.
+
+Nothing states what a Conduit frontend must do when the article list fails. D-13 and D-14 are
+defects because each cites WCAG — an external standard that says what must hold. There is no
+equivalent for "show an error when a fetch fails", and a 500 the architecture may consider
+impossible is a backend defect rather than a frontend one. **We measured a behaviour; we cannot
+say it is wrong.**
+
+➡️ So this is a **question for the team**, not a defect report: *is the loading state on a failed
+article list deliberate, or has nobody looked?* On a real project that question goes to the
+developer first, and only becomes a report if the answer is the second one.
+
+### 🔑 What this says about interception
+
+The value here was not stubbing. **It was that the question could not exist without it** — a live
+deployment does not fail on request, so nobody running this suite against reality would ever see
+this state. `page.route` did not verify anything; it surfaced something to ask about.
+
+See `tests/ui/interception.spec.ts` for the boundary between `route` and the two observers, and
+for the two states that are asserted rather than merely observed.
+
 ## ⚠️ What `npx playwright init-agents` brought in, and what was done with it
 
 Playwright's own agent tooling was installed on 30 August 2026: `init-skills` added three skills
