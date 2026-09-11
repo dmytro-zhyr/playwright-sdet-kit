@@ -27,8 +27,15 @@ import { test, expect } from '@fixtures';
  * does not serve an empty global feed to order, and it does not fail on request. That is the whole
  * of the case for the first test below.
  *
- * The second test intercepts and changes nothing — `route.continue()` — because the question is
- * what the application *sends*, and stubbing the answer would remove the evidence.
+ * ⚠️ **The second test does not intercept at all, and that is the point.** It asks what the
+ * application *sends*, and a listener answers that without standing in the request's way. Reaching
+ * for `route.continue()` there would block every login request in order to read one — an
+ * interceptor doing an observer's job.
+ *
+ * 🔑 **`page.waitForRequest` is not the answer either**, and the reason is the assertion rather
+ * than style: it resolves on the first match and stops listening, so a form that submitted twice
+ * would pass. A listener stays — measured at five firings across two navigations — which is what
+ * makes `toHaveLength(1)` a claim about the application instead of a formality.
  */
 test.describe('Request interception', () => {
   // Turns red if the empty state stops rendering — which is invisible against a live deployment,
@@ -60,6 +67,10 @@ test.describe('Request interception', () => {
   // renamed field, a trimmed value, an envelope that changed shape. Nothing else in this suite
   // watches the request itself: every other test reads what came back, which is one step too late
   // to say who was wrong when a login fails.
+  //
+  // An array rather than one variable, and for a reason the report can use: a variable keeps the
+  // last request, an array keeps how many there were. A form that submits twice is a defect this
+  // suite would otherwise never see.
   test('the sign-in form sends the credentials it was given', async ({
     page,
     loginPage,
@@ -67,13 +78,12 @@ test.describe('Request interception', () => {
   }) => {
     const sent: string[] = [];
 
-    await page.route('**/api/users/login', async (route) => {
-      const body = route.request().postData();
-      if (body !== null) sent.push(body);
-
-      // ⛔ Not `fulfill`. The question is what the application sends, and answering it ourselves
-      // would replace the evidence with our own guess about the reply.
-      await route.continue();
+    // Not `await` — a listener registers synchronously. Only `route` travels to the browser.
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/users/login') && request.method() === 'POST') {
+        const body = request.postData();
+        if (body !== null) sent.push(body);
+      }
     });
 
     await loginPage.goto();
