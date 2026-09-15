@@ -9,5 +9,7 @@ allure-report/
 coverage/
 snyk-dependencies.json
 defects.json
+# Written only when PLAYWRIGHT_JSON_REPORT names it — the contract job's verdict reads it.
+contract.json
 snyk-code.sarif
 site/

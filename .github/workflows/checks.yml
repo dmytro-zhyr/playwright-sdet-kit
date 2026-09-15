@@ -423,7 +423,66 @@ jobs:
           fi
 
       # One worker, pinned by the `test:contract` script itself — see D-4 in spec/FINDINGS.md.
-      - run: npm run test:contract
+      # ⛔ The exit code of this suite is not the verdict on its own, for one narrowly defined
+      # reason: the client refuses to guess. When the target answers 429, 502, 503 or 504 it throws
+      # `Target unavailable`, because a refused request says nothing about the behaviour under test.
+      # A job that goes red for that is reporting the weather, and the reader cannot act on it.
+      #
+      # ⚠️ This is NOT the `defects` inversion. There a red is the documented state. Here a red is
+      # still a red — unless every single failure was the target refusing to answer.
+      - name: The contract suite
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_REPORT: contract.json
+        run: npm run test:contract
+
+      # 🔑 The verdict, and the whole question it answers is: **was any of this about the contract?**
+      #
+      # Every failing spec is inspected for the marker the client throws. If all of them carry it,
+      # the target refused the run and the job says so as a warning rather than a failure. If even
+      # one does not, the job is red — because that one is a real finding and must not be hidden
+      # behind the weather.
+      #
+      # 📌 `JSON.stringify(spec)` rather than walking to the error field: a spec's errors live at
+      # several depths depending on retries and hooks, and the question here is only "does this
+      # failure mention the marker". Stringifying asks exactly that and cannot miss a nesting level.
+      - name: A red the target caused is not a red about the contract
+        run: |
+          test -f contract.json || {
+            echo "::error::The run wrote no JSON report, so nothing here is known about the contract."
+            exit 1
+          }
+          node -e '
+            const report = JSON.parse(require("fs").readFileSync("contract.json", "utf8"));
+            const failed = [];
+            (function walk(suite) {
+              (suite.suites || []).forEach(walk);
+              (suite.specs || []).forEach((spec) => { if (!spec.ok) failed.push(spec); });
+            })({ suites: report.suites });
+
+            const ran = report.stats.expected + report.stats.unexpected;
+            const refused = failed.filter((s) => JSON.stringify(s).includes("Target unavailable"));
+
+            if (ran === 0) {
+              console.log("::error::No contract test ran. A suite that runs nothing reports nothing.");
+              process.exit(1);
+            }
+            if (failed.length === 0) {
+              console.log(`All ${ran} contract tests passed.`);
+              process.exit(0);
+            }
+            if (refused.length === failed.length) {
+              console.log(`::warning::The target refused ${failed.length} of ${ran} tests (HTTP 429/5xx). This run says nothing about the contract — re-run before reading anything into it.`);
+              failed.forEach((s) => console.log(`  refused: ${s.title}`));
+              process.exit(0);
+            }
+            const real = failed.length - refused.length;
+            console.log(`::error::${real} contract test(s) failed for a reason that is not the target refusing. ${refused.length} were refused. The Allure and HTML reports name which.`);
+            failed
+              .filter((s) => !JSON.stringify(s).includes("Target unavailable"))
+              .forEach((s) => console.log(`  failed: ${s.title}`));
+            process.exit(1);
+          '
 
       - name: Playwright report
         # `!cancelled()`, not `always()`: a run somebody cancelled by hand should not spill

@@ -100,7 +100,18 @@ export default defineConfig({
   // carry a comment, so do not look for that setting in this file.
   projects: [
     { name: 'unit', testDir: './tests/unit' },
-    { name: 'contract', testDir: './tests/contract' },
+    {
+      name: 'contract',
+      testDir: './tests/contract',
+      // ⛔ No retries here, and it is not a preference. A retry re-runs the **whole test**, which
+      // registers another account — so against a target answering 429 it sends *more* traffic at a
+      // service that has just asked for less. `api/conduitClient.ts` says exactly that about
+      // `retries: 1`, and between 11 and 15 September 2026 the suite proved it: every failure was
+      // followed by a retry that registered again and failed identically, turning a 3-minute job
+      // into an 11-minute one. The backoff inside a single request is the right instrument; the
+      // retry is the wrong one, and having both made the target's answer worse.
+      retries: 0,
+    },
     {
       name: 'ui',
       testDir: './tests/ui',
