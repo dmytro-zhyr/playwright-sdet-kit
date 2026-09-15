@@ -569,6 +569,89 @@ and it would have emptied the Categories tab, which is the demonstration. The pr
 working-project concern (a red job teaching a team to ignore red) into a repository with no team.
 Fix the classification, keep the red.
 
+## 🔴 The gate's rate limit is a quota, not a burst — measured 15 September 2026
+
+Six consecutive red runs, 11–15 September. **Only the `contract` job**; static, security, defects,
+quality, ui, report and pages were green every time. Duration went from 2–3 minutes to **11**.
+
+Every failing test needed an account; every test that did not, passed. The error was the client's
+own:
+
+```
+Error: Target unavailable: HTTP 429 from https://realworld.habsida.net/api/users.
+The request was refused or never reached the application, so this run says nothing
+about the behaviour under test. Re-run before reading anything into it.
+```
+
+### ⚠️ The first diagnosis was wrong, and the way it was wrong is the point
+
+A single `POST /users` from a laptop answered **200 in 1.5s**, which read as *the target is healthy
+and rate-limits the GitHub runners*. Then the whole suite was run locally:
+
+```
+9 passed, 18 unexpected, 5.4 minutes
+```
+
+➡️ **The runners are not special.** The target refuses anyone who registers about twenty accounts in
+a few minutes. **One probe answered a different question than the one being asked** — the same shape
+as the `networkidle` mistake and the axe measurement without waits.
+
+### 🔑 Two things were fixed, and neither makes the suite pass
+
+**1. `retries: 0` on the `contract` project.** A retry re-runs the whole test, which registers
+another account — so against a 429 it sends *more* traffic at a service that has just asked for
+less. `api/conduitClient.ts` had said exactly this in a comment since the backoff was written, and
+the run proved it: every failure was followed by a retry that failed identically, turning a
+3-minute job into an 11-minute one.
+
+**2. The `contract` job now separates a refused run from a real failure.** The suite runs under
+`continue-on-error`, writes a JSON report, and a verdict step inspects every failing spec for the
+`Target unavailable` marker:
+
+| | |
+|---|---|
+| no failures | green |
+| **every** failure carries the marker | ⚠️ warning, exit 0 — *this run says nothing about the contract* |
+| any failure does not | 🔴 red, and it names which |
+
+⛔ **This is not the `defects` inversion.** There a red is the documented state. Here a red is still
+a red — unless the target refused every single one.
+
+### The verdict earned its place on its first real report
+
+Run against the 18 local failures it printed:
+
+```
+::error::1 contract test(s) failed for a reason that is not the target refusing. 17 were refused.
+  failed: C-026 — login with an account's credentials answers with that account
+```
+
+**Seventeen were weather. One was not.** Without the step, `18 failed` reads as *the target is down*
+and that one is invisible.
+
+📌 That one turned out to be a local Windows worker crash — `code=3221226505`, 0 ms, no assertion —
+not a contract failure. In CI the same test failed twice at 16.5s, the refused signature. **So the
+verdict was right to refuse to call the run clean, and right that it was not about the contract.**
+
+### ⬜ What is still open: the suite exceeds the quota by design
+
+About eighteen of twenty-seven contract tests register their own account through `registeredUser`.
+**The target's quota is smaller than that, and no backoff fixes a quota.**
+
+The fix is to stop registering per test — but it trades isolation for quota, so it is a design
+decision rather than a tweak:
+
+| | |
+|---|---|
+| tests that only **read** as an authenticated user | can share one worker-scoped account |
+| tests that **mutate** it — `PUT /user`, follow/unfollow | need their own, or they dirty it for everyone |
+
+⚠️ And CONVENTIONS.md already warns about the trade: anything mutable at worker scope is shared
+state between tests, and the failure then appears in whichever test happened to run second.
+
+➡️ So the shape would be **two fixtures**, not one scope change: a shared read-only account, and a
+fresh one wherever a test writes. **Not done — recorded here as the next decision.**
+
 ## Two observations on the gate target that no test catches
 
 Neither fails anything today. Both are worth knowing before anyone trusts this deployment further.
