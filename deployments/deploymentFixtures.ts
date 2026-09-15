@@ -1,6 +1,7 @@
 import { test as base, request as apiRequest } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import { ConduitClient } from '@api/conduitClient';
+import { paceFor } from '@api/registrationPace';
 import { describeDeployment, resolveDeployment, type DeploymentName } from '@deployments/registry';
 
 /** Opens a client on a named deployment. Awaited, because a request context is created for it. */
@@ -50,7 +51,9 @@ export const test = base.extend<DeploymentFixtures>({
       });
       opened.push(context);
 
-      return new ConduitClient(context);
+      // The same pacer every other caller on this URL uses — the quota belongs to the target,
+      // not to the client that happens to be talking to it.
+      return new ConduitClient(context, undefined, undefined, paceFor(baseURL));
     };
 
     await use(open);

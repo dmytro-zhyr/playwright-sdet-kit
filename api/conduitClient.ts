@@ -1,5 +1,6 @@
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { stripLeadingSlash } from '@deployments/url';
+import { RegistrationPace } from '@api/registrationPace';
 
 export type ApiResponse = { status: number; body: unknown };
 
@@ -88,15 +89,24 @@ function backoffMs(retryAfter: string | undefined, attempt: number): number {
  */
 export const TARGET_UNAVAILABLE = 'Target unavailable';
 
+/** The one path that creates an account, and the only one a quota is measured on. */
+const REGISTRATION_PATH = 'users';
+
 export class ConduitClient {
   constructor(
     private readonly request: APIRequestContext,
     private readonly token?: string,
-    private readonly retry: RetryPolicy = DEFAULT_RETRY
+    private readonly retry: RetryPolicy = DEFAULT_RETRY,
+    // ⛔ Defaults to a pacer with no limits rather than to the gate's. A client built without
+    // being told which deployment it talks to must not wait on a number that belongs to another
+    // one — `api/registrationPace.ts` explains why an unmeasured target is paced at all.
+    private readonly pace: RegistrationPace = new RegistrationPace(null)
   ) {}
 
   withToken(token: string): ConduitClient {
-    return new ConduitClient(this.request, token, this.retry);
+    // The pacer travels with the client. A token-bearing copy that started its own count would
+    // reset the record the moment a test authenticated, which is most of them.
+    return new ConduitClient(this.request, token, this.retry, this.pace);
   }
 
   async get(path: string): Promise<ApiResponse> {
@@ -104,6 +114,11 @@ export class ConduitClient {
   }
 
   async post(path: string, data: unknown): Promise<ApiResponse> {
+    // 🔑 Before the request, not after a refusal. The backoff in `send` answers "the target is
+    // busy"; this answers "the target has a quota", and the two are different problems — see the
+    // measurement in api/registrationPace.ts. ⛔ Only registration: login is not limited.
+    if (stripLeadingSlash(path) === REGISTRATION_PATH) await this.pace.take();
+
     return this.send(() =>
       this.request.post(stripLeadingSlash(path), { headers: this.headers(), data })
     );

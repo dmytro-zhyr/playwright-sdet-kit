@@ -111,6 +111,15 @@ export default defineConfig({
       // into an 11-minute one. The backoff inside a single request is the right instrument; the
       // retry is the wrong one, and having both made the target's answer worse.
       retries: 0,
+      // 🔑 Not "these tests are slow" — a test here may have to **wait out the target's
+      // registration quota**, and `api/registrationPace.ts` measures that window at about 175
+      // seconds. The default 30 seconds killed the sixth test of the first paced run at exactly
+      // 30.0s while the pacer was mid-wait.
+      //
+      // ⚠️ This number is a bound rather than a hope, and only because the pacer models a **fixed**
+      // window: one wait returns the whole allowance, so a test waits at most once no matter how
+      // many accounts it registers. Under a sliding window no timeout would have been choosable.
+      timeout: 210_000,
     },
     {
       name: 'ui',

@@ -1,6 +1,7 @@
 import { test as base } from '@playwright/test';
 import { ConduitClient } from '@api/conduitClient';
 import { registerUser, type RegisteredAccount } from '@api/registerUser';
+import { paceFor } from '@api/registrationPace';
 
 // The account `registerUser` hands back, plus a client already carrying its token. Written as an
 // intersection rather than by restating the fields: a field added to `RegisteredAccount` has to
@@ -15,8 +16,10 @@ export type ApiFixtures = {
 export const test = base.extend<ApiFixtures>({
   // Built on the standard `request` fixture: an isolated APIRequestContext carrying the baseURL
   // from the config. No browser starts, because the `page` fixture is never requested.
-  api: async ({ request }, use) => {
-    await use(new ConduitClient(request));
+  api: async ({ request, baseURL }, use) => {
+    // `baseURL` is what decides whether this client paces its registrations: the quota is a
+    // property of the deployment, and this fixture never learns the deployment's name.
+    await use(new ConduitClient(request, undefined, undefined, paceFor(baseURL)));
   },
 
   // This fixture performs network I/O, which is why it lives here and not in data/ next to the

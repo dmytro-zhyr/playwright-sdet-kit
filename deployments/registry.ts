@@ -36,6 +36,18 @@ type Endpoint = {
   readonly defaultUrl: string;
 };
 
+/**
+ * How many accounts a deployment lets one caller create, and over what window.
+ *
+ * `null` is a fact about the world, like `ui: null` below — it means *measured, none found*, not
+ * *nobody has looked*. Every value here was probed on 15 September 2026 by registering accounts one
+ * at a time until the target refused; the probe and its numbers are in spec/FINDINGS.md.
+ */
+export type RegistrationQuota = {
+  readonly limit: number;
+  readonly windowMs: number;
+};
+
 export type Deployment = {
   /** How a test asks for this deployment. Meaningful to a reader; never a host abbreviation. */
   readonly name: string;
@@ -53,6 +65,13 @@ export type Deployment = {
    * to the API URL and running a browser suite against JSON.
    */
   readonly ui: Endpoint | null;
+  /**
+   * What the target will accept before it starts answering 429 to `POST /users`.
+   *
+   * ⛔ Registration only. Login is not limited on any of the three — 40 logins in 49 seconds
+   * against the deployment that refuses a sixth registration.
+   */
+  readonly registrationQuota: RegistrationQuota | null;
 };
 
 export const DEPLOYMENTS = [
@@ -67,6 +86,11 @@ export const DEPLOYMENTS = [
     // cannot host a single UI test, and stage 3 had to name a different one.
     // See spec/FINDINGS.md, "The gate has no UI".
     ui: null,
+    // Measured 15 September 2026: five registrations, then 429 with `Retry-After: 173`. The same
+    // suite ran green here on 10 September with all 31 registrations, so this limit is new.
+    // ⚠️ The window carries a two-second margin over the header the server sent — whether its
+    // window is fixed or sliding is not observable from outside.
+    registrationQuota: { limit: 5, windowMs: 175_000 },
   },
   {
     name: 'conduit-unsound',
@@ -79,6 +103,9 @@ export const DEPLOYMENTS = [
     // reason that has nothing to do with the page. Registered all the same, because reproducing a
     // known defect through the UI is what tests/defects/ is for.
     ui: { envVar: 'CONDUIT_DEFECTS_UI_URL', defaultUrl: 'https://demo.realworld.show' },
+    // Probed 15 September 2026: 40 registrations in 43.8 seconds, all accepted, and the fastest
+    // of the three at ~60ms a request. No limit found.
+    registrationQuota: null,
   },
   {
     name: 'conduit-overstrict',
@@ -91,6 +118,8 @@ export const DEPLOYMENTS = [
     // does not reach a browser test — data/userFactory.ts emits `qa_` plus 10 characters, 13 in
     // all, so the 20-character ceiling is never approached.
     ui: { envVar: 'CONDUIT_OVERSTRICT_UI_URL', defaultUrl: 'https://conduit.bondaracademy.com' },
+    // Probed 15 September 2026: 40 registrations in 52.4 seconds, all accepted. No limit found.
+    registrationQuota: null,
   },
 ] as const satisfies readonly Deployment[];
 
@@ -176,6 +205,29 @@ export function resolveDeployment(
     name,
     env
   );
+}
+
+/**
+ * The registration quota of whichever deployment currently answers at this base URL.
+ *
+ * 🔑 By URL rather than by name, because the caller that needs this most does not know the name:
+ * the `api` fixture is handed a `baseURL` by the project it runs under. Resolving each deployment
+ * and comparing is what makes an environment override work — repoint `CONDUIT_API_URL` at another
+ * host and the quota travels with the name, not with the string in this file.
+ *
+ * Returns `null` for a URL no deployment answers at, which is the same answer as *no limit found*
+ * — and deliberately so: an unknown target is not one this repository has measured, so pacing it
+ * would be acting on a number nobody produced.
+ */
+export function quotaAt(baseUrl: string | undefined): RegistrationQuota | null {
+  if (baseUrl === undefined) return null;
+
+  const wanted = withTrailingSlash(baseUrl);
+  const match = DEPLOYMENTS.find(
+    (deployment) => withTrailingSlash(resolveDeployment(deployment.name)) === wanted
+  );
+
+  return match?.registrationQuota ?? null;
 }
 
 /**
