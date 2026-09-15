@@ -583,74 +583,101 @@ The request was refused or never reached the application, so this run says nothi
 about the behaviour under test. Re-run before reading anything into it.
 ```
 
-### ⚠️ The first diagnosis was wrong, and the way it was wrong is the point
+### 🔬 What was measured, and what is still unknown
 
-A single `POST /users` from a laptop answered **200 in 1.5s**, which read as *the target is healthy
-and rate-limits the GitHub runners*. Then the whole suite was run locally:
+**The numbers are below in the order they were taken, and the order matters — two of them corrected
+an earlier one.**
+
+#### 1. The quota on the gate
+
+```
+# 1  200   # 2  200   # 3  200   # 4  200   # 5  200
+# 6  429   retry-after: 173        (registrations, one at a time, 1s apart)
+```
+
+**Five, then refused for 173 seconds.** Login, on the same target, in the same hour:
+
+```
+40 logins in 49 seconds — all 200
+```
+
+➡️ **The limit is on account creation, not on authentication.** That single fact is what makes any
+fix possible at all.
+
+#### 2. ⚠️ The first diagnosis was wrong, and the way it was wrong is the lesson
+
+One `POST /users` from a laptop answered **200 in 1.5s**, which read as *the target is healthy and
+rate-limits the GitHub runners*. The whole suite, run locally minutes later:
 
 ```
 9 passed, 18 unexpected, 5.4 minutes
 ```
 
-➡️ **The runners are not special.** The target refuses anyone who registers about twenty accounts in
-a few minutes. **One probe answered a different question than the one being asked** — the same shape
-as the `networkidle` mistake and the axe measurement without waits.
+**The runners are not special.** One probe answered a different question than the one being asked —
+the same shape as the `networkidle` mistake and the axe measurement taken without waits. **Third
+time, so it is a pattern rather than an accident.**
 
-### 🔑 Two things were fixed, and neither makes the suite pass
+#### 3. The suite's own appetite, counted rather than estimated
 
-**1. `retries: 0` on the `contract` project.** A retry re-runs the whole test, which registers
-another account — so against a 429 it sends *more* traffic at a service that has just asked for
-less. `api/conduitClient.ts` had said exactly this in a comment since the backoff was written, and
-the run proved it: every failure was followed by a retry that failed identically, turning a
-3-minute job into an 11-minute one.
+| | tests | via the `registeredUser` fixture | inline `POST /users` |
+|---|---|---|---|
+| **contract, all files** | **27** | **18** | **13** |
 
-**2. The `contract` job now separates a refused run from a real failure.** The suite runs under
-`continue-on-error`, writes a JSON report, and a verdict step inspects every failing spec for the
-`Target unavailable` marker:
+**31 registrations for 27 tests.** And the thirteen inline ones are inline *because registration is
+what they test* — no shared account can prove that registration refuses a taken email.
 
-| | |
+#### 4. All three deployments, probed the same way
+
+| | registration quota | contract suite | time |
+|---|---|---|---|
+| `conduit-gate` | 🔴 **5, then 429** | **27/27 until 10 September** | 2–3 min |
+| `conduit-unsound` | ✅ 40 in 43.8s, none refused | 19/27 | **15.3s** |
+| `conduit-overstrict` | ✅ 40 in 52.4s, none refused | 17/27 | 31.8s |
+
+**🔑 The fastest target proves the least.** Every one of `conduit-unsound`'s eight failures is a
+defect this file already documents — five of them D-5 alone, *a created article is fetched by its
+slug* answering **404**. **A gate whose failures are your own documented defects is not a gate.**
+
+`conduit-overstrict` fails differently, and two of its deviations were new:
+
+| | tests affected |
 |---|---|
-| no failures | green |
-| **every** failure carries the marker | ⚠️ warning, exit 0 — *this run says nothing about the contract* |
-| any failure does not | 🔴 red, and it names which |
+| **`user.id`** — a field the specification does not define, on every user response | **8 of 27** |
+| **`POST`/`DELETE /profiles/:unheld/follow` answer 500, not 404** | 2 |
 
-⛔ **This is not the `defects` inversion.** There a red is the documented state. Here a red is still
-a red — unless the target refused every single one.
+⚠️ The first is not a defect to document, it is a **capability loss**: `UserSchema` is strict and
+the specification's User has no `id`, so a third of the contract suite would be red there forever.
+Absorbing it into the schema is forbidden by this repository's own rule — *a schema fitted to a
+response has stopped being a contract and become a photograph*.
 
-### The verdict earned its place on its first real report
+➡️ **So `conduit-gate` stays the gate.** It is the only deployment the contract suite can be green
+against; its problem is capacity, and capacity is the kind of problem that can be engineered around.
 
-Run against the 18 local failures it printed:
+#### 5. ⛔ What is still unknown, and why no number was committed to `main`
+
+A pacer was written on the branch `contract-registration-throttle` — five registrations, then wait
+out the window. It works: a run waited out the full 175 seconds exactly as designed. **And the next
+registration was refused anyway.**
 
 ```
-::error::1 contract test(s) failed for a reason that is not the target refusing. 17 were refused.
-  failed: C-026 — login with an account's credentials answers with that account
+ok  1–5   fast
+x   6     3.2 min   ← 175s of waiting, then 429, then the client's 16.5s backoff
 ```
 
-**Seventeen were weather. One was not.** Without the step, `18 failed` reads as *the target is down*
-and that one is invisible.
+**So the window is longer than the header said, and by how much is not known.**
 
-📌 That one turned out to be a local Windows worker crash — `code=3221226505`, 0 ms, no assertion —
-not a contract failure. In CI the same test failed twice at 16.5s, the refused signature. **So the
-verdict was right to refuse to call the run clean, and right that it was not about the contract.**
+⚠️ **And the measurement that produced 173 is contaminated.** By that point the same target had
+absorbed, in one afternoon: a registration probe, a login probe and **four contract suites**. Rate
+limiters commonly escalate. `Retry-After: 173` was read from a rested target that morning and may
+not describe the same target hours later.
 
-### ⬜ What is still open: the suite exceeds the quota by design
+🔴 **One possibility this does not rule out:** if the quota is per *hour* rather than per few
+minutes, pacing cannot save the suite at all — 31 registrations at five an hour is six hours, and
+pacing would be a slower way of failing rather than a fix.
 
-About eighteen of twenty-seven contract tests register their own account through `registeredUser`.
-**The target's quota is smaller than that, and no backoff fixes a quota.**
-
-The fix is to stop registering per test — but it trades isolation for quota, so it is a design
-decision rather than a tweak:
-
-| | |
-|---|---|
-| tests that only **read** as an authenticated user | can share one worker-scoped account |
-| tests that **mutate** it — `PUT /user`, follow/unfollow | need their own, or they dirty it for everyone |
-
-⚠️ And CONVENTIONS.md already warns about the trade: anything mutable at worker scope is shared
-state between tests, and the failure then appears in whichever test happened to run second.
-
-➡️ So the shape would be **two fixtures**, not one scope change: a shared read-only account, and a
-fresh one wherever a test writes. **Not done — recorded here as the next decision.**
+➡️ **Which is why the nightly schedule became weekly on the same day.** A daily run cannot clear
+the quota, and it keeps the target warm enough that the quota can never be measured on a rested one.
+**The next measurement needs a target that has been left alone.**
 
 ## Two observations on the gate target that no test catches
 

@@ -48,10 +48,19 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Nightly, and not for coverage. This is the only place in the project where real instability
-    # can appear — a public API, a network, somebody else's uptime — and that is the data stage 2
-    # needs in order to tell a flake from a deterministically explained failure.
-    - cron: '0 5 * * *'
+    # 🔴 **Weekly since 15 September 2026, and it was nightly before.** Not a preference: the gate
+    # began rate-limiting `POST /users` between 10 and 11 September, and this suite registers 31
+    # accounts a run. A nightly run against a quota it cannot clear is not a check — it is a daily
+    # 429 that teaches the reader to ignore the job, and it keeps the target warm enough that the
+    # quota can never be measured on a rested one.
+    #
+    # ⚠️ The nightly cadence existed for a real reason and that reason has not gone away: this is
+    # the only place in the project where genuine instability can appear — a public API, a network,
+    # somebody else's uptime — and that is the data a flake diagnosis needs. Weekly buys less of
+    # it. The trade is deliberate, and it is reversible the day the quota is understood.
+    #
+    # Mondays, so a week's evidence is on the board at the start of one rather than the end.
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 jobs:
