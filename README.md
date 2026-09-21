@@ -52,6 +52,11 @@ npm run snyk:code         # Snyk Code over this repository's own source
 `contract`, `unit` and `defects` need no browser: they go through `APIRequestContext` only.
 `test:ui` is the one project that starts one — `npx playwright install chromium` first.
 
+`snyk:deps` reads [`.snyk`](.snyk), where every exception to the security gate is written out with
+its reason and an **expiry date** — so an advisory nobody can act on does not turn the gate into
+noise, and does not quietly become permanent either. There is one entry, and it expires in
+December 2026.
+
 ## Reports
 
 ```bash

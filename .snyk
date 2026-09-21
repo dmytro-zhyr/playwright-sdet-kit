@@ -1,0 +1,54 @@
+# Snyk policy — exceptions to the security gate, each with a reason and a date.
+#
+# 🔑 An exception without an expiry is not a decision, it is a permanent blind spot. Every entry
+# here carries `expires`, so the question re-opens by itself and somebody has to answer it again.
+#
+# ⛔ What this file is NOT for: raising `--severity-threshold` to silence a class of findings, or
+# dropping `--dev` from the scan. Both hide the next advisory as well as this one. The scan stays
+# as strict as it was and the exception is named, one advisory at a time.
+#
+# ⚠️ `snyk ignore` rewrites this file and would drop these comments. Edit it by hand.
+
+version: v1.25.0
+
+ignore:
+  # ── SNYK-JS-URIJS-19963963 — Infinite loop in uri-js@4.4.1 ────────────────────────────────
+  #
+  # Found by the weekly run on 21 September 2026. The same job passed on 13, 14 and 15 September,
+  # so the advisory is days old, not a finding that sat here ignored.
+  #
+  # The whole path, and it is the only route to this package in the tree:
+  #
+  #     eslint@10.9.0 > ajv@6.15.0 > uri-js@4.4.1
+  #
+  # 📌 Three facts decide this, and Snyk supplies the first one itself:
+  #
+  #   1. `Issues with no direct upgrade or patch` — there is no fixed version of uri-js. 4.4.1 is
+  #      the last release; the package is effectively unmaintained.
+  #   2. It is reachable only through **eslint**, a devDependency. This repository publishes
+  #      nothing to npm — it is a test framework — so no consumer ever installs this tree.
+  #   3. The real fix is not ours to make. `ajv@8` dropped uri-js for `fast-uri`; eslint pins
+  #      `ajv@6`. This clears the day eslint moves, and not before.
+  #
+  # ⚠️ So the alternative to an exception is a gate that is red every week for something the
+  # author cannot act on — and this repository already has the rule for that, in `5.2` of the
+  # interview notes and in the CI job it produced: **a gate that cannot be acted on teaches people
+  # to ignore it.** The gate stays honest only if the exception is written down, not if the
+  # threshold moves.
+  #
+  # 📌 The key is the advisory ID, not the package. Any *other* vulnerability in uri-js — or a
+  # second path arriving at it — still fails this job.
+  #
+  # ⏰ Expires 21 December 2026, three months, which is twelve more weekly runs. If eslint has not
+  # moved by then the job goes red again and the decision gets made a second time, with whatever
+  # is true in December rather than what was true in September.
+  SNYK-JS-URIJS-19963963:
+    - '*':
+        reason: >-
+          High-severity infinite loop in uri-js@4.4.1, reachable only as
+          eslint@10.9.0 > ajv@6.15.0 > uri-js@4.4.1. Snyk reports no direct upgrade or patch:
+          4.4.1 is the final release of an unmaintained package. The dependency is dev-only and
+          this repository publishes nothing, so it reaches no consumer. The fix belongs to eslint,
+          which pins ajv@6; ajv@8 replaced uri-js with fast-uri. Re-examined on expiry.
+        expires: 2026-12-21T00:00:00.000Z
+        created: 2026-09-21T00:00:00.000Z
