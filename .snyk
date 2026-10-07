@@ -52,3 +52,34 @@ ignore:
           which pins ajv@6; ajv@8 replaced uri-js with fast-uri. Re-examined on expiry.
         expires: 2026-12-21T00:00:00.000Z
         created: 2026-09-21T00:00:00.000Z
+
+  # ── SNYK-JS-ZOD-20510278 — Allocation of resources without limits in zod@4.4.3 ──────────────
+  #
+  # Found by the weekly run on 5 October 2026. The same job passed on 28 September, and nothing was
+  # committed in between, so the advisory is new, not something that sat here unnoticed.
+  #
+  # 📌 Why an exception and not an upgrade:
+  #
+  #   1. Snyk reports `No upgrade or patch available`, and it said so on 5 October, three weeks
+  #      after zod@4.6.5 was published — so the latest release is affected too. There is no
+  #      version to move to.
+  #   2. zod is a devDependency of a private package. This repository publishes nothing to npm,
+  #      so no consumer ever installs it.
+  #   3. What zod parses here is the response of the test target — the Conduit instances this
+  #      suite runs against — not input from an attacker. Resource exhaustion on that path costs a
+  #      slow test run, not a service.
+  #
+  # 📌 The other two findings of the same run were fixable and were fixed, not excepted:
+  # brace-expansion went from 5.0.9 to 5.0.12 inside the range eslint > minimatch already allows.
+  #
+  # ⏰ Expires 7 January 2027, three months. If zod has shipped a fix by then, the job goes red and
+  # the answer is an upgrade; if not, the decision is made again with what is true in January.
+  SNYK-JS-ZOD-20510278:
+    - '*':
+        reason: >-
+          High-severity allocation of resources without limits in zod@4.4.3. Snyk reports no
+          upgrade or patch, including for the latest release. zod is a devDependency of a private
+          package that publishes nothing, and it parses only the responses of the suite's own test
+          target. Re-examined on expiry.
+        expires: 2027-01-07T00:00:00.000Z
+        created: 2026-10-07T00:00:00.000Z
