@@ -52,3 +52,36 @@ ignore:
           which pins ajv@6; ajv@8 replaced uri-js with fast-uri. Re-examined on expiry.
         expires: 2026-12-21T00:00:00.000Z
         created: 2026-09-21T00:00:00.000Z
+
+  # ── SNYK-JS-OPEN-22112123 — Improper encoding or escaping of output in open@7.4.2 ────────────
+  #
+  # Found by the weekly run on 9 November 2026, together with five undici advisories that had a
+  # fix inside the range jsforce allows and were fixed, not excepted (undici 8.12.3 → 8.12.4).
+  #
+  # The whole path, and it is the only route to this package in the tree:
+  #
+  #     jsforce@3.10.25 > open@7.4.2
+  #
+  # 📌 Why an exception and not an upgrade:
+  #
+  #   1. The fix is in open@11. jsforce asks for `open ^7` — still so in jsforce@3.13.1, the latest
+  #      release — and 7.4.2 is the last 7.x. There is no version inside the range to move to.
+  #   2. Forcing open@11 with an override is not a fix either: open@11 is ESM-only and jsforce loads
+  #      it with `require`, so the override would break the code that uses it.
+  #   3. Only jsforce's own CLI calls `open`, and this suite never runs that CLI. jsforce is a
+  #      devDependency of a private package that publishes nothing, so no consumer installs it.
+  #   4. The attack needs an attacker-controlled target passed to `open`, on the Windows PowerShell
+  #      path. Nothing here passes it a target at all.
+  #
+  # ⏰ Expires 10 February 2027, three months. If jsforce has moved to open@11 by then, the job goes
+  # red and the answer is an upgrade; if not, the decision is made again with what is true then.
+  SNYK-JS-OPEN-22112123:
+    - '*':
+        reason: >-
+          High-severity improper encoding or escaping of output in open@7.4.2, reachable only as
+          jsforce@3.10.25 > open@7.4.2. The fix is in open@11, outside the open ^7 that jsforce
+          asks for, including in its latest release; open@11 is ESM-only, so forcing it would break
+          jsforce. Only the jsforce CLI calls open, and this suite never runs it. jsforce is a
+          devDependency of a private package that publishes nothing. Re-examined on expiry.
+        expires: 2027-02-10T00:00:00.000Z
+        created: 2026-11-10T00:00:00.000Z
