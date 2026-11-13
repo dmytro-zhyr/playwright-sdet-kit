@@ -44,7 +44,7 @@ export class HomePage {
    * so a test asserting a fixed count is asserting the state it happened to start in.
    */
   private get feedTabs(): Locator {
-    return this.page.locator('.feed-toggle');
+    return this.page.locator('.feed-toggle').describe('Feed tabs');
   }
 
   /**
@@ -56,7 +56,10 @@ export class HomePage {
    * 2026.
    */
   feedTab(name: string): Locator {
-    return this.feedTabs.locator('li:not([hidden]) .nav-link').filter({ hasText: tabLabel(name) });
+    return this.feedTabs
+      .locator('li:not([hidden]) .nav-link')
+      .filter({ hasText: tabLabel(name) })
+      .describe(`"${name}" tab`);
   }
 
   /**
@@ -70,7 +73,7 @@ export class HomePage {
    * one, and the left side has already narrowed to the tabs.
    */
   activeFeedTab(name: string): Locator {
-    return this.feedTab(name).and(this.page.locator('.active'));
+    return this.feedTab(name).and(this.page.locator('.active')).describe(`Active "${name}" tab`);
   }
 
   /**
@@ -83,12 +86,17 @@ export class HomePage {
    * being the second. Requiring the link the card wraps is what makes this a count of articles.
    */
   get articleCards(): Locator {
-    return this.page.locator('.article-preview:has(a[href^="/article/"])');
+    return this.page
+      .locator('.article-preview:has(a[href^="/article/"])')
+      .describe('Article cards');
   }
 
   /** What the feed says instead of cards when it has nothing to show. */
   get emptyFeedNotice(): Locator {
-    return this.page.locator('.article-preview').filter({ hasText: 'No articles are here' });
+    return this.page
+      .locator('.article-preview')
+      .filter({ hasText: 'No articles are here' })
+      .describe('Empty feed notice');
   }
 
   /**
@@ -99,7 +107,9 @@ export class HomePage {
    * is the identity the server assigned.
    */
   articleCard(slug: string): Locator {
-    return this.page.locator(`.article-preview:has(a[href="/article/${slug}"])`);
+    return this.page
+      .locator(`.article-preview:has(a[href="/article/${slug}"])`)
+      .describe(`Article card '${slug}'`);
   }
 
   /**
@@ -138,7 +148,7 @@ export class HomePage {
    * 4 September 2026; see spec/FINDINGS.md.
    */
   async openFeedTab(name: string): Promise<void> {
-    return test.step(`Open the ${name} tab`, async () => {
+    return test.step(`Open the "${name}" tab`, async () => {
       await Promise.all([
         this.page.waitForResponse(
           (candidate) =>

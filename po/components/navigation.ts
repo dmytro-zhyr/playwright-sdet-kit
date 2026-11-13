@@ -39,21 +39,22 @@ export class Navigation {
   private get root(): Locator {
     return this.page
       .getByRole('navigation')
-      .filter({ has: this.page.getByRole('link', { name: 'conduit', exact: true }) });
+      .filter({ has: this.page.getByRole('link', { name: 'conduit', exact: true }) })
+      .describe('Navigation');
   }
 
   /** Present for everyone, signed in or not. */
   private get homeLink(): Locator {
-    return this.root.getByRole('link', { name: 'Home', exact: true });
+    return this.root.getByRole('link', { name: 'Home', exact: true }).describe('<Home>');
   }
 
   /** Signed out only. Their absence is how a test says "this session is authenticated". */
   get signInLink(): Locator {
-    return this.root.getByRole('link', { name: 'Sign in' });
+    return this.root.getByRole('link', { name: 'Sign in' }).describe('<Sign in>');
   }
 
   get signUpLink(): Locator {
-    return this.root.getByRole('link', { name: 'Sign up' });
+    return this.root.getByRole('link', { name: 'Sign up' }).describe('<Sign up>');
   }
 
   /**
@@ -65,11 +66,11 @@ export class Navigation {
    * renders. Observed 30 August 2026; see spec/FINDINGS.md, "UI reconnaissance".
    */
   get newArticleLink(): Locator {
-    return this.root.getByRole('link', { name: 'New Article' });
+    return this.root.getByRole('link', { name: 'New Article' }).describe('<New Article>');
   }
 
   get settingsLink(): Locator {
-    return this.root.getByRole('link', { name: 'Settings' });
+    return this.root.getByRole('link', { name: 'Settings' }).describe('<Settings>');
   }
 
   /**
@@ -81,7 +82,7 @@ export class Navigation {
    * can answer wrongly — which is the only kind worth asking.
    */
   profileLink(username: string): Locator {
-    return this.root.getByRole('link', { name: username, exact: true });
+    return this.root.getByRole('link', { name: username, exact: true }).describe(`<${username}>`);
   }
 
   /**

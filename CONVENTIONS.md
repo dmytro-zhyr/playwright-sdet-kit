@@ -838,6 +838,26 @@ where nothing matches.** The feed tabs are named `…Tab` although they have no 
 every honest alternative is equally role-free and says less. That exception is written down where
 the locator is; there is one of it.
 
+### A locator's description is what the report says
+
+📌 **Every page-object locator ends in `.describe()`**, so the report reads
+`Click [Sign in]` instead of `Click getByRole('button', { name: 'Sign in' })`. Quotes hold the
+text on the screen; without quotes it is a name we gave it.
+
+| Element | Description |
+|---|---|
+| Button | `[Sign in]` |
+| Link | `<Settings>` |
+| Field | `"Email" field` |
+| Tab | `"Global Feed" tab` |
+| Heading | `"Sign in" heading` |
+| Any other labelled control | `"Remember me" checkbox`, `"Delete article" dialog` |
+| A collection | `Article cards`, `Error messages` |
+| An area with no label | `Article body`, `Empty feed notice`, `Navigation` |
+| A value in a step name | `'qa_x9k'` |
+
+A locator built from a parameter puts it in the description: `` `<${username}>` ``.
+
 ### Which form a member takes is decided, not chosen
 
 | Returns | Takes an argument | Form |
@@ -922,7 +942,7 @@ expensive to read.
 
 📌 **Wrap a composite page-object action in `test.step`, and nothing else.** A step is a line in
 the report, so the useful granularity is the one a person would use to describe what happened —
-`Sign up as qa_x9k`, not six `locator.fill` calls. Wrapping a getter buries the story under noise;
+`Sign up as 'qa_x9k'`, not six `locator.fill` calls. Wrapping a getter buries the story under noise;
 wrapping nothing leaves a failed UI test reading as a stack trace with no narrative.
 
 📌 **`test.step`, never an Allure step.** The same structure then appears in the terminal, in

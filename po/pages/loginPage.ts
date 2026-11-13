@@ -11,23 +11,23 @@ export class LoginPage {
   }
 
   private get heading(): Locator {
-    return this.page.getByRole('heading', { name: 'Sign in' });
+    return this.page.getByRole('heading', { name: 'Sign in' }).describe('"Sign in" heading');
   }
 
   get emailField(): Locator {
-    return this.page.getByPlaceholder('Email');
+    return this.page.getByPlaceholder('Email').describe('"Email" field');
   }
 
   get passwordField(): Locator {
-    return this.page.getByPlaceholder('Password');
+    return this.page.getByPlaceholder('Password').describe('"Password" field');
   }
 
   get signInButton(): Locator {
-    return this.page.getByRole('button', { name: 'Sign in' });
+    return this.page.getByRole('button', { name: 'Sign in' }).describe('[Sign in]');
   }
 
   get errorMessages(): Locator {
-    return this.page.locator('.error-messages li');
+    return this.page.locator('.error-messages li').describe('Error messages');
   }
 
   async goto(): Promise<void> {
@@ -42,7 +42,7 @@ export class LoginPage {
 
   /** Fills both fields and submits, returning the status the server answered with. */
   async signIn(email: string, password: string): Promise<number> {
-    return test.step(`Sign in as ${email}`, async () => {
+    return test.step(`Sign in as '${email}'`, async () => {
       await this.fillCredentials(email, password);
 
       const [response] = await Promise.all([

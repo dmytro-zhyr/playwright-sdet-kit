@@ -10,11 +10,11 @@ export class ArticlePage {
   }
 
   get titleHeading(): Locator {
-    return this.page.getByRole('heading', { level: 1 });
+    return this.page.getByRole('heading', { level: 1 }).describe('Article title');
   }
 
   get bodyText(): Locator {
-    return this.page.locator('.article-content');
+    return this.page.locator('.article-content').describe('Article body');
   }
 
   /**
@@ -25,7 +25,7 @@ export class ArticlePage {
    * hide exactly the difference this page object exists to show.
    */
   get tagChips(): Locator {
-    return this.page.locator('.tag-list li');
+    return this.page.locator('.tag-list li').describe('Tag chips');
   }
 
   /**
@@ -36,15 +36,21 @@ export class ArticlePage {
    * substring matches on purpose and `exact: true` would match neither.
    */
   get editLink(): Locator {
-    return this.page.getByRole('link', { name: 'Edit Article' }).first();
+    return this.page.getByRole('link', { name: 'Edit Article' }).first().describe('<Edit Article>');
   }
 
   get deleteButton(): Locator {
-    return this.page.getByRole('button', { name: 'Delete Article' }).first();
+    return this.page
+      .getByRole('button', { name: 'Delete Article' })
+      .first()
+      .describe('[Delete Article]');
   }
 
   authorLink(username: string): Locator {
-    return this.page.getByRole('link', { name: username, exact: true }).first();
+    return this.page
+      .getByRole('link', { name: username, exact: true })
+      .first()
+      .describe(`<${username}>`);
   }
 
   async goto(slug: string): Promise<void> {

@@ -18,23 +18,23 @@ export class RegisterPage {
   }
 
   private get heading(): Locator {
-    return this.page.getByRole('heading', { name: 'Sign up' });
+    return this.page.getByRole('heading', { name: 'Sign up' }).describe('"Sign up" heading');
   }
 
   get usernameField(): Locator {
-    return this.page.getByPlaceholder('Username');
+    return this.page.getByPlaceholder('Username').describe('"Username" field');
   }
 
   get emailField(): Locator {
-    return this.page.getByPlaceholder('Email');
+    return this.page.getByPlaceholder('Email').describe('"Email" field');
   }
 
   get passwordField(): Locator {
-    return this.page.getByPlaceholder('Password');
+    return this.page.getByPlaceholder('Password').describe('"Password" field');
   }
 
   get signUpButton(): Locator {
-    return this.page.getByRole('button', { name: 'Sign up' });
+    return this.page.getByRole('button', { name: 'Sign up' }).describe('[Sign up]');
   }
 
   /**
@@ -46,7 +46,7 @@ export class RegisterPage {
    * cannot, and would pass simply by looking too early.
    */
   get errorMessages(): Locator {
-    return this.page.locator('.error-messages li');
+    return this.page.locator('.error-messages li').describe('Error messages');
   }
 
   async goto(): Promise<void> {
@@ -56,7 +56,7 @@ export class RegisterPage {
 
   /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
   private async fillRegistration(user: UserCreateInput): Promise<void> {
-    await test.step(`Fill the sign-up form as ${user.username}`, async () => {
+    await test.step(`Fill the sign-up form as '${user.username}'`, async () => {
       await this.usernameField.fill(user.username);
       await this.emailField.fill(user.email);
       await this.passwordField.fill(user.password);
@@ -77,7 +77,7 @@ export class RegisterPage {
    * satisfied early by a quiet moment on the wire.
    */
   async signUp(user: UserCreateInput): Promise<number> {
-    return test.step(`Sign up as ${user.username}`, async () => {
+    return test.step(`Sign up as '${user.username}'`, async () => {
       await this.fillRegistration(user);
 
       const [response] = await Promise.all([

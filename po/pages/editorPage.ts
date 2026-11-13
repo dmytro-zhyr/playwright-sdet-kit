@@ -18,23 +18,27 @@ export class EditorPage {
   }
 
   get titleField(): Locator {
-    return this.page.getByPlaceholder('Article Title');
+    return this.page.getByPlaceholder('Article Title').describe('"Article Title" field');
   }
 
   private get descriptionField(): Locator {
-    return this.page.getByPlaceholder("What's this article about?");
+    return this.page
+      .getByPlaceholder("What's this article about?")
+      .describe('"What\'s this article about?" field');
   }
 
   private get bodyField(): Locator {
-    return this.page.getByPlaceholder('Write your article (in markdown)');
+    return this.page
+      .getByPlaceholder('Write your article (in markdown)')
+      .describe('"Write your article (in markdown)" field');
   }
 
   private get tagsField(): Locator {
-    return this.page.getByPlaceholder('Enter tags');
+    return this.page.getByPlaceholder('Enter tags').describe('"Enter tags" field');
   }
 
   private get publishButton(): Locator {
-    return this.page.getByRole('button', { name: 'Publish Article' });
+    return this.page.getByRole('button', { name: 'Publish Article' }).describe('[Publish Article]');
   }
 
   /**
@@ -68,7 +72,7 @@ export class EditorPage {
    * text into a chip — typing alone leaves it in the input and it is dropped on submit.
    */
   private async fillArticle(article: ArticleCreateInput): Promise<void> {
-    await test.step(`Fill the editor with "${article.title}"`, async () => {
+    await test.step(`Fill the editor with '${article.title}'`, async () => {
       await this.titleField.fill(article.title);
       await this.descriptionField.fill(article.description);
       await this.bodyField.fill(article.body);
@@ -94,7 +98,7 @@ export class EditorPage {
    * check the two agree needs them from two sources.
    */
   async publish(article: ArticleCreateInput): Promise<{ status: number; slug: string }> {
-    return test.step(`Publish "${article.title}"`, async () => {
+    return test.step(`Publish '${article.title}'`, async () => {
       await this.fillArticle(article);
 
       const [response] = await Promise.all([
