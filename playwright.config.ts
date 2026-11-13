@@ -79,7 +79,9 @@ export default defineConfig({
       ? [['json', { outputFile: process.env.PLAYWRIGHT_JSON_REPORT }] as const]
       : []),
     [
-      'allure-playwright',
+      // allure-playwright, with action targets in step names, the epic from the top `describe`,
+      // and without fixture plumbing — report/allureReporter.ts.
+      './report/allureReporter.ts',
       {
         resultsDir: 'allure-results',
         // Playwright's own steps become Allure steps, so a page-object action wrapped in

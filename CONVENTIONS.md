@@ -933,6 +933,11 @@ does not mislabel one failure — it steals every failure the categories below i
 already, and a failure that reaches them is a failure nobody has explained yet. That is a signal,
 not a gap to be filled.
 
+📌 **The report comes from `report/allureReporter.ts`, a thin layer over allure-playwright.** An
+action step names its target (`Click getByRole('button', …)`, not `Click`), the top `describe` is
+the epic, and fixture plumbing is left out of the hooks. A `describe` title is therefore a feature
+name the Behaviors view groups by.
+
 ## Playwright agent tooling — the CLI first, MCP only where it cannot reach
 
 Two ways of driving a browser from an agent are installed here, and they are **not equals**.
