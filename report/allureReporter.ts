@@ -65,12 +65,15 @@ function isPlumbing(step: TestStep): boolean {
 }
 
 /**
- * "Click" becomes "Click getByRole('button', …)", "POST" becomes "POST /api/users".
+ * "Click" becomes "Click getByRole('button', …)", "POST" becomes "POST /api/users", and a check
+ * with no message, `Expect "toBeDisabled"`, names what it checked.
  * The step object is shared with the other reporters; the list reporter does not print steps.
  */
 function nameTarget(step: TestStep): void {
   const { subtitle } = step as TestStep & { subtitle?: string };
-  if (step.category === 'pw:api' && subtitle && !step.title.endsWith(subtitle)) {
+  // A check with its own message keeps it as the title; one without reads `Expect "toBeDisabled"`.
+  const action = step.category === 'pw:api' || step.title.startsWith('Expect "');
+  if (action && subtitle && !step.title.endsWith(subtitle)) {
     step.title = `${step.title} ${subtitle}`;
   }
 }
