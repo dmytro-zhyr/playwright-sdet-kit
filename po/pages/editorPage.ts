@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { waitForApi } from '@po/waitForApi';
 import type { Locator, Page } from '@playwright/test';
 import { Navigation } from '@po/components/navigation';
 import type { ArticleCreateInput } from '@data/articleFactory';
@@ -102,11 +103,7 @@ export class EditorPage {
       await this.fillArticle(article);
 
       const [response] = await Promise.all([
-        this.page.waitForResponse(
-          (candidate) =>
-            /\/api\/articles\/?$/.test(new URL(candidate.url()).pathname) &&
-            candidate.request().method() === 'POST'
-        ),
+        waitForApi(this.page, 'POST', '/api/articles'),
         this.publishButton.click(),
       ]);
 

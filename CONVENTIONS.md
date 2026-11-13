@@ -934,6 +934,10 @@ flight, then watched it paint over the feed it had just chosen.
 a form is still mid-submit, and an assertion taken there reports a defect that does not exist —
 which is how the first reconnaissance of this stage accused the sign-up form of locking up.
 
+📌 **Wait through `waitForApi` from `@po/waitForApi`, started together with the action:**
+`Promise.all([waitForApi(this.page, 'POST', '/api/users/login'), this.signInButton.click()])`. The
+report then reads `Wait for POST /api/users/login`, not `Wait for event "response"`.
+
 ⚠️ **A page that can redirect must not be waited on by its content.** Check the path and fail with
 the cause. The absence of an element is a consequence, and a report made of consequences is
 expensive to read.

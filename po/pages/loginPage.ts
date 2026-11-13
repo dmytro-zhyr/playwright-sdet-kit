@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { waitForApi } from '@po/waitForApi';
 import type { Locator, Page } from '@playwright/test';
 import { Navigation } from '@po/components/navigation';
 
@@ -46,10 +47,7 @@ export class LoginPage {
       await this.fillCredentials(email, password);
 
       const [response] = await Promise.all([
-        this.page.waitForResponse(
-          (candidate) =>
-            candidate.url().endsWith('/api/users/login') && candidate.request().method() === 'POST'
-        ),
+        waitForApi(this.page, 'POST', '/api/users/login'),
         this.signInButton.click(),
       ]);
 

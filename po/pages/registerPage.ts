@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { waitForApi } from '@po/waitForApi';
 import type { Locator, Page } from '@playwright/test';
 import { Navigation } from '@po/components/navigation';
 import type { UserCreateInput } from '@data/userFactory';
@@ -81,10 +82,7 @@ export class RegisterPage {
       await this.fillRegistration(user);
 
       const [response] = await Promise.all([
-        this.page.waitForResponse(
-          (candidate) =>
-            candidate.url().endsWith('/api/users') && candidate.request().method() === 'POST'
-        ),
+        waitForApi(this.page, 'POST', '/api/users'),
         this.signUpButton.click(),
       ]);
 

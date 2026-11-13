@@ -50,8 +50,14 @@ function addEpic(test: TestCase): void {
   }
 }
 
-/** Inside a hook, and not one of our steps or inside one. */
+/**
+ * Inside a hook, and not one of our steps or inside one — or Playwright's own wait inside a
+ * `waitForApi` step, which already names the request.
+ */
 function isPlumbing(step: TestStep): boolean {
+  if (step.title === 'Wait for event "response"' && step.parent?.title.startsWith('Wait for ')) {
+    return true;
+  }
   if (HOOK_ROOTS.includes(step.title) || OWN_CATEGORIES.includes(step.category)) {
     return false;
   }

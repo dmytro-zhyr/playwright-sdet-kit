@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { waitForApi } from '@po/waitForApi';
 import type { Locator, Page } from '@playwright/test';
 import { Navigation } from '@po/components/navigation';
 
@@ -123,14 +124,7 @@ export class HomePage {
    * 4 September 2026; the same shape as the `networkidle` mistake recorded in registerPage.
    */
   async goto(): Promise<void> {
-    await Promise.all([
-      this.page.waitForResponse(
-        (candidate) =>
-          new URL(candidate.url()).pathname.endsWith('/api/articles') &&
-          candidate.request().method() === 'GET'
-      ),
-      this.page.goto('/'),
-    ]);
+    await Promise.all([waitForApi(this.page, 'GET', '/api/articles'), this.page.goto('/')]);
 
     await this.feedTabs.waitFor();
   }
@@ -150,11 +144,7 @@ export class HomePage {
   async openFeedTab(name: string): Promise<void> {
     return test.step(`Open the "${name}" tab`, async () => {
       await Promise.all([
-        this.page.waitForResponse(
-          (candidate) =>
-            /\/api\/articles(\/feed)?$/u.test(new URL(candidate.url()).pathname) &&
-            candidate.request().method() === 'GET'
-        ),
+        waitForApi(this.page, 'GET', '/api/articles', '/api/articles/feed'),
         this.feedTab(name).click(),
       ]);
 
