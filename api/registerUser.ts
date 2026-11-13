@@ -1,3 +1,4 @@
+import { test } from '@playwright/test';
 import type { ConduitClient } from '@api/conduitClient';
 import { userFactory, type UserCreateInput } from '@data/userFactory';
 
@@ -20,22 +21,25 @@ export type RegisteredAccount = {
  */
 export async function registerUser(api: ConduitClient): Promise<RegisteredAccount> {
   const user = userFactory.build();
-  const response = await api.post('/users', { user });
+  // A step, so the report shows the account a test was given, inside the hooks or out of them.
+  return test.step(`Register '${user.username}' through the API`, async () => {
+    const response = await api.post('/users', { user });
 
-  if (response.status !== 200 && response.status !== 201) {
-    throw new Error(
-      `Could not register the test user: HTTP ${response.status}, body ${JSON.stringify(response.body)}`
-    );
-  }
+    if (response.status !== 200 && response.status !== 201) {
+      throw new Error(
+        `Could not register the test user: HTTP ${response.status}, body ${JSON.stringify(response.body)}`
+      );
+    }
 
-  const body = response.body as { user?: { token?: string } };
-  const token = body.user?.token;
+    const body = response.body as { user?: { token?: string } };
+    const token = body.user?.token;
 
-  if (!token) {
-    throw new Error(
-      `The registration response carried no user.token: ${JSON.stringify(response.body)}`
-    );
-  }
+    if (!token) {
+      throw new Error(
+        `The registration response carried no user.token: ${JSON.stringify(response.body)}`
+      );
+    }
 
-  return { user, token };
+    return { user, token };
+  });
 }

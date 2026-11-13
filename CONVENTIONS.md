@@ -962,6 +962,10 @@ action step names its target (`Click getByRole('button', …)`, not `Click`), th
 the epic, and fixture plumbing is left out of the hooks. A `describe` title is therefore a feature
 name the Behaviors view groups by.
 
+📌 **Setup that creates or removes test data is a `test.step`** —
+`Register 'qa_x9k' through the API` — and that is what the hooks show. A hook block with no such
+step is not shown at all.
+
 ## Playwright agent tooling — the CLI first, MCP only where it cannot reach
 
 Two ways of driving a browser from an agent are installed here, and they are **not equals**.

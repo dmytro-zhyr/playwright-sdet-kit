@@ -13,7 +13,8 @@ const OWN_CATEGORIES = ['test.step', 'expect', 'attach', 'test.attach'];
  * - An action step names its target. Playwright passes it apart from the title (`subtitle`), and
  *   allure-playwright leaves it out, so every click reads "Click".
  * - The fixtures' own plumbing is left out of the hooks: "Fixture "page"", "Create context" and the
- *   like, a dozen per test. Steps the code names itself stay, with everything inside them.
+ *   like, a dozen per test. Steps the code names itself stay, with everything inside them, and a
+ *   hook block with none of them is not shown.
  */
 export default class Reporter extends AllureReporter {
   onTestBegin(test: TestCase): void {
@@ -22,7 +23,9 @@ export default class Reporter extends AllureReporter {
   }
 
   onStepBegin(test: TestCase, result: TestResult, step: TestStep): void {
-    if (isPlumbing(step)) {
+    // A hook block is not opened here: allure-playwright opens it at the first step it is given
+    // inside, so a block of nothing but plumbing does not appear at all.
+    if (HOOK_ROOTS.includes(step.title) || isPlumbing(step)) {
       return;
     }
     nameTarget(step);
