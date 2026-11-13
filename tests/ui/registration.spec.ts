@@ -20,27 +20,27 @@ test.describe('Registration', () => {
   // Turns red if a new account stops being created, or stops being signed in on creation. The
   // assertion is on the navigation rather than on the URL: landing on `/` proves routing, while
   // the header naming the account proves the session belongs to the user who just registered.
-  test('a new account is created and signed in', async ({ page, registerPage, factories }) => {
+  test('A new account is created and signed in', async ({ page, registerPage, factories }) => {
     const user = factories.user.build();
 
     await registerPage.goto();
     const status = await registerPage.signUp(user);
 
-    expect(status, 'the server rejected a registration it should have accepted').toBe(201);
+    expect(status, 'The server rejected a registration it should have accepted').toBe(201);
 
     await page.waitForURL('**/');
     await expect(registerPage.nav.profileLink(user.username)).toBeVisible();
     await expect(registerPage.nav.newArticleLink).toBeVisible();
     await expect(
       registerPage.nav.signInLink,
-      'the header still offers Sign in, so the session did not take'
+      'The header still offers Sign in, so the session did not take'
     ).toBeHidden();
   });
 
   // Turns red if uniqueness stops being enforced here — the defect D-1 and D-2 document on
   // conduit-unsound. Registering the same account twice must fail, and must say why: an app that
   // rejects silently is indistinguishable from one that is broken.
-  test('registering the same account twice is rejected, and says why', async ({
+  test('Registering the same account twice is rejected, and says why', async ({
     page,
     registerPage,
     factories,
@@ -57,12 +57,12 @@ test.describe('Registration', () => {
     await registerPage.goto();
     const status = await registerPage.signUp(user);
 
-    expect(status, 'a duplicate registration was accepted').not.toBe(201);
+    expect(status, 'A duplicate registration was accepted').not.toBe(201);
     await expect(registerPage.errorMessages).toContainText([
       'email has already been taken',
       'username has already been taken',
     ]);
-    await expect(page, 'a rejected registration navigated away instead of staying put').toHaveURL(
+    await expect(page, 'A rejected registration navigated away instead of staying put').toHaveURL(
       /\/register$/
     );
   });
@@ -73,7 +73,7 @@ test.describe('Registration', () => {
   // on a **malformed** email, so the gate is "all three fields have something in them", not "the
   // input is valid" — observed, not assumed. Writing it down is what stops a later test from
   // asserting client-side email validation that was never there.
-  test('the submit button is gated on the fields being filled, not on them being valid', async ({
+  test('The submit button is gated on the fields being filled, not on them being valid', async ({
     registerPage,
     factories,
   }) => {
@@ -86,7 +86,7 @@ test.describe('Registration', () => {
     await registerPage.emailField.fill(user.email);
     await expect(
       registerPage.signUpButton,
-      'the button enabled before the last field was filled'
+      'The button enabled before the last field was filled'
     ).toBeDisabled();
 
     await registerPage.passwordField.fill(user.password);
@@ -95,7 +95,7 @@ test.describe('Registration', () => {
     await registerPage.emailField.fill('not-an-email');
     await expect(
       registerPage.signUpButton,
-      'the form now validates the email client-side; the observation this test records has changed'
+      'The form now validates the email client-side; the observation this test records has changed'
     ).toBeEnabled();
   });
 });

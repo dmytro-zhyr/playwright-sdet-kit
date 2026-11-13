@@ -109,14 +109,14 @@ function classify(message: string, trace: string, status: Status = Status.FAILED
 // named group `(?<name>…)`, a possessive quantifier, an inline flag other than `(?s)`. Without it
 // the translation would quietly diverge from what the generator does and every assertion below
 // would be about a pattern that is not the one shipped in the report.
-test('every declared pattern is one this file can evaluate faithfully', () => {
+test('Every declared pattern is one this file can evaluate faithfully', () => {
   const patterns = ALLURE_CATEGORIES.flatMap((category) =>
     [category.messageRegex, category.traceRegex].filter((p): p is string => typeof p === 'string')
   );
 
   expect(
     patterns.length,
-    'the categories must declare patterns for this to be about anything'
+    'The categories must declare patterns for this to be about anything'
   ).toBeGreaterThan(0);
 
   const unsupported = patterns.filter((pattern) => {
@@ -124,7 +124,7 @@ test('every declared pattern is one this file can evaluate faithfully', () => {
     return /\(\?[^:=!]/.test(body);
   });
 
-  expect(unsupported, 'a Java-only construct this file cannot translate').toEqual([]);
+  expect(unsupported, 'A Java-only construct this file cannot translate').toEqual([]);
 });
 
 const DEFECTS_TRACE = 'at E:\\Workspace\\playwright-sdet-kit\\tests\\defects\\schemas.spec.ts:82:5';
@@ -133,7 +133,7 @@ const CONTRACT_TRACE = 'at /home/runner/work/kit/kit/tests/contract/not-found.sp
 // Turns red if the client stops refusing a status that means the request was never served. Each
 // one is a case where carrying on produces a failure three steps later, naming the wrong thing.
 for (const status of [429, 502, 503, 504]) {
-  test(`the client refuses HTTP ${status} instead of returning it`, async () => {
+  test(`The client refuses HTTP ${status} instead of returning it`, async () => {
     const client = new ConduitClient(respondingWith(status), undefined, noWait());
 
     await expect(client.get('/articles')).rejects.toThrow(TARGET_UNAVAILABLE);
@@ -144,7 +144,7 @@ for (const status of [429, 502, 503, 504]) {
 // matters: D-7 asserts the gate deployment answering blank input with a server fault, and a client
 // that swallowed it would delete that finding.
 for (const status of [200, 401, 404, 422, 500]) {
-  test(`the client returns HTTP ${status} to the test, as it always has`, async () => {
+  test(`The client returns HTTP ${status} to the test, as it always has`, async () => {
     const client = new ConduitClient(respondingWith(status), undefined, noWait());
 
     expect((await client.get('/articles')).status).toBe(status);
@@ -154,44 +154,44 @@ for (const status of [200, 401, 404, 422, 500]) {
 // Turns red if the client stops backing off on a rate limit and goes straight to refusing. The
 // target answers 429 twice and then serves the request; a client that gives up on the first one
 // turns a passing test red for a reason that is not about the application.
-test('a rate limit is waited out rather than reported', async () => {
+test('A rate limit is waited out rather than reported', async () => {
   const retry = noWait();
   const client = new ConduitClient(respondingInSequence([429, 429, 200]), undefined, retry);
 
-  expect((await client.get('/articles')).status, 'the third answer is the one that counts').toBe(
+  expect((await client.get('/articles')).status, 'The third answer is the one that counts').toBe(
     200
   );
-  expect(retry.waits, 'it waited once per refusal, and the waits grow').toEqual([500, 1000]);
+  expect(retry.waits, 'It waited once per refusal, and the waits grow').toEqual([500, 1000]);
 });
 
 // And the other half: backing off is bounded. A target that never stops saying 429 still produces
 // the same failure it always did, so the report tells one story rather than two.
-test('a rate limit that never lifts still ends as an unavailable target', async () => {
+test('A rate limit that never lifts still ends as an unavailable target', async () => {
   const retry = noWait();
   const client = new ConduitClient(respondingWith(429), undefined, retry);
 
   await expect(client.get('/articles')).rejects.toThrow(TARGET_UNAVAILABLE);
-  expect(retry.waits, 'four attempts means three waits').toHaveLength(3);
+  expect(retry.waits, 'Four attempts means three waits').toHaveLength(3);
 });
 
 // 🔑 The check this file exists for. A 429 inside tests/defects/ matches BOTH categories — the
 // message of one and the file path of the other — so it is decided by order alone. Reverse the two
 // declarations and this is the test that says so.
-test('an unavailable target inside tests/defects is not counted as a known defect', async () => {
+test('An unavailable target inside tests/defects is not counted as a known defect', async () => {
   const client = new ConduitClient(respondingWith(429), undefined, noWait());
   const message = await client
     .get('/articles')
     .then(() => '')
     .catch((error: Error) => error.message);
 
-  expect(message, 'the client must produce a message at all').not.toBe('');
+  expect(message, 'The client must produce a message at all').not.toBe('');
   expect(classify(message, DEFECTS_TRACE)).toBe('Target unavailable');
 });
 
 // And the other direction, which is what keeps the fix from being a category that swallows the
 // suite it was meant to sit in front of: an ordinary assertion failure in the same file still
 // belongs to the defect it documents.
-test('a genuine assertion failure in tests/defects is still a known defect', () => {
+test('A genuine assertion failure in tests/defects is still a known defect', () => {
   const message =
     'The value does not match the schema:\n  comment.author.following: expected boolean';
 
@@ -200,7 +200,7 @@ test('a genuine assertion failure in tests/defects is still a known defect', () 
 
 // Outside tests/defects/ the same outage is still an outage — the contract gate must not read a
 // third party's rate limiting as a contract violation.
-test('an unavailable target in the contract suite is an outage, not a contract failure', async () => {
+test('An unavailable target in the contract suite is an outage, not a contract failure', async () => {
   const client = new ConduitClient(respondingWith(503));
   const message = await client
     .get('/articles')
@@ -213,6 +213,6 @@ test('an unavailable target in the contract suite is an outage, not a contract f
 // A failure nobody has explained must stay unclaimed. A category that matched this would be the
 // catch-all the module's own note warns about — first-match-wins means a loose category steals
 // results rather than adding to them.
-test('an unexplained failure is claimed by no declared category', () => {
+test('An unexplained failure is claimed by no declared category', () => {
   expect(classify('expect(received).toBe(expected)', CONTRACT_TRACE)).toBeNull();
 });

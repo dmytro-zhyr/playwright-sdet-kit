@@ -24,7 +24,7 @@ import { describeViolations } from '@assertions/accessibility';
  * the same shell seven times would report one defect seven times.
  */
 test(
-  'D-14 — the page declares the language it is written in',
+  'D-14 — The page declares the language it is written in',
   {
     annotation: {
       type: 'issue',
@@ -39,7 +39,7 @@ test(
 
     expect(
       describeViolations(violations),
-      'a screen reader picks its pronunciation from the lang attribute, and with none it keeps whatever language it was last set to — WCAG 3.1.1, level A, one attribute on <html>'
+      'A screen reader picks its pronunciation from the lang attribute, and with none it keeps whatever language it was last set to — WCAG 3.1.1, level A, one attribute on <html>'
     ).toBe('none');
   }
 );

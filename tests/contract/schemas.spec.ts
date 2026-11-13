@@ -65,12 +65,12 @@ test('GET /articles/:slug matches the single-article schema, with a body', async
   const { article } = created.body as { article?: { slug?: string } };
   expect(
     article?.slug,
-    `the case needs one article of its own to read; creating it answered HTTP ${created.status}`
+    `The case needs one article of its own to read; creating it answered HTTP ${created.status}`
   ).toBeTruthy();
 
   const response = await api.get(`/articles/${article?.slug}`);
 
-  expect(response.status, 'an article that was just written must be readable anonymously').toBe(
+  expect(response.status, 'An article that was just written must be readable anonymously').toBe(
     200
   );
   expect(response.body).toMatchSchema(ArticleResponseSchema);

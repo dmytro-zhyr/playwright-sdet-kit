@@ -24,7 +24,7 @@ const USER_ENDPOINT_SUCCESS_MESSAGE =
 // nobody verifies, a lookup that resolves it to a different account — or if a login token and a
 // registration token stop being the same artefact, which would show up here as one of the two
 // reads answering 401 while the other answers 200.
-test('C-001 — a token from a registration and a token from a login both authenticate as their account', async ({
+test('C-001 — A token from a registration and a token from a login both authenticate as their account', async ({
   api,
   factories,
 }) => {
@@ -33,7 +33,7 @@ test('C-001 — a token from a registration and a token from a login both authen
   const registration = await api.post('/users', { user: account });
   expect(
     USER_ENDPOINT_SUCCESS,
-    `the account under test must be registered — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+    `The account under test must be registered — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(registration.status);
   const { user: registered }: UserResponse = parseBody(registration.body, UserResponseSchema);
 
@@ -42,7 +42,7 @@ test('C-001 — a token from a registration and a token from a login both authen
   });
   expect(
     USER_ENDPOINT_SUCCESS,
-    `the same account must be able to log in — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+    `The same account must be able to log in — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(login.status);
   const { user: loggedIn }: UserResponse = parseBody(login.body, UserResponseSchema);
 
@@ -53,15 +53,15 @@ test('C-001 — a token from a registration and a token from a login both authen
 
   expect(
     reads.map(({ minted, response }) => `${minted} token -> ${response.status}`),
-    'a token the API issued must be carried out rather than refused'
+    'A token the API issued must be carried out rather than refused'
   ).toEqual(reads.map(({ minted }) => `${minted} token -> 200`));
 
   for (const { minted, response } of reads) {
     const { user }: UserResponse = parseBody(response.body, UserResponseSchema);
-    expect(user.email, `the ${minted} token must resolve to the account it was issued for`).toBe(
+    expect(user.email, `The ${minted} token must resolve to the account it was issued for`).toBe(
       account.email
     );
-    expect(user.username, `the ${minted} token must resolve to the account it was issued for`).toBe(
+    expect(user.username, `The ${minted} token must resolve to the account it was issued for`).toBe(
       account.username
     );
   }
@@ -79,7 +79,7 @@ test('C-001 — a token from a registration and a token from a login both authen
 // already made, on a *second* account and a *second* article rather than a self-follow — a
 // self-follow's `following: true` could be an implementation special case rather than a stored row
 // — while the POST keeps aiming at the original, untouched profile and article, exactly as before.
-test('C-002 — every endpoint that requires authentication refuses a caller with no credential', async ({
+test('C-002 — Every endpoint that requires authentication refuses a caller with no credential', async ({
   api,
   factories,
   registeredUser,
@@ -87,21 +87,21 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   // The positive half, and it runs first on purpose: one variable — the token — separates it from
   // the twelve below, so a 401 there cannot be a misspelled route or an unattached credential.
   const authorised = await registeredUser.api.get('/user');
-  expect(authorised.status, 'the same endpoint must answer 200 to a caller with a token').toBe(200);
+  expect(authorised.status, 'The same endpoint must answer 200 to a caller with a token').toBe(200);
 
   // The case asks for "an existing target" behind every path, and for an article carrying at
   // least one comment, so that the mutating endpoints address something a later read can check.
   const sent = factories.article.build();
   const created = await registeredUser.api.post('/articles', { article: sent });
   const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
-  expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
+  expect(article?.slug, 'The case needs one article that exists').toBeTruthy();
 
   const commentBody = factories.comment.build().body;
   const commented = await registeredUser.api.post(`/articles/${article.slug}/comments`, {
     comment: { body: commentBody },
   });
   const { comment } = commented.body as { comment: { id: number } };
-  expect(comment?.id, 'the case needs one comment that exists').toBeDefined();
+  expect(comment?.id, 'The case needs one comment that exists').toBeDefined();
 
   const username = registeredUser.user.username;
 
@@ -111,13 +111,13 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const secondRegistration = await api.post('/users', { user: second });
   expect(
     USER_ENDPOINT_SUCCESS,
-    `the case needs a second account to follow — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+    `The case needs a second account to follow — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(secondRegistration.status);
 
   const secondFollow = await registeredUser.api.post(`/profiles/${second.username}/follow`, {});
   expect(
     secondFollow.status,
-    'the case needs an existing follow, of an account other than the caller, for the guarded unfollow to have something to remove'
+    'The case needs an existing follow, of an account other than the caller, for the guarded unfollow to have something to remove'
   ).toBe(200);
 
   // A second article, favorited by registeredUser now, so the guarded DELETE below has an existing
@@ -129,7 +129,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
     otherArticleCreated.body,
     ArticleResponseSchema
   );
-  expect(otherArticle?.slug, 'the case needs a second article to favorite').toBeTruthy();
+  expect(otherArticle?.slug, 'The case needs a second article to favorite').toBeTruthy();
 
   const secondFavorite = await registeredUser.api.post(
     `/articles/${otherArticle.slug}/favorite`,
@@ -137,7 +137,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   );
   expect(
     secondFavorite.status,
-    'the case needs an existing favorite, on an article other than the one the guarded POST targets, for the guarded unfavorite to have something to remove'
+    'The case needs an existing favorite, on an article other than the one the guarded POST targets, for the guarded unfavorite to have something to remove'
   ).toBe(200);
 
   const guardProbe = 'qa_guard_probe';
@@ -181,7 +181,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
     observed.push(`${method} ${path} -> ${response.status}`);
   }
 
-  expect(observed, 'every guarded endpoint must answer 401 to an anonymous caller').toEqual(
+  expect(observed, 'Every guarded endpoint must answer 401 to an anonymous caller').toEqual(
     guarded.map(({ method, path }) => `${method} ${path} -> 401`)
   );
 
@@ -193,21 +193,21 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   // guarded POST follow, the second profile for the guarded DELETE follow, and the author's own
   // listing for the create.
   const survivor = await registeredUser.api.get(`/articles/${article.slug}`);
-  expect(survivor.status, 'an anonymous delete must not have removed the article').toBe(200);
+  expect(survivor.status, 'An anonymous delete must not have removed the article').toBe(200);
   const { article: kept }: ArticleResponse = parseBody(survivor.body, ArticleResponseSchema);
   expect(
     [kept.title, kept.description, kept.body],
-    'an anonymous update must not have changed the article'
+    'An anonymous update must not have changed the article'
   ).toEqual([sent.title, sent.description, sent.body]);
   expect(
     kept.favoritesCount,
-    'an anonymous favorite must not have been counted on the article the guarded POST targets'
+    'An anonymous favorite must not have been counted on the article the guarded POST targets'
   ).toBe(0);
 
   const otherArticleSurvivor = await registeredUser.api.get(`/articles/${otherArticle.slug}`);
   expect(
     otherArticleSurvivor.status,
-    'an anonymous delete must not have removed the second article'
+    'An anonymous delete must not have removed the second article'
   ).toBe(200);
   const { article: otherArticleKept }: ArticleResponse = parseBody(
     otherArticleSurvivor.body,
@@ -215,20 +215,20 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   );
   expect(
     otherArticleKept.favoritesCount,
-    'an anonymous unfavorite must not have removed the favorite the precondition made on the article the guarded DELETE targets'
+    'An anonymous unfavorite must not have removed the favorite the precondition made on the article the guarded DELETE targets'
   ).toBe(1);
 
   const comments = await registeredUser.api.get(`/articles/${article.slug}/comments`);
-  expect(comments.status, 'the comment list must still be readable').toBe(200);
+  expect(comments.status, 'The comment list must still be readable').toBe(200);
   const listed = comments.body as { comments: { id: number; body: string }[] };
   expect(
     listed.comments.map(({ id, body }) => `${id}:${body}`),
-    'an anonymous comment must not have been created and an anonymous delete must not have removed one'
+    'An anonymous comment must not have been created and an anonymous delete must not have removed one'
   ).toEqual([`${comment.id}:${commentBody}`]);
 
   const account = await registeredUser.api.get('/user');
   const { user: stored }: UserResponse = parseBody(account.body, UserResponseSchema);
-  expect(stored.bio, 'an anonymous update must not have written to the account').not.toBe(
+  expect(stored.bio, 'An anonymous update must not have written to the account').not.toBe(
     guardProbe
   );
 
@@ -236,7 +236,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const { profile: relationship }: ProfileResponse = parseBody(profile.body, ProfileResponseSchema);
   expect(
     relationship.following,
-    'an anonymous follow must not have made a relationship on the profile the guarded POST targets'
+    'An anonymous follow must not have made a relationship on the profile the guarded POST targets'
   ).toBe(false);
 
   const secondProfile = await registeredUser.api.get(`/profiles/${second.username}`);
@@ -246,7 +246,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   );
   expect(
     secondRelationship.following,
-    'an anonymous unfollow must not have removed the relationship the precondition made on the profile the guarded DELETE targets'
+    'An anonymous unfollow must not have removed the relationship the precondition made on the profile the guarded DELETE targets'
   ).toBe(true);
 
   // Two articles now, not one: the original plus the second one the favorite precondition made.
@@ -255,7 +255,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
   const own = authored.body as { articles: { slug: string }[] };
   expect(
     own.articles.map(({ slug }) => slug),
-    'an anonymous create must not have added a third article to the caller'
+    'An anonymous create must not have added a third article to the caller'
   ).toEqual([otherArticle.slug, article.slug]);
 });
 
@@ -263,7 +263,7 @@ test('C-002 — every endpoint that requires authentication refuses a caller wit
 // token to the same stored account, or to the most recently created one — which would show up
 // here as two reads describing one account. A single token cannot see that failure, which is why
 // this case needs two.
-test('C-004 — a token addresses its own account and no other', async ({
+test('C-004 — A token addresses its own account and no other', async ({
   api,
   factories,
   registeredUser,
@@ -272,14 +272,14 @@ test('C-004 — a token addresses its own account and no other', async ({
   const registration = await api.post('/users', { user: second });
   expect(
     USER_ENDPOINT_SUCCESS,
-    `the case needs a second account — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
+    `The case needs a second account — ${USER_ENDPOINT_SUCCESS_MESSAGE}`
   ).toContain(registration.status);
   const { user }: UserResponse = parseBody(registration.body, UserResponseSchema);
 
   const first = await registeredUser.api.get('/user');
   const other = await api.withToken(user.token).get('/user');
 
-  expect([first.status, other.status], 'each account must be able to read itself').toEqual([
+  expect([first.status, other.status], 'Each account must be able to read itself').toEqual([
     200, 200,
   ]);
   const { user: firstUser }: UserResponse = parseBody(first.body, UserResponseSchema);
@@ -287,13 +287,13 @@ test('C-004 — a token addresses its own account and no other', async ({
 
   expect(
     [firstUser.username, firstUser.email],
-    'a token must name the account it was issued for'
+    'A token must name the account it was issued for'
   ).toEqual([registeredUser.user.username, registeredUser.user.email]);
   expect(
     [otherUser.username, otherUser.email],
-    'a token must name the account it was issued for'
+    'A token must name the account it was issued for'
   ).toEqual([second.username, second.email]);
-  expect(otherUser.username, 'the two tokens must describe different accounts').not.toBe(
+  expect(otherUser.username, 'The two tokens must describe different accounts').not.toBe(
     firstUser.username
   );
 });
@@ -301,7 +301,7 @@ test('C-004 — a token addresses its own account and no other', async ({
 // Turns red if the authentication guard is attached to an endpoint the specification marks as
 // needing none — a 401 on any of these four — or if one of them stops carrying the envelope key
 // its own endpoint is named for, which would mean the anonymous path reached a different handler.
-test('C-005 — an endpoint that requires no authentication serves an anonymous caller', async ({
+test('C-005 — An endpoint that requires no authentication serves an anonymous caller', async ({
   api,
   factories,
   registeredUser,
@@ -312,7 +312,7 @@ test('C-005 — an endpoint that requires no authentication serves an anonymous 
     article: factories.article.build(),
   });
   const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
-  expect(article?.slug, 'the case needs one article that exists').toBeTruthy();
+  expect(article?.slug, 'The case needs one article that exists').toBeTruthy();
 
   const credentials: Credentials = {
     email: registeredUser.user.email,
@@ -329,7 +329,7 @@ test('C-005 — an endpoint that requires no authentication serves an anonymous 
   const refused = calls
     .filter(({ response }) => response.status === 401)
     .map(({ key }) => `${key} -> 401`);
-  expect(refused, 'no open endpoint may answer 401 to an anonymous caller').toEqual([]);
+  expect(refused, 'No open endpoint may answer 401 to an anonymous caller').toEqual([]);
 
   const missing = calls
     .filter(({ key, response }) => {
@@ -337,7 +337,7 @@ test('C-005 — an endpoint that requires no authentication serves an anonymous 
       return typeof body !== 'object' || body === null || !(key in body);
     })
     .map(({ key, response }) => `${key} missing, HTTP ${response.status}`);
-  expect(missing, 'every open endpoint must answer with the envelope key it is named for').toEqual(
+  expect(missing, 'Every open endpoint must answer with the envelope key it is named for').toEqual(
     []
   );
 });

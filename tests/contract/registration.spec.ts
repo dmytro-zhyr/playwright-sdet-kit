@@ -37,7 +37,7 @@ test('registeredUser creates an account and hands over a working token', async (
 
 // Turns red if the anonymous client starts carrying a token from somewhere, which would make
 // every "requires auth" test pass for the wrong reason.
-test('the anonymous client is not authenticated', async ({ api }) => {
+test('The anonymous client is not authenticated', async ({ api }) => {
   const response = await api.get('/user');
 
   expect(response.status).toBe(401);
@@ -50,15 +50,15 @@ test('the anonymous client is not authenticated', async ({ api }) => {
 // freshly registered account carries `null` in both `bio` and `image` — moved to
 // tests/defects/registration.spec.ts: the gate deployment answers `bio: ""` at creation, which is
 // D-11.
-test('C-029 — registration answers with the account it was given', async ({ api, factories }) => {
+test('C-029 — Registration answers with the account it was given', async ({ api, factories }) => {
   const account = factories.user.build();
 
   const response = await api.post('/users', { user: account });
 
   expect(REGISTRATION_SUCCESS, REGISTRATION_SUCCESS_MESSAGE).toContain(response.status);
   const { user }: UserResponse = parseBody(response.body, UserResponseSchema);
-  expect(user.username, 'registration must echo the username it was given').toBe(account.username);
-  expect(user.email, 'registration must echo the email it was given').toBe(account.email);
+  expect(user.username, 'Registration must echo the username it was given').toBe(account.username);
+  expect(user.email, 'Registration must echo the email it was given').toBe(account.email);
 });
 
 // Turns red if one of the three presence validators is dropped — the field goes missing and the
@@ -67,7 +67,7 @@ test('C-029 — registration answers with the account it was given', async ({ ap
 // from: it proves the payload shape and the address are right, and it proves no refused request
 // quietly consumed the username or the email, which is the half of the expectation a status
 // cannot show.
-test('C-030 — registration refuses a body missing a required field', async ({ api, factories }) => {
+test('C-030 — Registration refuses a body missing a required field', async ({ api, factories }) => {
   const account = factories.user.build();
   const omissions = ['email', 'username', 'password'] as const;
   const observed: string[] = [];
@@ -82,18 +82,18 @@ test('C-030 — registration refuses a body missing a required field', async ({ 
     const { errors }: Errors = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
-      `the 422 for a missing ${omitted} must name at least one field`
+      `The 422 for a missing ${omitted} must name at least one field`
     ).toBeGreaterThan(0);
   }
 
-  expect(observed, 'each omission must be rejected with 422').toEqual(
+  expect(observed, 'Each omission must be rejected with 422').toEqual(
     omissions.map((omitted) => `without ${omitted} -> 422`)
   );
 
   const complete = await api.post('/users', { user: account });
   expect(
     REGISTRATION_SUCCESS,
-    `no refused request may have created the account, so the complete one must still be accepted — ${REGISTRATION_SUCCESS_MESSAGE}`
+    `No refused request may have created the account, so the complete one must still be accepted — ${REGISTRATION_SUCCESS_MESSAGE}`
   ).toContain(complete.status);
 });
 
@@ -105,7 +105,7 @@ test('C-030 — registration refuses a body missing a required field', async ({ 
 // should not exist yet answers with something other than 404, or a login with credentials nobody
 // has registered succeeds. The fresh registration at the end proves the endpoint accepts what it
 // should, so a red above is about the duplicate and not about the request.
-test('C-031 — registration refuses an email or a username another account holds', async ({
+test('C-031 — Registration refuses an email or a username another account holds', async ({
   api,
   factories,
   registeredUser,
@@ -124,7 +124,7 @@ test('C-031 — registration refuses an email or a username another account hold
 
   expect(
     [takenEmail.status, takenUsername.status],
-    'an email or a username another account holds must be refused'
+    'An email or a username another account holds must be refused'
   ).toEqual([422, 422]);
 
   // The case asks for an `errors` envelope and nothing about which key carries the message: the
@@ -139,7 +139,7 @@ test('C-031 — registration refuses an email or a username another account hold
     const { errors }: Errors = parseBody(refusal.body, ErrorsSchema);
     expect(
       Object.values(errors).flat().length,
-      `the refusal of a taken ${collided} must carry at least one message`
+      `The refusal of a taken ${collided} must carry at least one message`
     ).toBeGreaterThan(0);
   }
 
@@ -157,7 +157,7 @@ test('C-031 — registration refuses an email or a username another account hold
   );
   expect(
     emailCollisionProfile.status,
-    'the refusal of a taken email must not have created an account under the fresh username it carried'
+    'The refusal of a taken email must not have created an account under the fresh username it carried'
   ).toBe(404);
 
   // The second half, for the duplicate-username refusal: it carried a fresh email nobody else
@@ -169,13 +169,13 @@ test('C-031 — registration refuses an email or a username another account hold
   });
   expect(
     LOGIN_SUCCESS,
-    `the refusal of a taken username must not have created an account under the fresh email it carried — ${LOGIN_SUCCESS_MESSAGE}`
+    `The refusal of a taken username must not have created an account under the fresh email it carried — ${LOGIN_SUCCESS_MESSAGE}`
   ).not.toContain(usernameCollisionLogin.status);
 
   const fresh = await api.post('/users', { user: factories.user.build() });
   expect(
     REGISTRATION_SUCCESS,
-    `a pair nobody holds must still be accepted — ${REGISTRATION_SUCCESS_MESSAGE}`
+    `A pair nobody holds must still be accepted — ${REGISTRATION_SUCCESS_MESSAGE}`
   ).toContain(fresh.status);
 });
 
@@ -183,7 +183,7 @@ test('C-031 — registration refuses an email or a username another account hold
 // a hash written on one side and compared on the other, a truncation, an encoding difference —
 // which is invisible to a test that only ever reads the registration response. It also turns red
 // if the login answers with an account other than the one just created.
-test('C-032 — the credentials a registration was given log in afterwards', async ({
+test('C-032 — The credentials a registration was given log in afterwards', async ({
   api,
   factories,
 }) => {
@@ -200,6 +200,6 @@ test('C-032 — the credentials a registration was given log in afterwards', asy
   const { user }: UserResponse = parseBody(login.body, UserResponseSchema);
   expect(
     [user.email, user.username],
-    'the login must answer with the account the registration created'
+    'The login must answer with the account the registration created'
   ).toEqual([account.email, account.username]);
 });

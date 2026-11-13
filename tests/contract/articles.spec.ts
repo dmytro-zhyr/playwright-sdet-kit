@@ -25,7 +25,7 @@ const DELETE_SUCCESS_MESSAGE =
 // single-article envelope, or attributes the article to somebody other than the caller — an
 // author taken from the payload, from the first account in the store, or left empty. The strict
 // schema is what makes a dropped or added field red rather than merely different.
-test('C-060 — creating an article returns it authored by the caller', async ({
+test('C-060 — Creating an article returns it authored by the caller', async ({
   factories,
   registeredUser,
 }) => {
@@ -37,7 +37,7 @@ test('C-060 — creating an article returns it authored by the caller', async ({
 
   expect(ARTICLE_CREATED, ARTICLE_CREATED_MESSAGE).toContain(created.status);
   const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
-  expect(article.author.username, 'the author is the caller, not whoever the payload named').toBe(
+  expect(article.author.username, 'The author is the caller, not whoever the payload named').toBe(
     registeredUser.user.username
   );
 });
@@ -46,7 +46,7 @@ test('C-060 — creating an article returns it authored by the caller', async ({
 // address that works — a write that was never committed under the identifier the response
 // advertised — or if the article stored under it is not the article that was sent. The strict
 // schema keeps the read honest: ten fields means ten, and `body` is one of them.
-test('C-061 — a created article is fetched by its slug and keeps what it was given', async ({
+test('C-061 — A created article is fetched by its slug and keeps what it was given', async ({
   api,
   factories,
   registeredUser,
@@ -59,11 +59,11 @@ test('C-061 — a created article is fetched by its slug and keeps what it was g
 
   const response = await api.get(`/articles/${article.slug}`);
 
-  expect(response.status, 'the slug a creation returned must address the article').toBe(200);
+  expect(response.status, 'The slug a creation returned must address the article').toBe(200);
   const { article: fetched }: ArticleResponse = parseBody(response.body, ArticleResponseSchema);
   expect(
     [fetched.title, fetched.description, fetched.body],
-    'the article read back must carry the values the creation sent'
+    'The article read back must carry the values the creation sent'
   ).toEqual([sent.title, sent.description, sent.body]);
 });
 
@@ -72,7 +72,7 @@ test('C-061 — a created article is fetched by its slug and keeps what it was g
 // whose only key is `errors`. The two reads that close the test are what the status alone cannot
 // show: the author's listing is still empty after the three refusals, so nothing was created, and
 // the complete creation is accepted, so a 422 above was about the omission and not the request.
-test('C-062 — creating an article refuses a body missing a required field', async ({
+test('C-062 — Creating an article refuses a body missing a required field', async ({
   factories,
   registeredUser,
 }) => {
@@ -89,11 +89,11 @@ test('C-062 — creating an article refuses a body missing a required field', as
     const { errors }: Errors = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
-      `the 422 for a missing ${omitted} must name at least one field`
+      `The 422 for a missing ${omitted} must name at least one field`
     ).toBeGreaterThan(0);
   }
 
-  expect(observed, 'each omission must be rejected with 422').toEqual(
+  expect(observed, 'Each omission must be rejected with 422').toEqual(
     omissions.map((omitted) => `without ${omitted} -> 422`)
   );
 
@@ -101,7 +101,7 @@ test('C-062 — creating an article refuses a body missing a required field', as
 
   const nothingCreated = await registeredUser.api.get(`/articles?author=${username}`);
   const refusedInto = nothingCreated.body as { articles: unknown[] };
-  expect(refusedInto.articles, 'a refused creation must not have created an article').toHaveLength(
+  expect(refusedInto.articles, 'A refused creation must not have created an article').toHaveLength(
     0
   );
 
@@ -110,7 +110,7 @@ test('C-062 — creating an article refuses a body missing a required field', as
   });
   expect(
     ARTICLE_CREATED,
-    `the same request with every field must be accepted — ${ARTICLE_CREATED_MESSAGE}`
+    `The same request with every field must be accepted — ${ARTICLE_CREATED_MESSAGE}`
   ).toContain(complete.status);
 });
 
@@ -118,7 +118,7 @@ test('C-062 — creating an article refuses a body missing a required field', as
 // which shows up as the slug still resolving afterwards — or if the by-slug lookup stops mapping
 // a removed article to 404. The read before the delete is what makes the 404 after it mean
 // something: the same request, the same slug, one deletion apart.
-test('C-072 — deleting an article answers success and its slug stops resolving', async ({
+test('C-072 — Deleting an article answers success and its slug stops resolving', async ({
   api,
   factories,
   registeredUser,
@@ -130,13 +130,13 @@ test('C-072 — deleting an article answers success and its slug stops resolving
   const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
 
   const before = await api.get(`/articles/${article.slug}`);
-  expect(before.status, 'the slug must address the article before it is deleted').toBe(200);
+  expect(before.status, 'The slug must address the article before it is deleted').toBe(200);
 
   const removed = await registeredUser.api.del(`/articles/${article.slug}`);
-  expect(DELETE_SUCCESS, `the author's delete must succeed — ${DELETE_SUCCESS_MESSAGE}`).toContain(
+  expect(DELETE_SUCCESS, `The author's delete must succeed — ${DELETE_SUCCESS_MESSAGE}`).toContain(
     removed.status
   );
 
   const after = await api.get(`/articles/${article.slug}`);
-  expect(after.status, 'a deleted article must stop resolving under its slug').toBe(404);
+  expect(after.status, 'A deleted article must stop resolving under its slug').toBe(404);
 });

@@ -24,7 +24,7 @@ const COMMENT_CREATED_MESSAGE =
 // these three routes stops consulting it and operates on a null subject. The read of a profile
 // that does exist, at the end, uses the same path shape and the same credential, so a 404 above
 // it cannot mean the route itself is misspelled.
-test('C-014 — a path naming an account nobody holds is answered 404', async ({
+test('C-014 — A path naming an account nobody holds is answered 404', async ({
   api,
   registeredUser,
 }) => {
@@ -42,12 +42,12 @@ test('C-014 — a path naming an account nobody holds is answered 404', async ({
 
   expect(
     lookups.map(({ name, response }) => `${name} -> ${response.status}`),
-    'a username no account holds must be answered 404'
+    'A username no account holds must be answered 404'
   ).toEqual(lookups.map(({ name }) => `${name} -> 404`));
 
   // The positive half: the same path shape filled with a username that does name an account.
   const known = await registeredUser.api.get(`/profiles/${registeredUser.user.username}`);
-  expect(known.status, 'the profile path resolves when the username names an account').toBe(200);
+  expect(known.status, 'The profile path resolves when the username names an account').toBe(200);
   expect(known.body).toMatchSchema(ProfileResponseSchema);
 });
 
@@ -60,7 +60,7 @@ test('C-014 — a path naming an account nobody holds is answered 404', async ({
 // article: five mirror the five lookups above, and two — the comment create and the delete —
 // remain as controls for the two defects whose negative half moved out, so a red above still
 // cannot be the address, the auth or the payload.
-test('C-015 — a path naming a slug no article holds is answered 404', async ({
+test('C-015 — A path naming a slug no article holds is answered 404', async ({
   api,
   factories,
   registeredUser,
@@ -69,7 +69,7 @@ test('C-015 — a path naming a slug no article holds is answered 404', async ({
     article: factories.article.build(),
   });
   const { article }: ArticleResponse = parseBody(created.body, ArticleResponseSchema);
-  expect(article?.slug, 'the case needs one article that exists for the controls').toBeTruthy();
+  expect(article?.slug, 'The case needs one article that exists for the controls').toBeTruthy();
 
   const lookups = [
     { name: 'GET /articles/:unheld', response: await api.get(`/articles/${UNHELD_SLUG}`) },
@@ -95,30 +95,30 @@ test('C-015 — a path naming a slug no article holds is answered 404', async ({
 
   expect(
     lookups.map(({ name, response }) => `${name} -> ${response.status}`),
-    'a slug no article holds must be answered 404'
+    'A slug no article holds must be answered 404'
   ).toEqual(lookups.map(({ name }) => `${name} -> 404`));
 
   // The positive half, in the order that keeps the article alive until the delete is the last
   // thing asked of it.
   const read = await api.get(`/articles/${article.slug}`);
-  expect(read.status, 'the article path resolves when the slug names an article').toBe(200);
+  expect(read.status, 'The article path resolves when the slug names an article').toBe(200);
 
   const comments = await api.get(`/articles/${article.slug}/comments`);
-  expect(comments.status, 'the comment list resolves when the slug names an article').toBe(200);
+  expect(comments.status, 'The comment list resolves when the slug names an article').toBe(200);
 
   const commented = await registeredUser.api.post(`/articles/${article.slug}/comments`, {
     comment: { body: factories.comment.build().body },
   });
   expect(
     COMMENT_CREATED,
-    `the same comment request must be accepted on a slug that exists — ${COMMENT_CREATED_MESSAGE}`
+    `The same comment request must be accepted on a slug that exists — ${COMMENT_CREATED_MESSAGE}`
   ).toContain(commented.status);
 
   const favorited = await registeredUser.api.post(`/articles/${article.slug}/favorite`, {});
-  expect(favorited.status, 'the favorite path resolves when the slug names an article').toBe(200);
+  expect(favorited.status, 'The favorite path resolves when the slug names an article').toBe(200);
 
   const unfavorited = await registeredUser.api.del(`/articles/${article.slug}/favorite`);
-  expect(unfavorited.status, 'the unfavorite path resolves when the slug names an article').toBe(
+  expect(unfavorited.status, 'The unfavorite path resolves when the slug names an article').toBe(
     200
   );
 
@@ -127,11 +127,11 @@ test('C-015 — a path naming a slug no article holds is answered 404', async ({
   const updated = await registeredUser.api.put(`/articles/${article.slug}`, {
     article: { description: factories.article.build().description },
   });
-  expect(updated.status, 'the update path resolves when the slug names an article').toBe(200);
+  expect(updated.status, 'The update path resolves when the slug names an article').toBe(200);
 
   const removed = await registeredUser.api.del(`/articles/${article.slug}`);
   expect(
     DELETE_SUCCESS,
-    `the same delete must succeed when the slug names an article — ${DELETE_SUCCESS_MESSAGE}`
+    `The same delete must succeed when the slug names an article — ${DELETE_SUCCESS_MESSAGE}`
   ).toContain(removed.status);
 });

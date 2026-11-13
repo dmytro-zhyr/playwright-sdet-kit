@@ -49,7 +49,7 @@ async function keyboardWalk(page: Page, selector: string): Promise<string[]> {
  * defect twice.
  */
 test(
-  'D-13 — a feed tab can be reached from the keyboard',
+  'D-13 — A feed tab can be reached from the keyboard',
   {
     annotation: {
       type: 'issue',
@@ -63,7 +63,7 @@ test(
     const tab = homePage.feedTab('Global Feed');
     await expect(
       tab,
-      'the tab under test must be on the page before it can be reached'
+      'The tab under test must be on the page before it can be reached'
     ).toBeVisible();
 
     // Gathered before asserting, so the failure names the markup that causes it rather than

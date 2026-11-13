@@ -18,7 +18,7 @@ const ARTICLE_CREATED_MESSAGE =
 // endpoint stops answering an anonymous caller, if it starts serializing tag records instead of
 // tag names — an array of objects rather than of strings — or if a second key appears beside
 // `tags`. The strict schema is what makes those red rather than merely different.
-test('C-025 — the tags document is an array of strings under one key', async ({
+test('C-025 — The tags document is an array of strings under one key', async ({
   api,
   factories,
   registeredUser,
@@ -30,12 +30,12 @@ test('C-025 — the tags document is an array of strings under one key', async (
   });
   expect(
     ARTICLE_CREATED,
-    `the case needs one tagged article to exist — ${ARTICLE_CREATED_MESSAGE}`
+    `The case needs one tagged article to exist — ${ARTICLE_CREATED_MESSAGE}`
   ).toContain(created.status);
 
   const response = await api.get('/tags');
 
-  expect(response.status, 'the tag list must be readable with no Authorization header').toBe(200);
+  expect(response.status, 'The tag list must be readable with no Authorization header').toBe(200);
   const { tags }: TagsResponse = parseBody(response.body, TagsResponseSchema);
-  expect(tags.length, 'a tagged article exists, so the list must not be empty').toBeGreaterThan(0);
+  expect(tags.length, 'A tagged article exists, so the list must not be empty').toBeGreaterThan(0);
 });

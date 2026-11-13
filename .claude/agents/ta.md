@@ -46,7 +46,7 @@ than from a case.
 
 ## Required in every test
 
-1. **The case identifier.** Default: in the test name — `test('C-007 — registration without a
+1. **The case identifier.** Default: in the test name — `test('C-007 — Registration without a
    password is rejected', …)`. Exception, and the only one: when one case genuinely needs several
    tests, a `test.describe` carries the identifier and the names inside do not repeat it. One case
    yielding one test is the ordinary shape.

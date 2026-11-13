@@ -26,9 +26,9 @@ import { WCAG_A_AA, describeViolations } from '@assertions/accessibility';
 test.describe('Accessibility', () => {
   // Turns red if the sign-in form acquires a WCAG A or AA failure — a placeholder used as a label,
   // an input that stops being reachable by its label, a contrast change in the theme.
-  test('the sign-in form has no WCAG A or AA violations', async ({ page, loginPage }) => {
+  test('The sign-in form has no WCAG A or AA violations', async ({ page, loginPage }) => {
     await loginPage.goto();
-    await expect(loginPage.emailField, 'the form never rendered').toBeVisible();
+    await expect(loginPage.emailField, 'The form never rendered').toBeVisible();
 
     const { violations } = await new AxeBuilder({ page })
       .include('form')
@@ -37,15 +37,15 @@ test.describe('Accessibility', () => {
 
     expect(
       describeViolations(violations),
-      'the sign-in form is the narrowest thing in this application a keyboard-and-screen-reader user must get through, and it must stay clean'
+      'The sign-in form is the narrowest thing in this application a keyboard-and-screen-reader user must get through, and it must stay clean'
     ).toBe('none');
   });
 
   // The same property on the other end of the same journey. Written separately rather than as a
   // loop over two routes: they are different forms, and a failure should name which.
-  test('the sign-up form has no WCAG A or AA violations', async ({ page, registerPage }) => {
+  test('The sign-up form has no WCAG A or AA violations', async ({ page, registerPage }) => {
     await registerPage.goto();
-    await expect(registerPage.usernameField, 'the form never rendered').toBeVisible();
+    await expect(registerPage.usernameField, 'The form never rendered').toBeVisible();
 
     const { violations } = await new AxeBuilder({ page })
       .include('form')
@@ -54,7 +54,7 @@ test.describe('Accessibility', () => {
 
     expect(
       describeViolations(violations),
-      'registration is the first thing a new user meets, and a form that fails here fails before anything else can be tried'
+      'Registration is the first thing a new user meets, and a form that fails here fails before anything else can be tried'
     ).toBe('none');
   });
 });

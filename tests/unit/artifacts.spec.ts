@@ -43,7 +43,7 @@ function specFiles(...directories: string[]): TestFile[] {
 test('pipeline/01-rules.md passes validation', () => {
   const markdown = read('pipeline', '01-rules.md');
 
-  expect(validateRules(markdown), 'problems found in the rules file').toEqual([]);
+  expect(validateRules(markdown), 'Problems found in the rules file').toEqual([]);
 });
 
 // Turns red if the cases the QA agent produced stop being readable as written or stop agreeing
@@ -56,7 +56,7 @@ test('pipeline/02-cases.md passes validation against the rules', () => {
   const rules = read('pipeline', '01-rules.md');
   const cases = read('pipeline', '02-cases.md');
 
-  expect(validateCases(rules, cases), 'problems found in the cases file').toEqual([]);
+  expect(validateCases(rules, cases), 'Problems found in the cases file').toEqual([]);
 });
 
 // Turns red if either artifact stops parsing at all — `ruleCoverage` calls `parseRules` and
@@ -64,7 +64,7 @@ test('pipeline/02-cases.md passes validation against the rules', () => {
 // out, or if the cases stop referring to any rule the rules file defines. The logged line is the
 // baseline the plan asks to be recorded: the share of rules at least one case refers to, counted
 // over distinct identifiers, with the deliberate gaps living in `## Not covered`.
-test('rule coverage is recorded', () => {
+test('Rule coverage is recorded', () => {
   const rules = read('pipeline', '01-rules.md');
   const cases = read('pipeline', '02-cases.md');
   const coverage = ruleCoverage(rules, cases);
@@ -127,15 +127,15 @@ function agentFiles(): AgentFile[] {
 test('.claude/agents holds nothing undeclared and nothing out of shape', () => {
   const files = agentFiles();
 
-  expect(files.length, 'the agents directory must not be empty').toBeGreaterThan(0);
-  expect(agentDirectoryProblems(files), 'problems found in the agent definitions').toEqual([]);
+  expect(files.length, 'The agents directory must not be empty').toBeGreaterThan(0);
+  expect(agentDirectoryProblems(files), 'Problems found in the agent definitions').toEqual([]);
 });
 
 // Turns red if a definition is added and left undeclared — the case the directory check exists
 // for, exercised here rather than waited for. The message must name the file and offer both
 // standards, because an error that only says "undeclared" leaves the reader to guess which of
 // the two a new agent is.
-test('an undeclared definition fails rather than being skipped', () => {
+test('An undeclared definition fails rather than being skipped', () => {
   const undeclared = [{ name: 'newcomer.md', markdown: NEWCOMER }];
 
   const problems = agentDirectoryProblems(undeclared).join(LF);
@@ -147,20 +147,20 @@ test('an undeclared definition fails rather than being skipped', () => {
 // Turns red if a declared definition goes missing without its declaration going with it. An
 // agent deleted while something still expects it is the mirror of the case above, and the one
 // the directory listing alone cannot see.
-test('a declared definition that is gone is reported', () => {
+test('A declared definition that is gone is reported', () => {
   const problems = agentDirectoryProblems([]).join(LF);
 
   expect(problems).toContain('declared in AGENT_ORIGINS but not present');
   expect(
     Object.keys(AGENT_ORIGINS).filter((name) => !problems.includes(name)),
-    'every declared name must be reported as missing when the directory is empty'
+    'Every declared name must be reported as missing when the directory is empty'
   ).toEqual([]);
 });
 
 // Turns red if the critic is granted a tool that writes. The definition above only has to carry a
 // `tools` line; this one says what may be on it. A prohibition in prose is an agreement, and an
 // agent can decide an agreement does not apply this once.
-test('the critic holds no tool that can write', () => {
+test('The critic holds no tool that can write', () => {
   const markdown = read('.claude', 'agents', 'critic.md');
   const tools = /^tools:\s*(.+)$/m.exec(markdown)?.[1] ?? '';
 
@@ -175,7 +175,7 @@ test('the critic holds no tool that can write', () => {
 test('pipeline/03-report.md accounts for every case exactly once', () => {
   expect(
     existsSync(join(ROOT, 'pipeline', '03-report.md')),
-    'the TA agent must leave a report behind'
+    'The TA agent must leave a report behind'
   ).toBe(true);
 
   const cases = parseCases(read('pipeline', '02-cases.md'));
@@ -183,7 +183,7 @@ test('pipeline/03-report.md accounts for every case exactly once', () => {
 
   expect(
     cases.length,
-    'the cases file must hold cases for the report to account for'
+    'The cases file must hold cases for the report to account for'
   ).toBeGreaterThan(0);
 
   const miscounted = cases
@@ -196,7 +196,7 @@ test('pipeline/03-report.md accounts for every case exactly once', () => {
 
   expect(
     miscounted,
-    `every case must appear in exactly one of ${ACCOUNTING_SECTIONS.join(', ')}`
+    `Every case must appear in exactly one of ${ACCOUNTING_SECTIONS.join(', ')}`
   ).toEqual([]);
 });
 
@@ -208,7 +208,7 @@ test('pipeline/03-report.md accounts for every case exactly once', () => {
 // stays silent about a case; this one refuses a report that agrees with itself and disagrees with
 // the tree — which is how a `C-###` left over from a previous run went on resolving quietly while
 // naming a case about something else.
-test('every case identifier in the suite agrees with the report', () => {
+test('Every case identifier in the suite agrees with the report', () => {
   const files = specFiles('tests/contract', 'tests/defects');
 
   expect(
@@ -220,7 +220,7 @@ test('every case identifier in the suite agrees with the report', () => {
 
   expect(
     problems,
-    'the report and the suite disagree about which file automates which case'
+    'The report and the suite disagree about which file automates which case'
   ).toEqual([]);
 });
 
@@ -235,5 +235,5 @@ test('pipeline/04-objections.md passes validation', () => {
     read('pipeline', '04-objections.md')
   );
 
-  expect(problems, 'problems found in the objections file').toEqual([]);
+  expect(problems, 'Problems found in the objections file').toEqual([]);
 });

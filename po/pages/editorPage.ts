@@ -68,7 +68,7 @@ export class EditorPage {
    * text into a chip — typing alone leaves it in the input and it is dropped on submit.
    */
   private async fillArticle(article: ArticleCreateInput): Promise<void> {
-    await test.step(`fill the editor with "${article.title}"`, async () => {
+    await test.step(`Fill the editor with "${article.title}"`, async () => {
       await this.titleField.fill(article.title);
       await this.descriptionField.fill(article.description);
       await this.bodyField.fill(article.body);
@@ -94,7 +94,7 @@ export class EditorPage {
    * check the two agree needs them from two sources.
    */
   async publish(article: ArticleCreateInput): Promise<{ status: number; slug: string }> {
-    return test.step(`publish "${article.title}"`, async () => {
+    return test.step(`Publish "${article.title}"`, async () => {
       await this.fillArticle(article);
 
       const [response] = await Promise.all([

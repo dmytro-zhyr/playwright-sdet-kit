@@ -56,7 +56,7 @@ export class RegisterPage {
 
   /** Types the three fields and leaves the form untouched otherwise. Submits nothing. */
   private async fillRegistration(user: UserCreateInput): Promise<void> {
-    await test.step(`fill the sign-up form as ${user.username}`, async () => {
+    await test.step(`Fill the sign-up form as ${user.username}`, async () => {
       await this.usernameField.fill(user.username);
       await this.emailField.fill(user.email);
       await this.passwordField.fill(user.password);
@@ -77,7 +77,7 @@ export class RegisterPage {
    * satisfied early by a quiet moment on the wire.
    */
   async signUp(user: UserCreateInput): Promise<number> {
-    return test.step(`sign up as ${user.username}`, async () => {
+    return test.step(`Sign up as ${user.username}`, async () => {
       await this.fillRegistration(user);
 
       const [response] = await Promise.all([

@@ -42,7 +42,7 @@ test.describe('Request interception', () => {
   // because the global feed on this target always has articles in it. The payload is the shape the
   // specification defines for a list response, so this asserts the application against the
   // contract rather than against a fixture invented here.
-  test('an empty feed renders the notice instead of nothing', async ({ page, homePage }) => {
+  test('An empty feed renders the notice instead of nothing', async ({ page, homePage }) => {
     await page.route('**/api/articles*', (route) =>
       route.fulfill({
         status: 200,
@@ -55,11 +55,11 @@ test.describe('Request interception', () => {
 
     await expect(
       homePage.emptyFeedNotice,
-      'a feed with no articles must say so rather than render an empty page'
+      'A feed with no articles must say so rather than render an empty page'
     ).toBeVisible();
     await expect(
       homePage.articleCards,
-      'no article card may survive a response that carried no articles'
+      'No article card may survive a response that carried no articles'
     ).toHaveCount(0);
   });
 
@@ -71,7 +71,7 @@ test.describe('Request interception', () => {
   // An array rather than one variable, and for a reason the report can use: a variable keeps the
   // last request, an array keeps how many there were. A form that submits twice is a defect this
   // suite would otherwise never see.
-  test('the sign-in form sends the credentials it was given', async ({
+  test('The sign-in form sends the credentials it was given', async ({
     page,
     loginPage,
     uiAccount,
@@ -91,12 +91,12 @@ test.describe('Request interception', () => {
 
     expect(
       status,
-      'the account was registered over the API moments before, so login must succeed'
+      'The account was registered over the API moments before, so login must succeed'
     ).toBe(200);
-    expect(sent, 'the form must send exactly one login request').toHaveLength(1);
+    expect(sent, 'The form must send exactly one login request').toHaveLength(1);
     expect(
       JSON.parse(sent[0] ?? 'null'),
-      'the request body must carry the credentials the form was given, under the envelope the API defines'
+      'The request body must carry the credentials the form was given, under the envelope the API defines'
     ).toEqual({
       user: { email: uiAccount.user.email, password: uiAccount.user.password },
     });

@@ -18,19 +18,19 @@ import { userFactory } from '@data/userFactory';
 
 // Turns red if the factory starts reusing values, which would make parallel workers collide on the
 // same account, or if the qa_ prefix is dropped and the accounts stop being recognisable.
-test('the user factory produces unique, recognisable accounts', () => {
+test('The user factory produces unique, recognisable accounts', () => {
   const first = userFactory.build();
   const second = userFactory.build();
 
   expect(first.email).not.toBe(second.email);
   expect(first.username).not.toBe(second.username);
-  expect(first.username.startsWith('qa_'), 'accounts must be recognisable as ours').toBe(true);
-  expect(first.email.startsWith('qa_'), 'accounts must be recognisable as ours').toBe(true);
+  expect(first.username.startsWith('qa_'), 'Accounts must be recognisable as ours').toBe(true);
+  expect(first.email.startsWith('qa_'), 'Accounts must be recognisable as ours').toBe(true);
 });
 
 // Turns red if overrides stop being applied, which would silently ignore the one field a test cares
 // about while still producing a plausible-looking user.
-test('the user factory applies overrides', () => {
+test('The user factory applies overrides', () => {
   const user = userFactory.build({ username: 'qa_fixed_name' });
 
   expect(user.username).toBe('qa_fixed_name');

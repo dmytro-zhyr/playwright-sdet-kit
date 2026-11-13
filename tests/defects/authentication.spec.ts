@@ -10,7 +10,7 @@ type Registration = { username: string; email: string; token: string };
 // Turns green the day the target stops leaking accounts across concurrent registrations — this
 // one is inverted, and green is the signal that D-4 is fixed and contract can go parallel again.
 test(
-  'a token identifies its own user when accounts are registered concurrently',
+  'A token identifies its own user when accounts are registered concurrently',
   {
     annotation: {
       type: 'issue',
@@ -112,7 +112,7 @@ const VALIDATED_BEFORE_AUTHENTICATED: { method: 'put' | 'post'; path: string; va
 // guard is not what answers first. The API tells a caller it has not authenticated what its
 // request body should have looked like.
 test(
-  'D-9 — an anonymous caller is refused before the body is validated',
+  'D-9 — An anonymous caller is refused before the body is validated',
   {
     annotation: {
       type: 'issue',

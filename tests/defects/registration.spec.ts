@@ -14,7 +14,7 @@ import type { DataFixtures } from '@data/dataFixtures';
 // and `bio` comes back `""`, one handler representing "the caller did not set this" two different
 // ways for two fields neither registration request can set.
 test(
-  'D-11 — a freshly registered account represents bio and image differently',
+  'D-11 — A freshly registered account represents bio and image differently',
   {
     annotation: {
       type: 'issue',
@@ -43,7 +43,7 @@ test(
     // represent "not given" as `null`, and does so for one field and not the other.
     expect(
       registered.user?.image,
-      'a field registration cannot set represents "not given" as null on this response'
+      'A field registration cannot set represents "not given" as null on this response'
     ).toBeNull();
 
     expect(
@@ -124,7 +124,7 @@ async function collide(
 // is refusing the colliding one specifically, which today it does not. `COLLISION_TRIALS`
 // independent pairs are registered; see that constant's comment for why more than one.
 test(
-  'D-1 — a duplicated email must not be accepted',
+  'D-1 — A duplicated email must not be accepted',
   {
     annotation: {
       type: 'issue',
@@ -167,7 +167,7 @@ test(
 // What is specific, by the same reasoning as D-1: the duplicate registration's own status.
 // `COLLISION_TRIALS` independent pairs are registered, for the same reason as D-1 above.
 test(
-  'D-2 — a duplicated username must not be accepted',
+  'D-2 — A duplicated username must not be accepted',
   {
     annotation: {
       type: 'issue',

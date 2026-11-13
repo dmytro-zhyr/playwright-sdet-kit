@@ -12,9 +12,9 @@ test('GET /tags returns 200 and a list of tags', async ({ api }) => {
 });
 
 // Turns red if the client starts throwing on non-2xx instead of returning the status.
-test('the client returns the status on 404 instead of throwing', async ({ api }) => {
+test('The client returns the status on 404 instead of throwing', async ({ api }) => {
   const response = await api.get('/articles/there-is-no-such-slug-000');
 
   expect(response.status).toBe(404);
-  expect(response.body, 'an error body must be returned, not swallowed').toBeDefined();
+  expect(response.body, 'An error body must be returned, not swallowed').toBeDefined();
 });

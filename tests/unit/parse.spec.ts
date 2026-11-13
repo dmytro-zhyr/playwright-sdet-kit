@@ -170,7 +170,7 @@ test('parseRules keeps a field value that wraps onto a second line', () => {
 
 // Turns red if a continuation line starts running past the end of its own field — a Statement
 // would absorb the blank line and the next heading and no missing field would ever be reported.
-test('a wrapped field value stops at the next field, heading or blank line', () => {
+test('A wrapped field value stops at the next field, heading or blank line', () => {
   const withoutStatement = WRAPPED.replace(
     /\*\*Statement:\*\*[\s\S]*?accepts as a credential\n/,
     ''
@@ -208,13 +208,13 @@ test('validateCases reports a gap in the case identifier sequence', () => {
 
 // Turns red if the em dash stops being the accepted separator — every existing artifact uses it,
 // so the parser rejecting it would report an empty rule set for a file that is entirely correct.
-test('a heading separated by an em dash is accepted', () => {
+test('A heading separated by an em dash is accepted', () => {
   expect(parseRules(RULES).map((rule) => rule.id)).toEqual(['R-001', 'R-002']);
 });
 
 // Turns red if a hyphen in place of the em dash goes back to producing "No rules found" — that
 // message sends the reader to look for missing rules instead of at one character of punctuation.
-test('a heading separated by a hyphen is reported as a punctuation problem', () => {
+test('A heading separated by a hyphen is reported as a punctuation problem', () => {
   const hyphenated = RULES.replace('### R-001 —', '### R-001 -').replace(
     '### R-002 —',
     '### R-002 -'
@@ -255,7 +255,7 @@ test('validateCases reports every malformed entry in Covers', () => {
 
 // Turns red if a well-formed Covers list starts being reported as malformed — the validator would
 // complain about every honest artifact in the chain and stop being read at all.
-test('a Covers list of well-formed identifiers is read and not complained about', () => {
+test('A Covers list of well-formed identifiers is read and not complained about', () => {
   // The park goes with it. Covering R-002 while `## Not covered` still parks it is now a problem
   // of its own — see "a rule cannot be both covered and parked" below — and this test is about
   // the shape of the Covers list, not about that.
@@ -281,7 +281,7 @@ test('validateRules reports a field that appears twice in one rule', () => {
 
 // Turns red if the duplication check stops being per-rule — every artifact after the first rule
 // would be reported as repeating Source, Kind and Statement, which every artifact does.
-test('the same field in two different rules is not a duplication', () => {
+test('The same field in two different rules is not a duplication', () => {
   const mixed = RULES.replace(
     '**Kind:** explicit\n**Statement:** POST /users with an existing email',
     '**Kind:** assumed\n**Statement:** POST /users with an existing email'
@@ -318,7 +318,7 @@ test('validateCases names an unrecognised field in a case', () => {
 
 // Turns red if a field name the format actually uses starts being reported as unrecognised — the
 // real artifact carries all three, and the whole chain would fail on a correct file.
-test('the recognised field names are accepted on both sides of the chain', () => {
+test('The recognised field names are accepted on both sides of the chain', () => {
   expect(validateRules(RULES)).toEqual([]);
   expect(validateCases(RULES, CASES)).toEqual([]);
 });
@@ -403,7 +403,7 @@ test('validateCases reports a missing Steps and a missing Expected by name', () 
 
 // Turns red if a case that carries both fields starts being reported as missing them — every
 // honest cases artifact in the chain would fail, and the validator would stop being read.
-test('a case that states its steps and its expectation is not complained about', () => {
+test('A case that states its steps and its expectation is not complained about', () => {
   expect(validateCases(RULES, CASES)).toEqual([]);
   expect(parseCases(CASES)[0].steps).toBe('POST /users');
   expect(parseCases(CASES)[0].expected).toBe('201, user.token');
@@ -413,7 +413,7 @@ test('a case that states its steps and its expectation is not complained about',
 // both "missing Covers field" and "references no rule at all", and the reader would hunt for two
 // mistakes where there is one. The second message is kept because it says more: it also covers a
 // Covers line that is present and empty, and one whose every entry was malformed.
-test('an absent Covers field is reported once, by the message that says the most', () => {
+test('An absent Covers field is reported once, by the message that says the most', () => {
   const noCovers = CASES.replace('**Covers:** R-001\n', '');
 
   // Filtered to what is said about C-001. A case that covers nothing also leaves R-001 accounted
@@ -459,7 +459,7 @@ test('validateCases reports a rule no case covers and no park accounts for', () 
 // Turns red if the accounting hardens into "exactly one case per rule" — seven rules in the real
 // 02-cases.md are exercised by two cases each from different directions, and deciding that is
 // what the QA agent is for.
-test('a rule two cases cover is not drift', () => {
+test('A rule two cases cover is not drift', () => {
   const twoCases = CASES.replace(
     '## Not covered',
     `### C-002 — Register a second user
@@ -475,7 +475,7 @@ test('a rule two cases cover is not drift', () => {
 
 // Turns red if a rule can be covered and parked at once — the file would say both that R-001 is
 // tested and that it deliberately is not, and both statements would go down the chain.
-test('a rule cannot be both covered and parked', () => {
+test('A rule cannot be both covered and parked', () => {
   const both = CASES.replace(
     '- R-002 — needs an existing user',
     '- R-001 — needs an existing user'
@@ -489,7 +489,7 @@ test('a rule cannot be both covered and parked', () => {
 // Turns red if `## Not covered` goes back to being checked for existence and never for contents —
 // a park left behind by a regeneration accounts for a rule that no longer exists, while the rule
 // that took its number is covered by nobody.
-test('a park naming a rule the rules file does not define is reported', () => {
+test('A park naming a rule the rules file does not define is reported', () => {
   expect(validateCases(RULES, CASES.replace('- R-002 —', '- R-999 —')).join(' ')).toContain(
     '"## Not covered" parks R-999, which the rules file does not define'
   );
@@ -502,7 +502,7 @@ test('a park naming a rule the rules file does not define is reported', () => {
 // Turns red if a heading carrying the other artifact's letter is swallowed again — the heading and
 // everything under it used to be appended to the block above, and the reader was told either
 // nothing at all or that a rule containing one **Source:** line carries two.
-test('a ### heading with the other letter is reported, in both artifacts', () => {
+test('A ### heading with the other letter is reported, in both artifacts', () => {
   const caseInTheRules = RULES.replace(
     '### R-002 — Registration with a taken email',
     '### C-009 — Register a new user'
@@ -519,7 +519,7 @@ test('a ### heading with the other letter is reported, in both artifacts', () =>
 
 // Turns red if any other ### heading goes back to being absorbed together with its prose — a file
 // that visibly carries a heading the format has no place for used to validate clean.
-test('a ### heading that names no identifier is reported', () => {
+test('A ### heading that names no identifier is reported', () => {
   const withNotes = RULES.replace(
     '### R-002',
     `### Notes on the above
@@ -536,7 +536,7 @@ Some prose.
 
 // Turns red if a heading written without the space after its hashes is absorbed again — `###R-002`
 // used to leave the reader with three complaints about a rule repeating fields it states once.
-test('a ### heading written without its space is reported', () => {
+test('A ### heading written without its space is reported', () => {
   expect(validateRules(RULES.replace('### R-002', '###R-002')).join(' ')).toContain(
     'Unexpected heading "###R-002'
   );
@@ -545,7 +545,7 @@ test('a ### heading written without its space is reported', () => {
 // Turns red if a heading nested inside a block goes back to being invisible — and equally if it
 // starts taking the fields under it out of the block it was written in, which would report a rule
 // as missing the Statement sitting right there.
-test('a #### heading inside a block is reported and leaves the block intact', () => {
+test('A #### heading inside a block is reported and leaves the block intact', () => {
   const deeper = RULES.replace(
     '**Kind:** explicit',
     `#### Worth noting
@@ -560,7 +560,7 @@ test('a #### heading inside a block is reported and leaves the block intact', ()
 
 // Turns red if free prose inside a block goes back to being walked past — that paragraph is the
 // real content of the rule, and no caller of parseRules ever receives it.
-test('a line inside a block that no field and no bullet accounts for is reported', () => {
+test('A line inside a block that no field and no bullet accounts for is reported', () => {
   const withProse = RULES.replace(
     '**Statement:** POST /users with a new email',
     `
@@ -578,7 +578,7 @@ The real content of this rule is this paragraph.
 // nothing reads. `**Grouping rationale:**` and `**Preconditions:**` are bullets precisely because
 // a case may carry only three field names, and every case in 02-cases.md has both, wrapped onto
 // indented lines.
-test('bulleted notes and their wrapped lines are accepted inside a case', () => {
+test('Bulleted notes and their wrapped lines are accepted inside a case', () => {
   const withNotes = CASES.replace(
     '**Steps:** POST /users',
     `
@@ -594,7 +594,7 @@ test('bulleted notes and their wrapped lines are accepted inside a case', () => 
 
 // Turns red if a fenced example goes back to being read as part of the contract — the fence used
 // to produce a third rule that the author wrote down as an illustration for the reader.
-test('a fenced code block is reported and its contents are not read as rules', () => {
+test('A fenced code block is reported and its contents are not read as rules', () => {
   const fenced = RULES.replace(
     '## Assumed rules',
     `\`\`\`markdown
@@ -617,7 +617,7 @@ test('a fenced code block is reported and its contents are not read as rules', (
 // Turns red if the mandatory-section check goes back to `markdown.includes` — a sentence about the
 // section satisfied it, and so did the heading inside a code fence, which is exactly the file the
 // check exists to catch.
-test('a section named in prose does not satisfy the mandatory-section check', () => {
+test('A section named in prose does not satisfy the mandatory-section check', () => {
   const mentioned = RULES.replace(
     `## Open questions
 
@@ -642,7 +642,7 @@ test('validateCases reports a rule named twice in one Covers list', () => {
 
 // Turns red if a value written below a blank line goes back to being reported as a missing field —
 // the reader was sent looking for steps that were sitting two lines under the complaint.
-test('a field whose value starts after a blank line is named for what it is', () => {
+test('A field whose value starts after a blank line is named for what it is', () => {
   const below = CASES.replace(
     '**Steps:** POST /users',
     `**Steps:**
@@ -658,7 +658,7 @@ test('a field whose value starts after a blank line is named for what it is', ()
 
 // Turns red if that sharper message starts firing on the shape every real case uses — a value
 // beside the field name, and bulleted notes further down the same block.
-test('a field with its value beside the name is not reported', () => {
+test('A field with its value beside the name is not reported', () => {
   expect(validateCases(RULES, CASES)).toEqual([]);
   expect(parseCases(CASES)[0].steps).toBe('POST /users');
 });
@@ -698,7 +698,7 @@ test('parseObjections reads the artifact, the references and the question', () =
 // Turns red if `LOOSE_HEADING` stops covering the `O` prefix — a malformed objection heading
 // would then fall through to the generic "unexpected heading" catch-all instead of being
 // diagnosed precisely, the way a malformed rule or case heading already is.
-test('an objection identifier is recognised in an objections file', () => {
+test('An objection identifier is recognised in an objections file', () => {
   const problems = validateObjections(RULES, CASES, OBJECTIONS.replace('### O-001 —', '### O-1 —'));
 
   expect(problems).toContain('O-1: the identifier must be exactly three digits, as in O-001');
@@ -708,7 +708,7 @@ test('an objection identifier is recognised in an objections file', () => {
 // different artifact. `scan` used to derive its noun from a two-way ternary, so an objections
 // file was told that nothing inside a fence is read as a "case" — a message that sends the
 // reader to the wrong format to find out what they did wrong.
-test('a fenced code block in an objections file is reported as an objection', () => {
+test('A fenced code block in an objections file is reported as an objection', () => {
   const fenced = OBJECTIONS.replace('## Verdict', '```\nnot part of the format\n```\n\n## Verdict');
 
   expect(validateObjections(RULES, CASES, fenced).join(' ')).toContain('read as an objection');
@@ -717,7 +717,7 @@ test('a fenced code block in an objections file is reported as an objection', ()
 // Turns red if an unexpected heading in an objections file is answered with another artifact's
 // sections. The message names the sections the reader may use; naming a cases file's sections
 // here would send them to fix the file against a format it is not written in.
-test('an unexpected heading in an objections file names the objection sections', () => {
+test('An unexpected heading in an objections file names the objection sections', () => {
   const extra = OBJECTIONS.replace('## Verdict', '#### Notes\n\n## Verdict');
 
   expect(validateObjections(RULES, CASES, extra).join(' ')).toContain(
@@ -790,11 +790,11 @@ test('validateObjections refuses a Verdict section with nothing under it', () =>
 // Turns red if either allowed verdict stops being accepted — a check that refuses the two
 // sentences the definition mandates would make the format unwritable, which is the mirror image of
 // one that accepts anything and just as useless.
-test('each of the two verdicts a critic may close on is accepted', () => {
+test('Each of the two verdicts a critic may close on is accepted', () => {
   for (const verdict of ['No further objections. The stage may continue.', 'Objections remain.']) {
     expect(
       validateObjections(RULES, CASES, OBJECTIONS.replace('Objections remain.', verdict)),
-      `the verdict "${verdict}" is one of the two the critic may close on`
+      `The verdict "${verdict}" is one of the two the critic may close on`
     ).toEqual([]);
   }
 });

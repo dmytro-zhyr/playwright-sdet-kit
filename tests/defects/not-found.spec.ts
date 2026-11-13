@@ -14,7 +14,7 @@ const DELETE_SUCCESS_MESSAGE =
 // conforming half — the five other article-slug paths, which answer 404 correctly — stays in
 // tests/contract/not-found.spec.ts and is green there.
 test(
-  'D-6 — deleting an identifier that names nothing is answered 404',
+  'D-6 — Deleting an identifier that names nothing is answered 404',
   {
     annotation: {
       type: 'issue',
@@ -45,7 +45,7 @@ test(
     const { article } = created.body as { article: { slug: string } };
     expect(
       article?.slug,
-      'the case needs one article that exists to delete a comment from'
+      'The case needs one article that exists to delete a comment from'
     ).toBeTruthy();
 
     const deletions = [
@@ -70,7 +70,7 @@ test(
     const removed = await author.del(`/articles/${article.slug}`);
     expect(
       DELETE_SUCCESS,
-      `the same delete must succeed when the slug names an article — ${DELETE_SUCCESS_MESSAGE}`
+      `The same delete must succeed when the slug names an article — ${DELETE_SUCCESS_MESSAGE}`
     ).toContain(removed.status);
   }
 );
@@ -91,7 +91,7 @@ const COMMENT_CREATED_MESSAGE =
 // as easily be a validator rejecting the payload, and this test needs a reader to be able to tell
 // the two apart without re-running anything.
 test(
-  'D-10 — commenting on an unheld slug is answered 422 instead of 404',
+  'D-10 — Commenting on an unheld slug is answered 422 instead of 404',
   {
     annotation: {
       type: 'issue',
@@ -118,7 +118,7 @@ test(
 
     const created = await author.post('/articles', { article: factories.article.build() });
     const { article } = created.body as { article: { slug: string } };
-    expect(article?.slug, 'the case needs one article that exists for the control').toBeTruthy();
+    expect(article?.slug, 'The case needs one article that exists for the control').toBeTruthy();
 
     // The control: the same valid comment payload, the same credential, against a slug that does
     // name an article.
@@ -127,7 +127,7 @@ test(
     });
     expect(
       COMMENT_CREATED,
-      `the same payload must be accepted on a slug that exists — ${COMMENT_CREATED_MESSAGE}`
+      `The same payload must be accepted on a slug that exists — ${COMMENT_CREATED_MESSAGE}`
     ).toContain(control.status);
 
     const observed = await author.post(`/articles/${UNKNOWN_SLUG}/comments`, {

@@ -138,7 +138,7 @@ export class HomePage {
    * 4 September 2026; see spec/FINDINGS.md.
    */
   async openFeedTab(name: string): Promise<void> {
-    return test.step(`open the ${name} tab`, async () => {
+    return test.step(`Open the ${name} tab`, async () => {
       await Promise.all([
         this.page.waitForResponse(
           (candidate) =>

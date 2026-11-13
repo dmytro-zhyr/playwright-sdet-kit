@@ -386,14 +386,18 @@ not the zod 3 spellings `z.object({...}).strict()`, `z.string().email()`, `z.str
 - Contract tests: `tests/contract/<topic>.spec.ts`
 - One topic per file: `registration.spec.ts`, `articles.spec.ts`, `comments.spec.ts`
 - The test name describes **behaviour**, not the method. Not "POST /users 422", but
-  "registration without a password is rejected".
+  "Registration without a password is rejected".
+- **Every line the report shows starts with a capital:** a `describe` and test title, a step name,
+  an `expect` message. After a case identifier the title is the sentence that follows:
+  `C-007 — Registration without a password is rejected`. A title that opens with a code name keeps
+  its case: `resolveDeployment — a known name`, `pipeline/01-rules.md passes validation`.
 
 ## Required in every test
 
 1. **The case identifier**, `C-007`, for every test implementing a case from
    `pipeline/02-cases.md`. There is one default and one exception, and no choice beyond them:
 
-   - **Default — in the test name:** `test('C-007 — registration without a password is rejected', …)`.
+   - **Default — in the test name:** `test('C-007 — Registration without a password is rejected', …)`.
    - **Exception — in a `test.describe` title, only when one case needs several tests.** The
      `describe` then carries the identifier and the test names inside do not repeat it.
 
@@ -423,7 +427,7 @@ not the zod 3 spellings `z.object({...}).strict()`, `z.string().email()`, `z.str
 
 ```ts
 // Turns red if the API starts accepting registration without a password, or answers 400 instead.
-test('C-007 — registration without a password is rejected', async ({ api, factories }) => {
+test('C-007 — Registration without a password is rejected', async ({ api, factories }) => {
   ...
 });
 ```
@@ -441,7 +445,7 @@ pass.
 Pass a message as the second argument — it reaches the report:
 
 ```ts
-expect(response.status, 'registration without a password must be rejected').toBe(422);
+expect(response.status, 'Registration without a password must be rejected').toBe(422);
 ```
 
 Assert the **exact** status the target returns, not a range: an unknown slug returns `404`, a
@@ -708,7 +712,7 @@ defect:
 
 ```ts
 test(
-  'a token identifies its own user when accounts are registered concurrently',
+  'A token identifies its own user when accounts are registered concurrently',
   {
     annotation: {
       type: 'issue',
@@ -918,7 +922,7 @@ expensive to read.
 
 📌 **Wrap a composite page-object action in `test.step`, and nothing else.** A step is a line in
 the report, so the useful granularity is the one a person would use to describe what happened —
-`sign up as qa_x9k`, not six `locator.fill` calls. Wrapping a getter buries the story under noise;
+`Sign up as qa_x9k`, not six `locator.fill` calls. Wrapping a getter buries the story under noise;
 wrapping nothing leaves a failed UI test reading as a stack trace with no narrative.
 
 📌 **`test.step`, never an Allure step.** The same structure then appears in the terminal, in

@@ -16,7 +16,7 @@ import { test, expect } from '@fixtures';
 test.describe('The header', () => {
   // Turns red if a signed-out visitor cannot reach the two forms from the header, or if Home stops
   // returning from them. Sign in and Sign up are the only route a new visitor has.
-  test('takes a signed-out visitor to the forms and back', async ({ page, homePage }) => {
+  test('Takes a signed-out visitor to the forms and back', async ({ page, homePage }) => {
     await homePage.goto();
 
     await homePage.nav.signInLink.click();
@@ -31,7 +31,7 @@ test.describe('The header', () => {
   // Turns red if the signed-in header stops leading where it says. The profile link is addressed by
   // the username the account was registered with, so this also catches a header that renders
   // somebody else's name — the failure `profileLink(username)` takes an argument for.
-  test('takes a signed-in user to settings, the editor and their profile', async ({
+  test('Takes a signed-in user to settings, the editor and their profile', async ({
     page,
     homePage,
     signedIn,
@@ -45,7 +45,7 @@ test.describe('The header', () => {
     await expect(page, 'New Article must lead to the editor').toHaveURL(/\/editor$/u);
 
     await homePage.nav.profileLink(signedIn.user.username).click();
-    await expect(page, 'the profile link must lead to the account it names').toHaveURL(
+    await expect(page, 'The profile link must lead to the account it names').toHaveURL(
       new RegExp(`/profile/${signedIn.user.username}$`, 'u')
     );
   });

@@ -17,7 +17,7 @@ const CREATE_SUCCESS = [200, 201];
 // of a server fault. The specification is explicit — "if a request fails any validations, expect a
 // 422" — and three empty strings are a validation failure, not something the server may crash on.
 test(
-  'blank input is answered with a validation failure, not a server fault',
+  'Blank input is answered with a validation failure, not a server fault',
   {
     annotation: {
       type: 'issue',
@@ -34,7 +34,7 @@ test(
 
     expect(
       response.status,
-      'empty strings are a validation failure, and the specification answers those 422'
+      'Empty strings are a validation failure, and the specification answers those 422'
     ).toBe(422);
     expect(response.body).toMatchSchema(ErrorsSchema);
   }
@@ -80,7 +80,7 @@ test(
 // almost always none, so it validated an empty array and passed. A test that reads somebody else's
 // data cannot promise it looked at any.
 test(
-  'D-12 — a comment carries its author the way every other endpoint does',
+  'D-12 — A comment carries its author the way every other endpoint does',
   {
     annotation: {
       type: 'issue',
@@ -97,7 +97,7 @@ test(
     const { article } = written.body as { article?: { slug?: string } };
     expect(
       article?.slug,
-      `the case needs one article of its own to comment on; creating it answered HTTP ${written.status}`
+      `The case needs one article of its own to comment on; creating it answered HTTP ${written.status}`
     ).toBeTruthy();
 
     const posted = await author.post(`/articles/${article?.slug}/comments`, {
@@ -109,7 +109,7 @@ test(
       'the specification states no success status for creating a comment, only that it returns a ' +
         `Comment, so 200 and 201 are both accepted; this answered ${posted.status}`
     ).toContain(posted.status);
-    expect(posted.body, 'the comment as the write returns it').toMatchSchema(CommentResponseSchema);
+    expect(posted.body, 'The comment as the write returns it').toMatchSchema(CommentResponseSchema);
 
     const listed = await author.get(`/articles/${article?.slug}/comments`);
     const { comments } = listed.body as { comments?: unknown[] };
@@ -118,11 +118,11 @@ test(
     // the test passes about nothing — which is exactly how this defect went unseen.
     expect(
       comments?.length,
-      'the comment posted above must come back, or the schema assertion is about an empty array'
+      'The comment posted above must come back, or the schema assertion is about an empty array'
     ).toBe(1);
 
     expect(listed.status).toBe(200);
-    expect(listed.body, 'and the same comment as the list returns it').toMatchSchema(
+    expect(listed.body, 'And the same comment as the list returns it').toMatchSchema(
       CommentsResponseSchema
     );
   }

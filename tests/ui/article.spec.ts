@@ -12,7 +12,7 @@ test.describe('Publishing an article', () => {
   // other on purpose: the response says what the server stored, the URL says where the app
   // decided to go, and the page says what the reader is shown. A test reading only one of the
   // three cannot tell "it was saved" from "it was displayed".
-  test('an article is published and shown to its author', async ({
+  test('An article is published and shown to its author', async ({
     page,
     editorPage,
     articlePage,
@@ -24,8 +24,8 @@ test.describe('Publishing an article', () => {
     await editorPage.goto();
     const { status, slug } = await editorPage.publish(article);
 
-    expect(status, 'the server refused an article it should have accepted').toBe(201);
-    expect(slug, 'the response carried no slug').not.toBe('');
+    expect(status, 'The server refused an article it should have accepted').toBe(201);
+    expect(slug, 'The response carried no slug').not.toBe('');
 
     await expect(page).toHaveURL(new RegExp(`/article/${slug}$`));
     await expect(articlePage.titleHeading).toHaveText(article.title);
@@ -36,7 +36,7 @@ test.describe('Publishing an article', () => {
   // Turns red if the author stops being offered the controls only an author has. This is the
   // page's own answer to "does this session own this article", so it is worth asking of the page
   // rather than inferring it from the fact that we just published it.
-  test('its author is offered edit and delete', async ({
+  test('Its author is offered edit and delete', async ({
     editorPage,
     articlePage,
     signedIn,
@@ -55,7 +55,7 @@ test.describe('Publishing an article', () => {
   // Turns red if a published article stops appearing in the global feed. The card is addressed by
   // slug rather than by title: nothing in the specification forbids two articles sharing a title,
   // and a locator that cannot tell them apart would happily pass on somebody else's.
-  test('it appears in the global feed', async ({ editorPage, homePage, signedIn, factories }) => {
+  test('It appears in the global feed', async ({ editorPage, homePage, signedIn, factories }) => {
     const article = factories.article.build();
 
     await editorPage.goto();
@@ -72,7 +72,7 @@ test.describe('Publishing an article', () => {
   // `QA`, from the server: the POST response carries `tagList: ["QA"]`. Writing it down is what
   // stops a later test from asserting the tag it typed and being right by accident on a lower-case
   // input, or wrong for a reason nobody can find on a mixed-case one.
-  test('a tag is stored upper-cased, not as typed', async ({
+  test('A tag is stored upper-cased, not as typed', async ({
     editorPage,
     articlePage,
     signedIn,
@@ -87,17 +87,17 @@ test.describe('Publishing an article', () => {
 
     await expect(
       articlePage.tagChips,
-      'the application no longer upper-cases tags; the observation this test records has changed'
+      'The application no longer upper-cases tags; the observation this test records has changed'
     ).toHaveText(['QA']);
   });
 
   // Turns red if the guard on /editor is lifted. An anonymous visitor must not reach the form,
   // and the failure a test wants here is a redirect it can name — not a locator timing out on a
   // field that was never going to render.
-  test('an anonymous visitor is turned away from the editor', async ({ page, editorPage }) => {
+  test('An anonymous visitor is turned away from the editor', async ({ page, editorPage }) => {
     await page.goto('/editor');
 
-    await expect(page, 'the editor is reachable without a session').toHaveURL(/\/$/);
+    await expect(page, 'The editor is reachable without a session').toHaveURL(/\/$/);
     await expect(editorPage.titleField).toBeHidden();
   });
 });

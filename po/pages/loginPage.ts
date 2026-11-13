@@ -42,7 +42,7 @@ export class LoginPage {
 
   /** Fills both fields and submits, returning the status the server answered with. */
   async signIn(email: string, password: string): Promise<number> {
-    return test.step(`sign in as ${email}`, async () => {
+    return test.step(`Sign in as ${email}`, async () => {
       await this.fillCredentials(email, password);
 
       const [response] = await Promise.all([

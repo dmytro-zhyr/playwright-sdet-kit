@@ -24,7 +24,7 @@ const REGISTRATION_SUCCESS_MESSAGE =
 // a 422, a 500 — or answers with an account the email does not belong to. The second account is
 // what makes the last of those visible: a lookup keyed on something other than the email would
 // hand back a stranger here while still looking like a successful login.
-test('C-026 — login with an account’s credentials answers with that account', async ({
+test('C-026 — Login with an account’s credentials answers with that account', async ({
   api,
   factories,
   registeredUser,
@@ -33,7 +33,7 @@ test('C-026 — login with an account’s credentials answers with that account'
   const registration = await api.post('/users', { user: other });
   expect(
     REGISTRATION_SUCCESS,
-    `the case needs a second account — ${REGISTRATION_SUCCESS_MESSAGE}`
+    `The case needs a second account — ${REGISTRATION_SUCCESS_MESSAGE}`
   ).toContain(registration.status);
 
   const response = await api.post('/users/login', {
@@ -42,14 +42,14 @@ test('C-026 — login with an account’s credentials answers with that account'
 
   expect(
     LOGIN_SUCCESS,
-    `a login with matching credentials must be carried out — ${LOGIN_SUCCESS_MESSAGE}`
+    `A login with matching credentials must be carried out — ${LOGIN_SUCCESS_MESSAGE}`
   ).toContain(response.status);
   const { user }: UserResponse = parseBody(response.body, UserResponseSchema);
-  expect(user.email, 'login must answer with the account the email belongs to').toBe(
+  expect(user.email, 'Login must answer with the account the email belongs to').toBe(
     registeredUser.user.email
   );
-  expect(user.email, 'login must not answer with some other account').not.toBe(other.email);
-  expect(user.username, 'login must not answer with some other account').not.toBe(other.username);
+  expect(user.email, 'Login must not answer with some other account').not.toBe(other.email);
+  expect(user.username, 'Login must not answer with some other account').not.toBe(other.username);
 });
 
 // Turns red if login stops insisting on one of its two required fields — this endpoint's list is
@@ -57,7 +57,7 @@ test('C-026 — login with an account’s credentials answers with that account'
 // through — or if a refusal starts carrying a user document beside the errors. The complete login
 // at the end proves the address and the payload shape are right, so a 422 above it is about the
 // omission.
-test('C-027 — login refuses a body with no email or no password', async ({
+test('C-027 — Login refuses a body with no email or no password', async ({
   api,
   registeredUser,
 }) => {
@@ -80,17 +80,17 @@ test('C-027 — login refuses a body with no email or no password', async ({
     const { errors }: Errors = parseBody(response.body, ErrorsSchema);
     expect(
       Object.keys(errors).length,
-      `the 422 for a missing ${omitted} must name at least one field`
+      `The 422 for a missing ${omitted} must name at least one field`
     ).toBeGreaterThan(0);
   }
 
-  expect(observed, 'each omission must be rejected with 422').toEqual(
+  expect(observed, 'Each omission must be rejected with 422').toEqual(
     omissions.map((omitted) => `without ${omitted} -> 422`)
   );
 
   const complete = await api.post('/users/login', { user: credentials });
   expect(
     LOGIN_SUCCESS,
-    `the same request with both fields must be accepted — ${LOGIN_SUCCESS_MESSAGE}`
+    `The same request with both fields must be accepted — ${LOGIN_SUCCESS_MESSAGE}`
   ).toContain(complete.status);
 });

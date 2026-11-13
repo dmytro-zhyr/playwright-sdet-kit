@@ -37,14 +37,14 @@ test('parseAutomatedTable reads only the rows of the Automated section', () => {
 
 // Turns red if the two directions stop agreeing on a tree that is correct. A check that cannot be
 // green on correct input is as useless as one that cannot go red.
-test('a report that matches the tree raises nothing', () => {
+test('A report that matches the tree raises nothing', () => {
   expect(traceabilityProblems(REPORT, [AUTHENTICATION, NOT_FOUND])).toEqual([]);
 });
 
 // Turns red if a test can carry an identifier the report never claims. This is the defect that
 // survived the regeneration of 25 August: the identifier resolved, so nothing went red, while it
 // named a case about something else entirely.
-test('a test naming a case the report does not report is a problem', () => {
+test('A test naming a case the report does not report is a problem', () => {
   const stale = {
     path: 'tests/defects/not-found.spec.ts',
     content: "test('C-006 — delete answers 404', () => {});",
@@ -58,7 +58,7 @@ test('a test naming a case the report does not report is a problem', () => {
 // Turns red if a case may be reported in one file and implemented in another — the report would
 // then send a reader to a file that never mentions it, and the reader would conclude the test was
 // deleted rather than that the report drifted.
-test('a case reported in the wrong file is a problem in both directions', () => {
+test('A case reported in the wrong file is a problem in both directions', () => {
   const moved = {
     path: 'tests/contract/not-found.spec.ts',
     content: "test('C-001 — moved here', () => {});",
@@ -77,7 +77,7 @@ test('a case reported in the wrong file is a problem in both directions', () => 
 // written; after it, the identifier was reported but never registered, so the test that names the
 // case was also accused of naming a case the report does not automate — one root cause, two
 // problems, and the second one sends the reader to the wrong file.
-test('a row with an empty file cell is reported exactly once', () => {
+test('A row with an empty file cell is reported exactly once', () => {
   const report = `# Report
 
 ## Automated
@@ -95,7 +95,7 @@ test('a row with an empty file cell is reported exactly once', () => {
 // Turns red if a foreign token that merely contains a case-shaped substring — TC-001, or the
 // longer C-0011 — is counted as if it named a case. Before the fix, the unanchored pattern
 // matched "C-001" inside both, producing a problem about a string that is not a case reference.
-test('a token that only contains a case-shaped substring is not counted as a reference', () => {
+test('A token that only contains a case-shaped substring is not counted as a reference', () => {
   const decorated = {
     path: 'tests/contract/not-found.spec.ts',
     content:
@@ -108,7 +108,7 @@ test('a token that only contains a case-shaped substring is not counted as a ref
 // Turns red if the same case appears twice in the Automated table and the duplicate branch either
 // never fires or reports the wrong text — nothing previously exercised this branch, so neither
 // its reachability nor its wording was proven.
-test('a case listed twice in the Automated table is reported as a duplicate', () => {
+test('A case listed twice in the Automated table is reported as a duplicate', () => {
   const report = `# Report
 
 ## Automated
